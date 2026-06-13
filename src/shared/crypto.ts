@@ -31,7 +31,16 @@ function base64ToBuffer(base64: string): ArrayBuffer {
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes.buffer;
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  ) as ArrayBuffer;
+}
+
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
 }
 
 /** Generuje losowy wektor inicjalizacji. */
@@ -66,7 +75,7 @@ async function deriveKey(
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt,
+      salt: bytesToArrayBuffer(salt),
       iterations: PBKDF2_ITERATIONS,
       hash: "SHA-256",
     },
@@ -104,15 +113,15 @@ export async function encrypt(
   const plaintext = encoder.encode(JSON.stringify(data));
 
   const ciphertextBuffer = await crypto.subtle.encrypt(
-    { name: ALGORITHM, iv },
+    { name: ALGORITHM, iv: bytesToArrayBuffer(iv) },
     key,
-    plaintext
+    bytesToArrayBuffer(plaintext)
   );
 
   return {
-    iv: bufferToBase64(iv.buffer),
+    iv: bufferToBase64(bytesToArrayBuffer(iv)),
     ciphertext: bufferToBase64(ciphertextBuffer),
-    salt: bufferToBase64(salt.buffer),
+    salt: bufferToBase64(bytesToArrayBuffer(salt)),
   };
 }
 
@@ -142,7 +151,7 @@ export async function decrypt<T = unknown>(
 
   try {
     const plaintextBuffer = await crypto.subtle.decrypt(
-      { name: ALGORITHM, iv },
+      { name: ALGORITHM, iv: bytesToArrayBuffer(iv) },
       key,
       ciphertext
     );
@@ -162,5 +171,5 @@ export async function decrypt<T = unknown>(
  */
 export function generateRandomPassphrase(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
-  return bufferToBase64(bytes.buffer);
+  return bufferToBase64(bytesToArrayBuffer(bytes));
 }

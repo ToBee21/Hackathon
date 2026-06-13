@@ -18,6 +18,80 @@ export interface KeystrokeConfig {
   isEnabled: boolean;
 }
 
+// --- Module B+: Bionic Blur contracts ---
+
+export interface BionicBlurConfig {
+  isEnabled: boolean;
+  mouseEnabled: boolean;
+  keyboardEnabled: boolean;
+  fingerprintEnabled: boolean;
+  browserGuardEnabled: boolean;
+  mouseIntensity: number;
+  timestampJitterMs: number;
+  excludedHosts: string[];
+  debugMode: boolean;
+}
+
+export interface PrivacyProfile {
+  seed: string;
+  origin: string;
+  locale: string;
+  timezone: string;
+  timezoneOffsetMinutes: number;
+  platform: string;
+  screen: {
+    width: number;
+    height: number;
+    colorDepth: number;
+  };
+  hardwareConcurrency: number;
+  deviceMemory: number;
+  maxTouchPoints: number;
+  webglVendor: string;
+  webglRenderer: string;
+}
+
+export interface PointerLikeFields {
+  clientX: number;
+  clientY: number;
+  pageX: number;
+  pageY: number;
+  screenX: number;
+  screenY: number;
+  movementX: number;
+  movementY: number;
+}
+
+export type FingerprintSurface =
+  | "event-listener"
+  | "mouse"
+  | "keyboard"
+  | "canvas"
+  | "webgl"
+  | "audio"
+  | "fonts"
+  | "navigator"
+  | "timezone"
+  | "screen"
+  | "permissions"
+  | "media-devices"
+  | "battery"
+  | "sensors"
+  | "network-info"
+  | "timing"
+  | "browser-guard";
+
+export interface BionicBlurTelemetryMessage {
+  type: "BIONIC_BLUR_TELEMETRY";
+  payload: {
+    surface: FingerprintSurface;
+    action: "patched" | "blurred" | "blocked" | "configured" | "proof";
+    count: number;
+    timestamp: number;
+    metrics?: Record<string, number | string | boolean>;
+  };
+}
+
 // --- Module A: DataGhost message types ---
 
 export interface NoiseInjectedMessage {
@@ -42,10 +116,28 @@ export interface SetNoiseEnabledMessage {
   payload: { enabled: boolean };
 }
 
+export interface ToggleModuleMessage {
+  type: "TOGGLE_MODULE";
+  module: "dataGhost" | "mouseJitter" | "keystroke";
+  enabled: boolean;
+}
+
+export interface RequestStateMessage {
+  type: "REQUEST_STATE";
+}
+
+export interface InjectBionicMainMessage {
+  type: "INJECT_BIONIC_MAIN";
+}
+
 export type BackgroundInboundMessage =
   | TriggerNoiseMessage
   | GetStatusMessage
-  | SetNoiseEnabledMessage;
+  | SetNoiseEnabledMessage
+  | ToggleModuleMessage
+  | RequestStateMessage
+  | InjectBionicMainMessage
+  | BionicBlurTelemetryMessage;
 
 export type BackgroundOutboundMessage = NoiseInjectedMessage;
 
@@ -54,7 +146,7 @@ export interface DataGhostStatus {
   isNoiseEnabled: boolean;
 }
 
-// ─── Moduł D: Secure Core & Identity Masking ────────────────────────────────
+// --- Module D: Secure Core & Identity Masking ---
 
 /** Struktura zaszyfrowanych danych przechowywanych w storage. */
 export interface EncryptedPayload {
@@ -117,13 +209,14 @@ export interface PrivacyState {
   activeAliasEmail: string | null;
 }
 
-// ─── Komunikacja między modułami (chrome.runtime messages) ──────────────────
+// --- Runtime message format shared by modules ---
 
 export type RuntimeMessageType =
   | "NOISE_INJECTED"
   | "TRACKER_BLOCKED"
   | "MOUSE_JITTERED"
   | "KEYSTROKE_MASKED"
+  | "BIONIC_BLUR_TELEMETRY"
   | "PANIC_BUTTON"
   | "PANIC_RESULT"
   | "ALIAS_GENERATED"
@@ -139,7 +232,7 @@ export interface RuntimeMessage<T = unknown> {
   timestamp: number;
 }
 
-// ─── Storage Keys ───────────────────────────────────────────────────────────
+// --- Storage Keys ---
 
 /** Klucze używane w chrome.storage.local — centralna definicja zapobiega kolizjom. */
 export const STORAGE_KEYS = {
