@@ -144,6 +144,28 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
       })
       expect(logHealth.lines).toBeLessThanOrEqual(8)
       expect(logHealth.rawDebugLines).toBe(0)
+
+      await page.locator("#inject-sensitive-demo").click()
+      await expect(page.locator("#ai-deep-dive-output")).toContainText(
+        "Urgent support for depression symptoms"
+      )
+      await expect
+        .poll(
+          async () => page.locator("#cloak-dagger-ai-deep-dive-alert").count(),
+          { timeout: 12000 }
+        )
+        .toBe(1)
+      await expect
+        .poll(async () => (await readAiDeepDiveRiskLevel(context)) ?? "missing", {
+          timeout: 12000
+        })
+        .toMatch(/^(high|critical)$/)
+      await expect
+        .poll(async () => await readAiDeepDiveRawTextFlag(context), {
+          timeout: 12000
+        })
+        .toBe(false)
+
       await mkdir(path.dirname(PROOF_SCREENSHOT), { recursive: true })
       await page.screenshot({ path: PROOF_SCREENSHOT, fullPage: true })
       if (runtimeErrors.length > 0) {
@@ -174,3 +196,40 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
     await rm(userDataDir, { recursive: true, force: true })
   }
 })
+
+async function readAiDeepDiveRiskLevel(
+  context: Awaited<ReturnType<typeof chromium.launchPersistentContext>>
+): Promise<string | null> {
+  const risk = await readAiDeepDiveRisk(context)
+  return typeof risk?.level === "string" ? risk.level : null
+}
+
+async function readAiDeepDiveRawTextFlag(
+  context: Awaited<ReturnType<typeof chromium.launchPersistentContext>>
+): Promise<unknown> {
+  const risk = await readAiDeepDiveRisk(context)
+  return risk?.rawTextRetained
+}
+
+async function readAiDeepDiveRisk(
+  context: Awaited<ReturnType<typeof chromium.launchPersistentContext>>
+): Promise<Record<string, unknown> | null> {
+  const worker =
+    context.serviceWorkers()[0] ??
+    (await context.waitForEvent("serviceworker", { timeout: 2000 }).catch(() => null))
+  if (!worker) return null
+
+  const stored = await worker.evaluate(
+    () =>
+      new Promise<Record<string, unknown>>((resolve) => {
+        chrome.storage.local.get({ "cnd:state": {} }, (items) => {
+          resolve(items as Record<string, unknown>)
+        })
+      })
+  )
+  const state = stored["cnd:state"] as
+    | { aiDeepDiveRisk?: Record<string, unknown> }
+    | undefined
+
+  return state?.aiDeepDiveRisk ?? null
+}

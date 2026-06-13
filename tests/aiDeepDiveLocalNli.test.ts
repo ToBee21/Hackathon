@@ -1,6 +1,7 @@
 import {
   buildNliSnippet,
   fuseNliOutput,
+  getPackagedOnnxWasmPaths,
   shouldRunLocalNli
 } from "../src/shared/aiDeepDive/localNli"
 import { DEFAULT_AI_DEEP_DIVE_CONFIG } from "../src/shared/aiDeepDive/config"
@@ -47,6 +48,15 @@ describe("AI Deep-Dive local NLI adapter", () => {
 
     expect(snippet.length).toBeLessThanOrEqual(120)
     expect(snippet).not.toContain("token=secret")
+  })
+
+  it("points the ONNX runtime at packaged extension assets", () => {
+    const paths = getPackagedOnnxWasmPaths()
+
+    expect(paths.mjs).toContain("ort-wasm-simd-threaded.asyncify.mjs")
+    expect(paths.wasm).toContain("ort-wasm-simd-threaded.asyncify.wasm")
+    expect(paths.mjs).not.toContain("cdn.jsdelivr.net")
+    expect(paths.wasm).not.toContain("cdn.jsdelivr.net")
   })
 
   it("fuses zero-shot labels into compact risk categories", () => {

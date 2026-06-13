@@ -1,18 +1,16 @@
 // scripts/launch-demo.mjs
-// Launch the BUILT Cloak & Dagger extension in a real Chrome/Edge window and
-// open the popup dashboard so every feature can be seen live. The window stays
-// open until you close it. Run: `npm run demo` (after `npm run build`).
-//
-// Robust extension-ID detection: tries Playwright's serviceWorkers() AND a raw
-// CDP Target.getTargets() poll (Edge's MV3 service worker doesn't always emit
-// the high-level event). If the ID still can't be found, the window is LEFT OPEN
-// with on-screen instructions instead of crashing.
+// Launch the BUILT Cloak & Dagger extension in a real browser and open the popup
+// dashboard. Strategy: spawn the browser DETACHED with a remote-debugging port
+// (so the window survives after this script exits), then attach over CDP to find
+// the extension and open its popup. Prefers Edge (still honours --load-extension;
+// recent Chrome often ignores it). Run: `npm run demo` (after `npm run build`).
 
 import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
 import { access, appendFile, mkdir, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
+import { spawn } from "node:child_process"
 
 const require = createRequire(import.meta.url)
 const { chromium } = require("@playwright/test")
@@ -20,14 +18,18 @@ const { chromium } = require("@playwright/test")
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const EXT = join(ROOT, "build", "chrome-mv3-prod")
 const LOG = join(ROOT, "build", "demo-launch.log")
+const PORT = 9333
 
+// Edge first — recent Chrome silently ignores --load-extension.
 const BROWSER_CANDIDATES = [
   process.env.PLAYWRIGHT_CHROME_PATH,
-  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"
+  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
 ].filter(Boolean)
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 async function log(line) {
   const msg = `[${new Date().toISOString()}] ${line}`
@@ -47,23 +49,22 @@ async function resolveBrowser() {
   throw new Error("No Chrome or Edge found. Set PLAYWRIGHT_CHROME_PATH.")
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-async function findExtensionId(context, page) {
-  // Method 1: Playwright's service-worker list.
-  const sws = context.serviceWorkers()
-  if (sws.length) return new URL(sws[0].url()).host
-
-  // Method 2: raw CDP target enumeration (catches the SW Edge hides).
+async function devtoolsUp() {
   try {
-    const client = await context.newCDPSession(page)
-    const { targetInfos } = await client.send("Target.getTargets")
-    const hit = targetInfos.find((t) =>
-      String(t.url || "").startsWith("chrome-extension://")
-    )
-    if (hit) return new URL(hit.url).host
-  } catch {}
-  return null
+    const r = await fetch(`http://127.0.0.1:${PORT}/json/version`)
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
+async function listTargets() {
+  try {
+    const r = await fetch(`http://127.0.0.1:${PORT}/json/list`)
+    return r.ok ? await r.json() : []
+  } catch {
+    return []
+  }
 }
 
 async function main() {
@@ -74,70 +75,98 @@ async function main() {
     throw new Error(`No build at ${EXT}. Run 'npm run build' first.`)
   })
 
-  const executablePath = await resolveBrowser()
-  await log(`Browser: ${executablePath}`)
+  const exe = await resolveBrowser()
+  const userDataDir = join(tmpdir(), "cnd-demo-profile")
+  await log(`Browser: ${exe}`)
   await log(`Extension: ${EXT}`)
 
-  const userDataDir = join(tmpdir(), "cnd-demo-profile")
-  const context = await chromium.launchPersistentContext(userDataDir, {
-    executablePath,
-    headless: false,
-    viewport: null,
-    ignoreDefaultArgs: ["--disable-extensions"],
-    args: [
-      `--disable-extensions-except=${EXT}`,
-      `--load-extension=${EXT}`,
-      "--disable-features=DisableLoadExtensionCommandLineSwitch",
-      "--no-first-run",
-      "--no-default-browser-check",
-      "--start-maximized"
-    ]
-  })
+  const args = [
+    `--remote-debugging-port=${PORT}`,
+    `--user-data-dir=${userDataDir}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-features=DisableLoadExtensionCommandLineSwitch",
+    `--disable-extensions-except=${EXT}`,
+    `--load-extension=${EXT}`,
+    "--start-maximized",
+    "https://example.com"
+  ]
 
-  // Keep the process (and browser) alive until the user closes it.
-  context.on("close", async () => {
-    await log("Browser closed — exiting.")
-    process.exit(0)
-  })
+  const child = spawn(exe, args, { detached: true, stdio: "ignore" })
+  child.unref()
+  await log(`Spawned detached browser (pid ${child.pid}) on debug port ${PORT}`)
 
-  // Open a real page first — wakes content scripts + the MV3 service worker.
-  const page = context.pages()[0] ?? (await context.newPage())
-  try {
-    await page.goto("https://example.com", { timeout: 12000 })
-    await log("Opened https://example.com (content scripts active)")
-  } catch {
-    await page.goto("about:blank").catch(() => {})
-    await log("No network — popup still works (offline-safe)")
+  // Wait for the DevTools endpoint.
+  for (let i = 0; i < 30 && !(await devtoolsUp()); i++) await sleep(1000)
+  if (!(await devtoolsUp())) {
+    await log("DevTools endpoint never came up — is the browser blocked by policy?")
+    process.exit(1)
   }
+  await log("DevTools endpoint is up.")
 
-  // Poll for the extension ID for up to ~45s using both methods.
+  // Attach over CDP (does NOT own the browser, so it stays open on disconnect).
+  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${PORT}`)
+  const context = browser.contexts()[0]
+
+  // Diagnostic: dump targets + content-script load proof.
+  // Pick OUR extension, not a browser built-in: our Plasmo service worker lives
+  // at chrome-extension://<id>/static/background/index.js.
   let extId = null
-  for (let i = 0; i < 30 && !extId; i++) {
-    extId = await findExtensionId(context, page)
-    if (!extId) await sleep(1500)
+  for (let i = 0; i < 25 && !extId; i++) {
+    const targets = await listTargets()
+    const ours =
+      targets.find((t) => String(t.url || "").includes("/static/background/")) ||
+      targets.find(
+        (t) =>
+          t.type === "service_worker" &&
+          String(t.url || "").startsWith("chrome-extension://")
+      )
+    if (ours) extId = new URL(ours.url).host
+    if (!extId) {
+      const sws = context.serviceWorkers?.() || []
+      const sw = sws.find((s) => s.url().includes("/static/background/")) || sws[0]
+      if (sw) extId = new URL(sw.url()).host
+    }
+    if (!extId) await sleep(1200)
   }
 
-  if (extId) {
-    await log(`Extension ID: ${extId}`)
-    const popup = await context.newPage()
-    await popup.setViewportSize({ width: 400, height: 800 })
-    await popup.goto(`chrome-extension://${extId}/popup.html`)
-    await popup.bringToFront()
-    await log(`POPUP OPENED  chrome-extension://${extId}/popup.html`)
-    await log("READY — dashboard is open. Close the window to end the demo.")
-  } else {
-    await log("READY — extension loaded, but auto-open of the popup failed.")
-    await log(
-      "OPEN MANUALLY: click the Extensions (puzzle) icon in the toolbar → " +
-        "pin 'Cloak & Dagger' → click it. The window stays open."
-    )
+  // Proof the extension actually loaded: content-script install flag on the page.
+  try {
+    const pages = context.pages()
+    const pg = pages.find((p) => p.url().includes("example.com")) || pages[0]
+    if (pg) {
+      const installed = await pg.evaluate(
+        () => Boolean(window.__cloakDaggerBionicBlurInstalled)
+      )
+      await log(`Content-script (Bionic Blur) installed on page: ${installed}`)
+    }
+  } catch {}
+
+  if (!extId) {
+    const targets = await listTargets()
+    await log("No chrome-extension target found. Current targets:")
+    for (const t of targets.slice(0, 12)) await log(`  - [${t.type}] ${t.url}`)
+    await log("READY — browser is open. If the extension loaded, open its popup")
+    await log("MANUALLY via the toolbar Extensions (puzzle) icon → 'Cloak & Dagger'.")
+    process.exit(0)
   }
 
-  await new Promise(() => {})
+  await log(`Extension ID: ${extId}`)
+  const popup = await context.newPage()
+  await popup.setViewportSize({ width: 400, height: 800 })
+  await popup.goto(`chrome-extension://${extId}/popup.html`, {
+    waitUntil: "domcontentloaded"
+  })
+  await popup.bringToFront()
+  await log(`POPUP OPENED  chrome-extension://${extId}/popup.html`)
+  await log("READY — dashboard is open. Browser stays open; close it when done.")
+
+  // Leave the detached browser running; just drop our CDP connection and exit.
+  // (Do NOT call browser.close() — for connectOverCDP it can tear down the window.)
+  process.exit(0)
 }
 
 main().catch(async (err) => {
   await log(`FATAL: ${err?.stack || err}`)
-  // Even on fatal error, hang so any opened window is not torn down immediately.
-  await new Promise(() => {})
+  process.exit(1)
 })

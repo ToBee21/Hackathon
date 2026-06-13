@@ -1,7 +1,7 @@
 export function startAiDeepDiveScanScheduler(runScan: () => void): void {
   let timer: number | undefined
   let scans = 0
-  const maxScansPerPage = 6
+  const maxScansPerPage = 24
 
   const schedule = (delay = 600) => {
     if (scans >= maxScansPerPage) return
@@ -48,4 +48,3 @@ function runWhenIdle(callback: () => void): void {
 
   window.setTimeout(callback, 0)
 }
-

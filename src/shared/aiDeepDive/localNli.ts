@@ -23,6 +23,30 @@ type ZeroShotClassifier = (
   labels: string[],
   options: { multi_label: boolean; hypothesis_template: string }
 ) => Promise<ZeroShotOutput>
+type OnnxWasmPaths = { mjs: string; wasm: string }
+type RuntimeUrlResolver = (path: string) => string
+type TransformersRuntime = TransformersModule & {
+  env?: {
+    allowRemoteModels?: boolean
+    backends?: {
+      onnx?: {
+        wasm?: {
+          wasmPaths?: OnnxWasmPaths
+        }
+      }
+    }
+    logLevel?: number
+    useWasmCache?: boolean
+  }
+  LogLevel?: {
+    ERROR?: number
+  }
+}
+
+const PACKAGED_ONNX_WASM_ASSET_PATHS = {
+  mjs: "assets/onnxruntime/ort-wasm-simd-threaded.asyncify.mjs",
+  wasm: "assets/onnxruntime/ort-wasm-simd-threaded.asyncify.wasm"
+}
 
 const LABEL_TO_CATEGORY: Partial<Record<(typeof AI_DEEP_DIVE_NLI_LABELS)[number], AiDeepDiveCategory>> = {
   "mental health content": "mental_health",
@@ -44,6 +68,15 @@ export function shouldRunLocalNli(
   if (!config.aiModeEnabled) return false
   if (heuristic.level === "low") return false
   return heuristic.score >= config.nliMinHeuristicScore
+}
+
+export function getPackagedOnnxWasmPaths(
+  resolveUrl: RuntimeUrlResolver = resolveExtensionAssetUrl
+): OnnxWasmPaths {
+  return {
+    mjs: resolveUrl(PACKAGED_ONNX_WASM_ASSET_PATHS.mjs),
+    wasm: resolveUrl(PACKAGED_ONNX_WASM_ASSET_PATHS.wasm)
+  }
 }
 
 export async function classifyWithLocalNli(
@@ -137,6 +170,8 @@ async function getLocalNliClassifier(): Promise<ZeroShotClassifier> {
 
 async function loadLocalNliClassifier(): Promise<ZeroShotClassifier> {
   const transformers = (await import("@huggingface/transformers")) as TransformersModule
+  configureTransformersRuntime(transformers)
+
   const nav = navigator as Navigator & { gpu?: unknown }
   const classifier = await transformers.pipeline(
     "zero-shot-classification",
@@ -148,6 +183,32 @@ async function loadLocalNliClassifier(): Promise<ZeroShotClassifier> {
   )
 
   return classifier as unknown as ZeroShotClassifier
+}
+
+function configureTransformersRuntime(transformers: TransformersModule): void {
+  const runtime = transformers as TransformersRuntime
+  const env = runtime.env
+  const onnxWasm = env?.backends?.onnx?.wasm
+  if (!env || !onnxWasm) return
+
+  onnxWasm.wasmPaths = getPackagedOnnxWasmPaths()
+  env.useWasmCache = true
+  env.allowRemoteModels = true
+
+  const errorLevel = runtime.LogLevel?.ERROR
+  if (typeof errorLevel === "number") {
+    env.logLevel = errorLevel
+  }
+}
+
+function resolveExtensionAssetUrl(path: string): string {
+  const maybeChrome = (
+    globalThis as typeof globalThis & {
+      chrome?: { runtime?: { getURL?: RuntimeUrlResolver } }
+    }
+  ).chrome
+
+  return maybeChrome?.runtime?.getURL?.(path) ?? path
 }
 
 function pickDenseBodyChunk(body: string): string {
