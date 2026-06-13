@@ -171,9 +171,9 @@ export default function ScoreChart({
 
       {/* forensic proof line */}
       <div className="mt-2 font-mono text-[11px] tnum text-fg-low">
-        <span className="text-fg-mid">{noiseCount}</span> szum
+        <span className="text-fg-mid">{noiseCount}</span> wabik
         <span className="px-1.5 opacity-50">·</span>
-        <span className="text-fg-mid">{trackerCount}</span> trackery
+        <span className="text-fg-mid">{trackerCount}</span> masek
       </div>
     </div>
   )

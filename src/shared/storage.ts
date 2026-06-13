@@ -14,24 +14,42 @@ import { STORAGE_KEYS } from "../types";
 import { decrypt, encrypt, generateRandomPassphrase } from "./crypto";
 
 // ─── Wewnętrzna passphrase ──────────────────────────────────────────────────
-// Generowany raz per instalację, przechowywany w pamięci rozszerzenia.
-// W przyszłości można zastąpić hasłem użytkownika.
+// BEZPIECZEŃSTWO: klucz NIGDY nie trafia na dysk obok szyfrogramu. Wcześniej był
+// zapisywany jawnie w chrome.storage.local (ten sam magazyn, który miał chronić),
+// co sprowadzało ochronę do zera. Teraz klucz żyje wyłącznie w
+// chrome.storage.session — pamięci sesji przeglądarki, która NIE jest zapisywana
+// na dysk i jest czyszczona po zamknięciu przeglądarki.
+//
+// Kompromis: dane zaszyfrowane w jednej sesji przeglądarki nie odszyfrują się po
+// jej restarcie (powstaje nowy klucz). Dla jedynego konsumenta (opcjonalny token
+// API integracji aliasów) jest to akceptowalne — użytkownik poda token ponownie.
+// Trwałe szyfrowanie między sesjami wymagałoby hasła głównego użytkownika.
 
 let _internalPassphrase: string | null = null;
 
 async function getPassphrase(): Promise<string> {
   if (_internalPassphrase) return _internalPassphrase;
 
-  // Próbujemy odczytać sól — jeśli istnieje, to rozszerzenie było wcześniej skonfigurowane
-  const stored = await chrome.storage.local.get(STORAGE_KEYS.CRYPTO_SALT);
-  if (stored[STORAGE_KEYS.CRYPTO_SALT]) {
-    _internalPassphrase = stored[STORAGE_KEYS.CRYPTO_SALT] as string;
-  } else {
+  const session = (chrome.storage as typeof chrome.storage & {
+    session?: chrome.storage.StorageArea;
+  }).session;
+
+  // Preferowana ścieżka: klucz w pamięci sesji (nigdy na dysku).
+  if (session) {
+    const stored = await session.get(STORAGE_KEYS.CRYPTO_KEY);
+    const existing = stored[STORAGE_KEYS.CRYPTO_KEY];
+    if (typeof existing === "string" && existing.length > 0) {
+      _internalPassphrase = existing;
+      return existing;
+    }
     _internalPassphrase = generateRandomPassphrase();
-    await chrome.storage.local.set({
-      [STORAGE_KEYS.CRYPTO_SALT]: _internalPassphrase,
-    });
+    await session.set({ [STORAGE_KEYS.CRYPTO_KEY]: _internalPassphrase });
+    return _internalPassphrase;
   }
+
+  // Fallback (brak storage.session): klucz istnieje tylko w pamięci tego
+  // procesu — wciąż nigdy nie jest zapisywany na dysk.
+  _internalPassphrase = generateRandomPassphrase();
   return _internalPassphrase;
 }
 
@@ -65,7 +83,12 @@ export async function loadEncrypted<T = unknown>(
   }
 
   const passphrase = await getPassphrase();
-  return decrypt<T>(payload, passphrase);
+  try {
+    return await decrypt<T>(payload, passphrase);
+  } catch {
+    // Złe hasło (np. po restarcie sesji) lub uszkodzone dane — traktuj jak brak.
+    return null;
+  }
 }
 
 // ─── Module Settings ────────────────────────────────────────────────────────
@@ -122,6 +145,9 @@ const DEFAULT_PRIVACY_STATE: PrivacyState = {
   trackersBlockedCount: 0,
   noiseGeneratedCount: 0,
   activeAliasEmail: null,
+  aiDeepDiveRisk: null,
+  aiDeepDiveDetectionCount: 0,
+  maxCamoActive: false,
 };
 
 /** Pobiera aktualny stan prywatności. */
@@ -230,8 +256,12 @@ export async function panicButton(): Promise<PanicButtonResult> {
     result.clearedItems.localStorage = true;
     result.clearedItems.sessionStorage = true;
 
-    // 2. Czyszczenie danych rozszerzenia (chrome.storage.local)
+    // 2. Czyszczenie danych rozszerzenia (chrome.storage.local + session)
     await chrome.storage.local.clear();
+    const session = (chrome.storage as typeof chrome.storage & {
+      session?: chrome.storage.StorageArea;
+    }).session;
+    await session?.clear();
     result.clearedItems.extensionStorage = true;
 
     // 3. Reset wewnętrznej passphrase — wymusi wygenerowanie nowej

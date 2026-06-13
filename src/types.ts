@@ -1,10 +1,15 @@
 // src/types.ts
 
+import type { AiDeepDiveRiskResult } from "./shared/aiDeepDive/types"
+
 export interface PrivacyState {
   privacyScore: number;
   trackersBlockedCount: number;
   noiseGeneratedCount: number;
   activeAliasEmail: string | null;
+  aiDeepDiveRisk?: AiDeepDiveRiskResult | null;
+  aiDeepDiveDetectionCount?: number;
+  maxCamoActive?: boolean;
 }
 
 export interface MouseJitterConfig {
@@ -130,6 +135,13 @@ export interface InjectBionicMainMessage {
   type: "INJECT_BIONIC_MAIN";
 }
 
+export type AiDeepDiveRiskMessage = AiDeepDiveRiskResult;
+
+/** Emitted by Module C (Popup) to request the deep wipe handled in background. */
+export interface PanicButtonMessage {
+  type: "PANIC_BUTTON";
+}
+
 export type BackgroundInboundMessage =
   | TriggerNoiseMessage
   | GetStatusMessage
@@ -137,7 +149,9 @@ export type BackgroundInboundMessage =
   | ToggleModuleMessage
   | RequestStateMessage
   | InjectBionicMainMessage
-  | BionicBlurTelemetryMessage;
+  | PanicButtonMessage
+  | BionicBlurTelemetryMessage
+  | AiDeepDiveRiskMessage;
 
 export type BackgroundOutboundMessage = NoiseInjectedMessage;
 
@@ -207,6 +221,9 @@ export interface PrivacyState {
   trackersBlockedCount: number;
   noiseGeneratedCount: number;
   activeAliasEmail: string | null;
+  aiDeepDiveRisk?: AiDeepDiveRiskResult | null;
+  aiDeepDiveDetectionCount?: number;
+  maxCamoActive?: boolean;
 }
 
 // --- Runtime message format shared by modules ---
@@ -217,6 +234,7 @@ export type RuntimeMessageType =
   | "MOUSE_JITTERED"
   | "KEYSTROKE_MASKED"
   | "BIONIC_BLUR_TELEMETRY"
+  | "AI_DEEP_DIVE_RESULT"
   | "PANIC_BUTTON"
   | "PANIC_RESULT"
   | "ALIAS_GENERATED"
@@ -234,14 +252,21 @@ export interface RuntimeMessage<T = unknown> {
 
 // --- Storage Keys ---
 
-/** Klucze używane w chrome.storage.local — centralna definicja zapobiega kolizjom. */
+/**
+ * Klucze używane w chrome.storage — centralna definicja zapobiega kolizjom.
+ * Wszystkie moduły dzielą jedną przestrzeń nazw "cnd:" (Cloak & Dagger), więc
+ * Moduł D (storage/crypto/alias) operuje na tych samych danych co żywa aplikacja
+ * (background/content/popup). PRIVACY_STATE celowo wskazuje na współdzielony
+ * "cnd:state". CRYPTO_KEY trzymany jest w chrome.storage.session (pamięć), nigdy
+ * na dysku — patrz shared/storage.ts.
+ */
 export const STORAGE_KEYS = {
-  MODULE_SETTINGS: "cloak_module_settings",
-  PRIVACY_STATE: "cloak_privacy_state",
-  LOG_ENTRIES: "cloak_log_entries",
-  EMAIL_ALIASES: "cloak_email_aliases",
-  API_TOKENS: "cloak_api_tokens_encrypted",
-  CRYPTO_SALT: "cloak_crypto_salt",
+  MODULE_SETTINGS: "cnd:module-settings",
+  PRIVACY_STATE: "cnd:state",
+  LOG_ENTRIES: "cnd:log-entries",
+  EMAIL_ALIASES: "cnd:email-aliases",
+  API_TOKENS: "cnd:api-tokens-encrypted",
+  CRYPTO_KEY: "cnd:crypto-session-key",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

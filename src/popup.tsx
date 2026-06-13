@@ -16,11 +16,13 @@ import {
   type CSSProperties
 } from "react"
 
-import { Logo, Lock, ShieldCheck, ShieldOff } from "./components/icons"
+import { Logo, Lock, Mail, ShieldCheck, ShieldOff } from "./components/icons"
+import AiDeepDiveCard from "./components/AiDeepDiveCard"
 import LoggerView from "./components/LoggerView"
 import ModuleToggles from "./components/ModuleToggles"
 import PanicButton from "./components/PanicButton"
 import ScoreChart, { type ProtectionTier } from "./components/ScoreChart"
+import ShadowAudit from "./components/ShadowAudit"
 import StatCards from "./components/StatCards"
 import type {
   LogEntry,
@@ -28,6 +30,7 @@ import type {
   ModuleToggleState,
   RuntimeMessage
 } from "./components/types"
+import { generateAlias } from "./shared/emailAlias"
 import type { PrivacyState } from "./types"
 
 import "./style.css"
@@ -47,7 +50,10 @@ const DEFAULT_STATE: PrivacyState = {
   privacyScore: 0,
   trackersBlockedCount: 0,
   noiseGeneratedCount: 0,
-  activeAliasEmail: null
+  activeAliasEmail: null,
+  aiDeepDiveRisk: null,
+  aiDeepDiveDetectionCount: 0,
+  maxCamoActive: false
 }
 
 /** Bezpieczny uchwyt do API rozszerzenia (działa też poza kontekstem extension). */
@@ -153,6 +159,9 @@ export default function Popup() {
           break
         case "STATE_UPDATE":
           setState((prev) => ({ ...prev, ...message.state }))
+          if (message.state.maxCamoActive) {
+            setToggles({ dataGhost: true, mouseJitter: true, keystroke: true })
+          }
           break
       }
     }
@@ -199,6 +208,27 @@ export default function Popup() {
     },
     [addLog]
   )
+
+  const handleGenerateAlias = useCallback(async () => {
+    // Module D (Identity Masking) — offline path needs no API token. The alias
+    // is persisted by generateAlias(); we mirror it into the shared dashboard
+    // state so the footer reflects it and it survives a popup reopen.
+    try {
+      const alias = await generateAlias()
+      setState((prev) => ({ ...prev, activeAliasEmail: alias.alias }))
+      addLog({
+        timestamp: Date.now(),
+        source: "system",
+        message: `Wygenerowano alias e-mail: ${alias.alias}`
+      })
+    } catch {
+      addLog({
+        timestamp: Date.now(),
+        source: "system",
+        message: "Nie udało się wygenerować aliasu e-mail"
+      })
+    }
+  }, [addLog])
 
   const handlePanic = useCallback(() => {
     // Logika głębokiego czyszczenia należy do Modułu D — wywołujemy ją
@@ -287,28 +317,56 @@ export default function Popup() {
           <StatCards state={state} />
         </div>
 
-        {/* Przełączniki modułów */}
+        {/* AI Deep-Dive Risk */}
         <div style={v(3)}>
+          <AiDeepDiveCard
+            risk={state.aiDeepDiveRisk}
+            maxCamoActive={state.maxCamoActive}
+          />
+        </div>
+
+        {/* Przełączniki modułów */}
+        <div style={v(4)}>
           <ModuleToggles toggles={toggles} onToggle={handleToggle} />
         </div>
 
         {/* Telemetria na żywo */}
-        <div style={v(4)}>
+        <div style={v(5)}>
           <LoggerView entries={logs} />
         </div>
 
+        {/* Audyt cienia cyfrowego — pasywny pomiar własnego fingerprintu */}
+        <div style={v(6)}>
+          <ShadowAudit />
+        </div>
+
         {/* Panic — hold-to-wipe */}
-        <div style={v(5)}>
+        <div style={v(7)}>
           <PanicButton onPanic={handlePanic} />
         </div>
 
-        {/* Stopka — sygnał zaufania */}
-        <div style={v(6)} className="flex flex-col items-center gap-1 pt-0.5">
-          {state.activeAliasEmail && (
+        {/* Stopka — tożsamość jednorazowa + sygnał zaufania */}
+        <div style={v(8)} className="flex flex-col items-center gap-1.5 pt-0.5">
+          {state.activeAliasEmail ? (
             <p className="text-[10px] text-fg-low">
               Alias:{" "}
-              <span className="font-mono text-fg-mid">{state.activeAliasEmail}</span>
+              <span className="font-mono text-fg-mid">
+                {state.activeAliasEmail}
+              </span>{" "}
+              <button
+                type="button"
+                onClick={handleGenerateAlias}
+                className="text-accent/80 transition-colors hover:text-accent">
+                nowy
+              </button>
             </p>
+          ) : (
+            <button
+              type="button"
+              onClick={handleGenerateAlias}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] px-2.5 py-1 text-[10px] text-fg-mid ring-1 ring-inset ring-line-strong transition-colors hover:text-fg-hi hover:ring-line-hover">
+              <Mail size={11} /> Generuj alias e-mail
+            </button>
           )}
           <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-fg-low/70">
             <Lock size={10} /> Privacy-by-Design · dane lokalne

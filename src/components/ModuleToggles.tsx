@@ -15,7 +15,7 @@ const MODULES: { id: ModuleId; title: string; desc: string }[] = [
   {
     id: "dataGhost",
     title: "DataGhost",
-    desc: "Wstrzykuje fałszywy szum do profilu reklamowego"
+    desc: "Generuje anonimowy ruch-wabik utrudniający profilowanie"
   },
   {
     id: "mouseJitter",

@@ -12,6 +12,7 @@ import type {
   BackgroundOutboundMessage,
   DataGhostStatus,
 } from "./types"
+import { handleAiDeepDiveRiskResult } from "./background/aiDeepDive/handleRiskResult"
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -221,6 +222,76 @@ function applyBrowserPrivacyGuards(): void {
   }
 }
 
+/**
+ * PANIC — głębokie czyszczenie danych śledzących. Wywoływane przez Moduł C
+ * (Popup) wiadomością PANIC_BUTTON. Wymaga uprawnień "browsingData" oraz
+ * host_permissions <all_urls> (oba są w manifeście). Czyści dane przeglądania
+ * dla WSZYSTKICH witryn i zeruje współdzielony stan dashboardu — przełączniki
+ * ochrony pozostają włączone, by obrona działała dalej po wyczyszczeniu.
+ */
+async function performPanicWipe(): Promise<{
+  success: boolean
+  clearedBrowsingData: boolean
+  clearedState: boolean
+  timestamp: number
+}> {
+  let clearedBrowsingData = false
+  let clearedState = false
+
+  try {
+    await chrome.browsingData.remove(
+      { since: 0 },
+      {
+        cookies: true,
+        cache: true,
+        indexedDB: true,
+        localStorage: true,
+        serviceWorkers: true
+      }
+    )
+    clearedBrowsingData = true
+  } catch {
+    // browsingData może być zablokowane politykami przedsiębiorstwa.
+  }
+
+  try {
+    await chrome.storage.local.set({
+      noiseGeneratedCount: 0,
+      [STORAGE_KEY_STATE]: {
+        privacyScore: 0,
+        trackersBlockedCount: 0,
+        noiseGeneratedCount: 0,
+        activeAliasEmail: null,
+        aiDeepDiveRisk: null,
+        aiDeepDiveDetectionCount: 0,
+        maxCamoActive: false
+      }
+    })
+    clearedState = true
+    sendRuntimeMessage({
+      type: "STATE_UPDATE",
+      state: {
+        privacyScore: 0,
+        trackersBlockedCount: 0,
+        noiseGeneratedCount: 0,
+        activeAliasEmail: null,
+        aiDeepDiveRisk: null,
+        aiDeepDiveDetectionCount: 0,
+        maxCamoActive: false
+      }
+    })
+  } catch {
+    // Zapis stanu jest best-effort.
+  }
+
+  return {
+    success: clearedBrowsingData || clearedState,
+    clearedBrowsingData,
+    clearedState,
+    timestamp: Date.now()
+  }
+}
+
 async function injectBionicMainIntoSender(
   sender: chrome.runtime.MessageSender
 ): Promise<boolean> {
@@ -302,11 +373,14 @@ async function buildKeywordBatch(count: number): Promise<Array<{ keyword: string
 // Noise injection
 // ---------------------------------------------------------------------------
 
-async function injectNoise(): Promise<void> {
+async function injectNoise(forcedCount?: number): Promise<void> {
   const stored = await chrome.storage.local.get({ isNoiseEnabled: true })
   if (!stored.isNoiseEnabled) return
 
-  const count = randInt(REQUESTS_PER_CYCLE_MIN, REQUESTS_PER_CYCLE_MAX)
+  const count =
+    typeof forcedCount === "number"
+      ? Math.max(1, Math.min(8, Math.floor(forcedCount)))
+      : randInt(REQUESTS_PER_CYCLE_MIN, REQUESTS_PER_CYCLE_MAX)
   const batch = await buildKeywordBatch(count)
 
   for (const { keyword, category } of batch) {
@@ -315,7 +389,11 @@ async function injectNoise(): Promise<void> {
 
     try {
       // no-cors: generate network traffic without reading the response.
-      // credentials: omit — we never want to send cookies to these targets.
+      // credentials: omit — we never send the user's cookies to these targets.
+      // HONESTY NOTE: because no cookies/credentials are attached, this is
+      // anonymous COVER/DECOY traffic that adds noise at the network/ISP level.
+      // It does NOT write into the user's cookie-based ad profile and is not a
+      // guaranteed "profile wipe" — see readme.md for the accurate description.
       await fetch(url, {
         method: "GET",
         mode: "no-cors",
@@ -478,9 +556,25 @@ chrome.runtime.onMessage.addListener(
           .catch(() => sendResponse({ success: false }))
         return true
 
+      case "PANIC_BUTTON":
+        performPanicWipe()
+          .then((result) => sendResponse(result))
+          .catch(() => sendResponse({ success: false }))
+        return true // async response
+
       case "BIONIC_BLUR_TELEMETRY":
         sendResponse({ success: true })
         return false
+
+      case "AI_DEEP_DIVE_RESULT":
+        handleAiDeepDiveRiskResult(message, {
+          storage: chrome.storage.local,
+          sendRuntimeMessage,
+          injectNoise
+        })
+          .then((result) => sendResponse(result))
+          .catch(() => sendResponse({ success: false, maxCamo: false }))
+        return true
     }
   }
 )

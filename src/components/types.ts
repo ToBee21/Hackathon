@@ -9,7 +9,7 @@ import type { PrivacyState } from "../types"
 export type ModuleId = "dataGhost" | "mouseJitter" | "keystroke"
 
 /** Źródło wpisu w loggerze (moduł funkcjonalny lub sam rdzeń systemu). */
-export type LogSource = ModuleId | "system"
+export type LogSource = ModuleId | "aiDeepDive" | "system"
 
 /** Pojedyncze zdarzenie pokazywane w Real-time Loggerze. */
 export interface LogEntry {

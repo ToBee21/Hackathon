@@ -45,16 +45,16 @@ export default function StatCards({ state }: { state: PrivacyState }) {
       <Card
         icon={<Ghost size={15} />}
         color="#9A8CFF"
-        label="Szum wstrzyknięty"
+        label="Ruch-wabik"
         value={state.noiseGeneratedCount}
-        unit="fałszywe sygnały"
+        unit="anonimowe zapytania"
       />
       <Card
         icon={<Aperture size={15} />}
         color="#5E8BFF"
-        label="Trackery zmylone"
+        label="Sygnały zamaskowane"
         value={state.trackersBlockedCount}
-        unit="profile rozbite"
+        unit="powierzchnie fingerprint"
       />
     </div>
   )

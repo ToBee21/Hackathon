@@ -7,7 +7,7 @@
 
 import type { ComponentType, SVGProps } from "react"
 
-import { Aperture, Cursor, Ghost, Keyboard } from "./icons"
+import { Aperture, Cursor, Ghost, Keyboard, ShieldAlert } from "./icons"
 import type { LogSource } from "./types"
 
 type IconType = ComponentType<{ size?: number } & SVGProps<SVGSVGElement>>
@@ -23,5 +23,6 @@ export const SIGNAL: Record<LogSource, SignalMeta> = {
   dataGhost: { label: "DataGhost", short: "GHOST", color: "#9A8CFF", Icon: Ghost },
   mouseJitter: { label: "Mysz", short: "MOUSE", color: "#5E8BFF", Icon: Cursor },
   keystroke: { label: "Klawiatura", short: "KEYS", color: "#46E6A8", Icon: Keyboard },
+  aiDeepDive: { label: "AI Deep-Dive", short: "AI-RISK", color: "#FF5C77", Icon: ShieldAlert },
   system: { label: "Rdzeń", short: "CORE", color: "#A3A8B4", Icon: Aperture }
 }

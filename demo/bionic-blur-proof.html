@@ -179,6 +179,11 @@
         white-space: pre-wrap;
       }
 
+      #ai-deep-dive-output {
+        min-height: 76px;
+        max-height: 140px;
+      }
+
       .pass {
         color: #34d399;
       }
@@ -258,6 +263,14 @@
           <div id="proof-editable" contenteditable="true">contenteditable check</div>
           <button id="run-probes" type="button">Run API probes</button>
         </div>
+
+        <div class="panel stack" id="ai-deep-dive-demo">
+          <h2>AI Deep-Dive Detection Demo</h2>
+          <button id="inject-sensitive-demo" type="button">
+            Inject high-risk sample
+          </button>
+          <pre id="ai-deep-dive-output">No AI risk sample injected.</pre>
+        </div>
       </section>
 
       <aside class="panel stack">
@@ -290,6 +303,7 @@
       const input = document.getElementById("proof-input")
       const textarea = document.getElementById("proof-textarea")
       const editable = document.getElementById("proof-editable")
+      const aiDeepDiveOutput = document.getElementById("ai-deep-dive-output")
 
       function log(message, data) {
         state.lastSignal = message
@@ -512,6 +526,21 @@
       document.getElementById("run-probes").addEventListener("click", () => {
         void runApiProbes("button")
       })
+
+      document
+        .getElementById("inject-sensitive-demo")
+        .addEventListener("click", () => {
+          aiDeepDiveOutput.textContent = `
+AI Deep-Dive synthetic fixture:
+Urgent support for depression symptoms, suicidal thoughts, unpaid debt,
+eviction fear, bankruptcy risk and financial hardship resources.
+This is fake demo text, not user data.
+          `.trim()
+          log("ai-deep-dive-fixture-injected", {
+            expected: "high-or-critical",
+            rawUserData: false
+          })
+        })
 
       log("ready", {
         url: location.href,

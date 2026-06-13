@@ -146,6 +146,29 @@ export function Aperture(props: IconProps) {
   )
 }
 
+/** Identity masking — disposable e-mail alias (envelope). */
+export function Mail(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="5.5" width="18" height="13" rx="2.2" />
+      <path d="M4 7l8 5.5L20 7" />
+    </Svg>
+  )
+}
+
+/** Digital-shadow audit — a fingerprint whorl. */
+export function Fingerprint(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3.6a8.4 8.4 0 0 0-8 6" />
+      <path d="M5.4 18.6A10 10 0 0 0 6.5 11a5.5 5.5 0 0 1 11 0v1.5" />
+      <path d="M9 11a3 3 0 0 1 6 0c0 3 .2 5.4-.9 7.8" />
+      <path d="M12 11v2.5c0 2.6-.5 4.4-1.6 6.1" />
+      <path d="M17.4 15.2a16 16 0 0 1-.7 4.6" />
+    </Svg>
+  )
+}
+
 /** Local-only / encrypted footer mark. */
 export function Lock(props: IconProps) {
   return (

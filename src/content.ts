@@ -2,6 +2,7 @@ import type { PlasmoCSConfig } from "plasmo"
 
 import mainWorldScriptUrl from "url:./contents/bionic-blur-main"
 
+import { initializeAiDeepDiveContent } from "./content/aiDeepDive/contentEntry"
 import {
   DEFAULT_BIONIC_BLUR_CONFIG,
   buildPrivacyProfile
@@ -93,6 +94,8 @@ async function initializeBridge(): Promise<void> {
     if (!isMainTelemetryEnvelope(data)) return
     handleTelemetry(data.payload)
   })
+
+  initializeAiDeepDiveContent(sendRuntimeMessage)
 }
 
 async function refreshConfig(): Promise<void> {
