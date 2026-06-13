@@ -26,6 +26,11 @@ const MODULES: { id: ModuleId; title: string; desc: string }[] = [
     id: "keystroke",
     title: "Bionic Blur · Klawiatura",
     desc: "Maskuje rytm pisania mikro-opóźnieniami"
+  },
+  {
+    id: "honeypot",
+    title: "Honeypot Trap",
+    desc: "Zatruwa żądania trackerów sprzecznym profilem w locie"
   }
 ]
 
@@ -72,7 +77,9 @@ export default function ModuleToggles({ toggles, onToggle }: ModuleTogglesProps)
     <div className="overflow-hidden rounded-xl bg-surface-1 shadow-card">
       <div className="flex items-center justify-between px-3 pb-1.5 pt-2.5">
         <span className="text-micro uppercase text-fg-low">Wektory ochrony</span>
-        <span className="font-mono text-[10px] tnum text-fg-low">{activeCount}/3</span>
+        <span className="font-mono text-[10px] tnum text-fg-low">
+          {activeCount}/{MODULES.length}
+        </span>
       </div>
 
       <div className="divide-y divide-line">
