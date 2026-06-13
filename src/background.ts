@@ -24,6 +24,11 @@ const REQUESTS_PER_CYCLE_MAX = 5
 const BIONIC_ACCEPT_LANGUAGE_RULE_ID = 41001
 const BIONIC_MAIN_SCRIPT_ID = "srcContentsBionicBlurMain"
 
+// Shared dashboard state key — the single source of truth that Module C
+// (Popup) reads for the Privacy Score and live counters. DataGhost mirrors its
+// noise total here so Modules A and C stay in sync.
+const STORAGE_KEY_STATE = "cnd:state"
+
 // Diverse, neutral keyword categories — wide variety defeats interest profiling
 const KEYWORD_POOL: Record<string, string[]> = {
   cooking: [
@@ -321,23 +326,57 @@ async function injectNoise(): Promise<void> {
       // Individual request failures are expected and harmless.
     }
 
-    // Notify popup (best-effort — it may not be open)
-    const msg: BackgroundOutboundMessage = {
+    // Notify popup (Module C) — best-effort, it may not be open.
+    // NOISE_INJECTED preserves the original Module A contract; LOG_EVENT feeds
+    // the dashboard's shared real-time logger so each injection shows up live.
+    const timestamp = Date.now()
+    sendRuntimeMessage({
       type: "NOISE_INJECTED",
-      payload: { keyword, category, timestamp: Date.now() },
-    }
-    sendRuntimeMessage(msg)
+      payload: { keyword, category, timestamp },
+    } as BackgroundOutboundMessage)
+    sendRuntimeMessage({
+      type: "LOG_EVENT",
+      entry: {
+        timestamp,
+        source: "dataGhost",
+        message: `Wstrzyknięto fałszywy ruch: ${keyword} (${category})`,
+      },
+    })
 
     // Human-like delay between requests (800 ms – 2.5 s)
     await sleep(randInt(800, 2500))
   }
 
-  // Persist running total
-    const { noiseGeneratedCount = 0 } = (await chrome.storage.local.get(
-      "noiseGeneratedCount"
-    )) as { noiseGeneratedCount?: number }
+  // Persist the running total and mirror it onto the shared dashboard state so
+  // Module C's Privacy Score and "Wstrzyknięty szum" counter update live.
+  await recordNoiseInjected(batch.length)
+}
+
+/**
+ * Increments the noise counter and mirrors it into the shared dashboard state
+ * ("cnd:state") that Module C (Popup) reads. Broadcasts STATE_UPDATE so an open
+ * popup reflects the new total without needing to be reopened.
+ */
+async function recordNoiseInjected(delta: number): Promise<void> {
+  const stored = await chrome.storage.local.get({
+    noiseGeneratedCount: 0,
+    [STORAGE_KEY_STATE]: {},
+  })
+
+  const total = ((stored.noiseGeneratedCount as number) ?? 0) + delta
+  const sharedState = {
+    ...(stored[STORAGE_KEY_STATE] as Record<string, unknown>),
+    noiseGeneratedCount: total,
+  }
+
   await chrome.storage.local.set({
-    noiseGeneratedCount: noiseGeneratedCount + batch.length,
+    noiseGeneratedCount: total,
+    [STORAGE_KEY_STATE]: sharedState,
+  })
+
+  sendRuntimeMessage({
+    type: "STATE_UPDATE",
+    state: { noiseGeneratedCount: total },
   })
 }
 
@@ -446,8 +485,18 @@ chrome.runtime.onMessage.addListener(
 // Initialisation on install / browser startup
 // ---------------------------------------------------------------------------
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({ noiseGeneratedCount: 0, isNoiseEnabled: true })
+chrome.runtime.onInstalled.addListener(async () => {
+  // Seed both the internal counter and the shared dashboard state so Module C
+  // reads a consistent value from the first open.
+  const stored = await chrome.storage.local.get({ [STORAGE_KEY_STATE]: {} })
+  await chrome.storage.local.set({
+    noiseGeneratedCount: 0,
+    isNoiseEnabled: true,
+    [STORAGE_KEY_STATE]: {
+      ...(stored[STORAGE_KEY_STATE] as Record<string, unknown>),
+      noiseGeneratedCount: 0,
+    },
+  })
   applyBrowserPrivacyGuards()
   // Kick off the first injection shortly after install
   injectNoise()

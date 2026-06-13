@@ -69,6 +69,10 @@ export default function Popup() {
   const [toggles, setToggles] = useState<ModuleToggleState>(DEFAULT_TOGGLES)
   const [state, setState] = useState<PrivacyState>(DEFAULT_STATE)
   const [logs, setLogs] = useState<LogEntry[]>([])
+  // Becomes true once the stored state is loaded. Guards the write-back effect
+  // so we never persist DEFAULT_STATE over DataGhost's accumulated counters
+  // before hydration finishes.
+  const [hydrated, setHydrated] = useState(false)
 
   const addLog = useCallback((entry: Omit<LogEntry, "id">) => {
     setLogs((prev) =>
@@ -78,7 +82,10 @@ export default function Popup() {
 
   // --- Inicjalizacja: wczytanie zapisanego stanu + nasłuch wiadomości ---
   useEffect(() => {
-    if (!ext?.storage?.local) return
+    if (!ext?.storage?.local) {
+      setHydrated(true)
+      return
+    }
 
     ext.storage.local.get(
       [STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE],
@@ -89,6 +96,7 @@ export default function Popup() {
         if (result?.[STORAGE_KEY_STATE]) {
           setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
         }
+        setHydrated(true)
       }
     )
   }, [])
@@ -121,9 +129,9 @@ export default function Popup() {
   )
 
   useEffect(() => {
-    if (!ext?.storage?.local) return
+    if (!hydrated || !ext?.storage?.local) return
     ext.storage.local.set({ [STORAGE_KEY_STATE]: { ...state, privacyScore: score } })
-  }, [score, state])
+  }, [hydrated, score, state])
 
   // --- Akcje użytkownika ---
   const handleToggle = useCallback(
