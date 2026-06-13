@@ -65,6 +65,7 @@ function installBionicBlur(): void {
   }
   let profile: PrivacyProfile = buildPrivacyProfile(location.href, "boot")
   const telemetry = new Map<string, TelemetryBucket>()
+  const keyboardTimestamps = new WeakMap<Event, number>()
 
   const emitTelemetry = (
     surface: FingerprintSurface,
@@ -132,9 +133,11 @@ function installBionicBlur(): void {
     () => activeConfig,
     () => profile,
     isActive,
+    keyboardTimestamps,
     emitTelemetry,
     emitDebugEvent
   )
+  patchKeyboardTimestampGetter(() => activeConfig, isActive, keyboardTimestamps)
   patchFingerprintSurfaces(
     () => activeConfig,
     () => profile,
@@ -163,6 +166,7 @@ function patchEventListeners(
   getConfig: () => BionicBlurConfig,
   getProfile: () => PrivacyProfile,
   isActive: () => boolean,
+  keyboardTimestamps: WeakMap<Event, number>,
   emitTelemetry: (
     surface: FingerprintSurface,
     action: TelemetryAction,
@@ -201,6 +205,7 @@ function patchEventListeners(
         getConfig(),
         getProfile(),
         isActive(),
+        keyboardTimestamps,
         emitTelemetry,
         emitDebugEvent
       )
@@ -252,6 +257,7 @@ function protectEvent(
   config: BionicBlurConfig,
   profile: PrivacyProfile,
   active: boolean,
+  keyboardTimestamps: WeakMap<Event, number>,
   emitTelemetry: (
     surface: FingerprintSurface,
     action: TelemetryAction,
@@ -295,9 +301,10 @@ function protectEvent(
       profile,
       config.timestampJitterMs
     )
+    keyboardTimestamps.set(event, timestamp)
     emitTelemetry("keyboard", "blurred", 1)
     emitDebugEvent("keyboard", { rawTimeStamp: event.timeStamp, timestamp })
-    return makeEventProxy(event, { timeStamp: timestamp })
+    return event
   }
 
   if (SENSOR_EVENTS.has(type)) {
@@ -318,14 +325,40 @@ function makeEventProxy<T extends Event>(
   overrides: Record<string, unknown>
 ): T {
   return new Proxy(event, {
-    get(target, prop, receiver) {
+    get(target, prop) {
       if (typeof prop === "string" && prop in overrides) {
         return overrides[prop]
       }
-      const value = Reflect.get(target, prop, receiver)
+      const value = Reflect.get(target, prop, target)
       return typeof value === "function" ? value.bind(target) : value
     }
   })
+}
+
+function patchKeyboardTimestampGetter(
+  getConfig: () => BionicBlurConfig,
+  isActive: () => boolean,
+  keyboardTimestamps: WeakMap<Event, number>
+): void {
+  const descriptor = Object.getOwnPropertyDescriptor(Event.prototype, "timeStamp")
+  if (!descriptor?.get || descriptor.configurable === false) return
+
+  try {
+    Object.defineProperty(Event.prototype, "timeStamp", {
+      configurable: true,
+      enumerable: descriptor.enumerable,
+      get() {
+        const event = this as Event
+        const masked = keyboardTimestamps.get(event)
+        if (masked !== undefined && isActive() && getConfig().keyboardEnabled) {
+          return masked
+        }
+        return descriptor.get?.call(event)
+      }
+    })
+  } catch {
+    // Keep keyboard events pass-through if this browser locks Event internals.
+  }
 }
 
 function isPointerLike(event: Event): event is MouseEvent {
@@ -581,9 +614,9 @@ function patchCanvas(
     if (!shouldPatch()) return metrics
     const widthDelta = (getProfile().hardwareConcurrency % 3) * 0.017
     return new Proxy(metrics, {
-      get(target, prop, receiver) {
+      get(target, prop) {
         if (prop === "width") return target.width + widthDelta
-        const value = Reflect.get(target, prop, receiver)
+        const value = Reflect.get(target, prop, target)
         return typeof value === "function" ? value.bind(target) : value
       }
     })
@@ -702,9 +735,9 @@ function patchPermissions(
     if (["camera", "microphone", "geolocation", "notifications"].includes(name)) {
       emitTelemetry("permissions", "blocked", 1)
       return new Proxy(result, {
-        get(target, prop, receiver) {
+        get(target, prop) {
           if (prop === "state") return "prompt"
-          const value = Reflect.get(target, prop, receiver)
+          const value = Reflect.get(target, prop, target)
           return typeof value === "function" ? value.bind(target) : value
         }
       })

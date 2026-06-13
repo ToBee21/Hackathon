@@ -362,6 +362,7 @@
       })
 
       zone.addEventListener("mousemove", (event) => {
+        window.__lastProofMouseEvent = event
         const rect = zone.getBoundingClientRect()
         dot.style.left = `${event.clientX - rect.left}px`
         dot.style.top = `${event.clientY - rect.top}px`
@@ -377,7 +378,14 @@
         if (!window.__cloakDaggerBionicBlurInstalled) return
         state.keyboardProbeAttached = true
         for (const target of [window, document, input, textarea, editable]) {
-          target.addEventListener("keydown", () => updateScore(), true)
+          target.addEventListener(
+            "keydown",
+            (event) => {
+              window.__lastProofKeyboardEvent = event
+              updateScore()
+            },
+            true
+          )
           target.addEventListener("input", () => updateScore(), true)
         }
         log("keyboard-proof-listeners-attached")
@@ -448,9 +456,22 @@
           dispatchInputSignal(element)
           dispatchKeyboardSignal(element)
         }
+        const nativeMouseFields = {
+          buttons: window.__lastProofMouseEvent?.buttons,
+          target: window.__lastProofMouseEvent?.target?.id,
+          type: window.__lastProofMouseEvent?.type
+        }
+        const nativeKeyboardFields = {
+          code: window.__lastProofKeyboardEvent?.code,
+          key: window.__lastProofKeyboardEvent?.key,
+          target: window.__lastProofKeyboardEvent?.target?.id,
+          type: window.__lastProofKeyboardEvent?.type
+        }
         await runApiProbes("auto-loop")
         log("proof-cycle", {
           cycle: state.cycle,
+          nativeMouseFields,
+          nativeKeyboardFields,
           status: statusEl.textContent,
           score: document.getElementById("score").textContent
         })

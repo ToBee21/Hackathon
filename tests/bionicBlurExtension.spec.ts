@@ -66,6 +66,15 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
 
   try {
     const page = await context.newPage()
+    const runtimeErrors: string[] = []
+    page.on("pageerror", (error) => {
+      runtimeErrors.push(error.stack ?? error.message)
+    })
+    page.on("console", (message) => {
+      if (message.type() === "error" && message.text().includes("bionic-blur")) {
+        runtimeErrors.push(message.text())
+      }
+    })
     await page.goto(`http://127.0.0.1:${address.port}/bionic-blur-proof.html`)
     await page.waitForFunction(
       () => Boolean((window as Window & { __cloakDaggerBionicBlurInstalled?: boolean }).__cloakDaggerBionicBlurInstalled),
@@ -89,12 +98,15 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
       await page.locator("#proof-input").focus()
       await page.keyboard.press(selectAll)
       await page.keyboard.type(`privacytest-${cycle}`)
+      await expect(page.locator("#proof-input")).toHaveValue(`privacytest-${cycle}`)
       await page.locator("#proof-textarea").focus()
       await page.keyboard.press(selectAll)
       await page.keyboard.type(`textarea proof ${cycle}`)
+      await expect(page.locator("#proof-textarea")).toHaveValue(`textarea proof ${cycle}`)
       await page.locator("#proof-editable").focus()
       await page.keyboard.press(selectAll)
       await page.keyboard.type(`editable proof ${cycle}`)
+      await expect(page.locator("#proof-editable")).toHaveText(`editable proof ${cycle}`)
       await page.locator("#run-probes").click()
       await page.waitForTimeout(1800)
     }
@@ -123,6 +135,9 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
         .toBeGreaterThanOrEqual(3)
       await mkdir(path.dirname(PROOF_SCREENSHOT), { recursive: true })
       await page.screenshot({ path: PROOF_SCREENSHOT, fullPage: true })
+      if (runtimeErrors.length > 0) {
+        throw new Error(`Runtime errors during proof:\n${runtimeErrors.join("\n")}`)
+      }
     } catch (error) {
       const diagnostics = await page.evaluate(() => ({
         status: document.querySelector("#status")?.textContent,
