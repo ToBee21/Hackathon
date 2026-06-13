@@ -472,12 +472,16 @@
         attachPointerProofListeners()
         state.cycle += 1
         document.body.dataset.proofPulse = "on"
-        input.value = `alias-${state.cycle}@cloak.test`
-        textarea.value = `cycle ${state.cycle}: behavioral blur and fingerprint probes`
-        editable.textContent = `contenteditable cycle ${state.cycle}`
-        for (const element of [input, textarea, editable]) {
-          dispatchInputSignal(element)
-          dispatchKeyboardSignal(element)
+        const activeElement = document.activeElement
+        const userIsEditing = [input, textarea, editable].includes(activeElement)
+        if (!userIsEditing) {
+          input.value = `alias-${state.cycle}@cloak.test`
+          textarea.value = `cycle ${state.cycle}: behavioral blur and fingerprint probes`
+          editable.textContent = `contenteditable cycle ${state.cycle}`
+          for (const element of [input, textarea, editable]) {
+            dispatchInputSignal(element)
+            dispatchKeyboardSignal(element)
+          }
         }
         const nativeMouseFields = {
           buttons: window.__lastProofMouseEvent?.buttons,
