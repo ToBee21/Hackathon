@@ -288,6 +288,7 @@
         apiRuns: 0,
         cycle: 0,
         lastSignal: "boot",
+        lastUserEditAt: 0,
         keyboardProbeAttached: false,
         pointerProbeAttached: false,
         debugTotals: {
@@ -389,9 +390,20 @@
         dot.style.top = `${event.clientY - rect.top}px`
       })
 
+      function markUserEdit() {
+        state.lastUserEditAt = Date.now()
+      }
+
       for (const element of [input, textarea, editable]) {
-        element.addEventListener("input", () => updateScore())
-        element.addEventListener("keydown", () => updateScore())
+        element.addEventListener("focus", markUserEdit)
+        element.addEventListener("input", () => {
+          markUserEdit()
+          updateScore()
+        })
+        element.addEventListener("keydown", () => {
+          markUserEdit()
+          updateScore()
+        })
       }
 
       function attachKeyboardProofListeners() {
@@ -488,7 +500,8 @@
         document.body.dataset.proofPulse = "on"
         const activeElement = document.activeElement
         const userIsEditing = [input, textarea, editable].includes(activeElement)
-        if (!userIsEditing) {
+        const userRecentlyEdited = Date.now() - state.lastUserEditAt < 5000
+        if (!userIsEditing && !userRecentlyEdited) {
           input.value = `alias-${state.cycle}@cloak.test`
           textarea.value = `cycle ${state.cycle}: behavioral blur and fingerprint probes`
           editable.textContent = `contenteditable cycle ${state.cycle}`

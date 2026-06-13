@@ -9,6 +9,7 @@ const ROOT = path.resolve(__dirname, "..")
 const EXTENSION_PATH = path.join(ROOT, "build", "chrome-mv3-prod")
 const PROOF_PAGE = path.join(ROOT, "demo", "bionic-blur-proof.html")
 const PROOF_SCREENSHOT = path.join(ROOT, "test-results", "bionic-blur-proof.png")
+const HUMAN_KEY_DELAY_MS = 18
 const BROWSER_CANDIDATES = [
   process.env.PLAYWRIGHT_CHROME_PATH,
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -97,15 +98,19 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
 
       await page.locator("#proof-input").focus()
       await page.keyboard.press(selectAll)
-      await page.keyboard.type(`privacytest-${cycle}`)
+      await page.keyboard.type(`privacytest-${cycle}`, { delay: HUMAN_KEY_DELAY_MS })
       await expect(page.locator("#proof-input")).toHaveValue(`privacytest-${cycle}`)
       await page.locator("#proof-textarea").focus()
       await page.keyboard.press(selectAll)
-      await page.keyboard.type(`textarea proof ${cycle}`)
+      await page.keyboard.type(`textarea proof ${cycle}`, {
+        delay: HUMAN_KEY_DELAY_MS
+      })
       await expect(page.locator("#proof-textarea")).toHaveValue(`textarea proof ${cycle}`)
       await page.locator("#proof-editable").focus()
       await page.keyboard.press(selectAll)
-      await page.keyboard.type(`editable proof ${cycle}`)
+      await page.keyboard.type(`editable proof ${cycle}`, {
+        delay: HUMAN_KEY_DELAY_MS
+      })
       await expect(page.locator("#proof-editable")).toHaveText(`editable proof ${cycle}`)
       await page.locator("#run-probes").click()
       await page.waitForTimeout(1800)
