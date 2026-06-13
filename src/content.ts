@@ -26,6 +26,7 @@ const STORAGE_KEY_TOGGLES = "cnd:toggles"
 const STORAGE_KEY_STATE = "cnd:state"
 const STORAGE_KEY_CONFIG = "cnd:bionic-blur:config"
 const STORAGE_KEY_SEED = "cnd:bionic-blur:profile-seed"
+const LOG_EVENT_MIN_INTERVAL_MS = 8000
 
 type RuntimeLogSource = "dataGhost" | "mouseJitter" | "keystroke" | "system"
 
@@ -57,6 +58,7 @@ let activeConfig: BionicBlurConfig = {
   debugMode:
     location.hostname === "localhost" || location.hostname === "127.0.0.1"
 }
+const lastUiLogBySurface = new Map<string, { count: number; timestamp: number }>()
 
 void initializeBridge()
 
@@ -172,19 +174,44 @@ function handleTelemetry(entries: MainTelemetryEntry[]): void {
     }
 
     sendRuntimeMessage(runtimeMessage)
-    sendRuntimeMessage({
-      type: "LOG_EVENT",
-      entry: {
-        timestamp: entry.timestamp,
-        source: sourceForSurface(entry.surface),
-        message: describeTelemetry(entry)
-      }
-    })
+    maybeSendTelemetryLog(entry)
 
     if (entry.action === "blurred" || entry.action === "blocked") {
       void incrementTrackerCounter(sanitizeCount(entry.count))
     }
   }
+}
+
+function maybeSendTelemetryLog(entry: MainTelemetryEntry): void {
+  if (entry.action !== "blurred" && entry.action !== "blocked") return
+
+  const count = sanitizeCount(entry.count)
+  const key = `${entry.surface}:${entry.action}`
+  const previous = lastUiLogBySurface.get(key)
+  const pendingCount = (previous?.count ?? 0) + count
+  const lastTimestamp = previous?.timestamp ?? 0
+  const shouldEmit =
+    previous === undefined ||
+    entry.timestamp - lastTimestamp >= LOG_EVENT_MIN_INTERVAL_MS
+
+  if (!shouldEmit) {
+    lastUiLogBySurface.set(key, {
+      count: pendingCount,
+      timestamp: lastTimestamp
+    })
+    return
+  }
+
+  sendRuntimeMessage({
+    type: "LOG_EVENT",
+    entry: {
+      timestamp: entry.timestamp,
+      source: sourceForSurface(entry.surface),
+      message: describeTelemetry(entry, pendingCount),
+      count: pendingCount
+    }
+  })
+  lastUiLogBySurface.set(key, { count: 0, timestamp: entry.timestamp })
 }
 
 function isTelemetryEntry(value: unknown): value is MainTelemetryEntry {
@@ -221,24 +248,23 @@ function sourceForSurface(surface: FingerprintSurface): RuntimeLogSource {
   return "system"
 }
 
-function describeTelemetry(entry: MainTelemetryEntry): string {
-  const count = sanitizeCount(entry.count)
+function describeTelemetry(entry: MainTelemetryEntry, count: number): string {
   switch (entry.surface) {
     case "mouse":
-      return `Bionic Blur znieksztalcil ${count} zdarzen myszy`
+      return `Mysz: zamaskowano ${count} sygnalow ruchu`
     case "keyboard":
-      return `Bionic Blur przesunal timing ${count} zdarzen klawiatury`
+      return `Klawiatura: zamaskowano timing ${count} zdarzen`
     case "canvas":
     case "webgl":
     case "audio":
     case "fonts":
-      return `Fingerprint shim aktywny: ${entry.surface} (${entry.action})`
+      return `Fingerprint: ${entry.surface} oszukany ${count} razy`
     case "permissions":
     case "media-devices":
     case "battery":
-      return `Ograniczono probe API: ${entry.surface}`
+      return `API ograniczone: ${entry.surface} x${count}`
     default:
-      return `Bionic Blur telemetry: ${entry.surface} ${entry.action}`
+      return `Bionic Blur: ${entry.surface} ${entry.action} x${count}`
   }
 }
 

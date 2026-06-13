@@ -3,12 +3,25 @@
 // Orkiestruje stan, nasłuchuje magistrali wiadomości chrome.runtime
 // i renderuje komponenty wizualne. Cała integracja z innymi modułami
 // odbywa się luźno przez wiadomości — bez twardych importów ich kodu.
+//
+// Warstwa wizualna: "Stealth Intelligence Console" — chłodny near-black,
+// jeden racjonowany teal-akcent, forensic detail. Logika (score, collapse
+// logów, hydration, storage, panic) pozostaje nietknięta.
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties
+} from "react"
 
+import { Logo, Lock, ShieldCheck, ShieldOff } from "./components/icons"
 import LoggerView from "./components/LoggerView"
 import ModuleToggles from "./components/ModuleToggles"
-import ScoreChart from "./components/ScoreChart"
+import PanicButton from "./components/PanicButton"
+import ScoreChart, { type ProtectionTier } from "./components/ScoreChart"
+import StatCards from "./components/StatCards"
 import type {
   LogEntry,
   ModuleId,
@@ -21,7 +34,8 @@ import "./style.css"
 
 const STORAGE_KEY_TOGGLES = "cnd:toggles"
 const STORAGE_KEY_STATE = "cnd:state"
-const MAX_LOG_ENTRIES = 80
+const MAX_LOG_ENTRIES = 30
+const LOG_COLLAPSE_WINDOW_MS = 8000
 
 const DEFAULT_TOGGLES: ModuleToggleState = {
   dataGhost: true,
@@ -59,6 +73,14 @@ function computePrivacyScore(
   return Math.max(0, Math.min(100, score))
 }
 
+/** Mapuje wynik + stan uzbrojenia na poziom ochrony pokazywany w hero. */
+function deriveTier(armed: boolean, score: number): ProtectionTier {
+  if (!armed) return "standby"
+  if (score >= 70) return "protected"
+  if (score >= 40) return "guarded"
+  return "exposed"
+}
+
 let logCounter = 0
 function makeLogId(): string {
   logCounter += 1
@@ -75,9 +97,29 @@ export default function Popup() {
   const [hydrated, setHydrated] = useState(false)
 
   const addLog = useCallback((entry: Omit<LogEntry, "id">) => {
-    setLogs((prev) =>
-      [{ ...entry, id: makeLogId() }, ...prev].slice(0, MAX_LOG_ENTRIES)
-    )
+    setLogs((prev) => {
+      const latest = prev[0]
+      if (
+        latest &&
+        latest.source === entry.source &&
+        latest.message === entry.message &&
+        Math.abs(entry.timestamp - latest.timestamp) <= LOG_COLLAPSE_WINDOW_MS
+      ) {
+        return [
+          {
+            ...latest,
+            timestamp: entry.timestamp,
+            count: (latest.count ?? 1) + (entry.count ?? 1)
+          },
+          ...prev.slice(1)
+        ]
+      }
+
+      return [
+        { ...entry, id: makeLogId(), count: entry.count ?? 1 },
+        ...prev
+      ].slice(0, MAX_LOG_ENTRIES)
+    })
   }, [])
 
   // --- Inicjalizacja: wczytanie zapisanego stanu + nasłuch wiadomości ---
@@ -173,72 +215,108 @@ export default function Popup() {
   }, [addLog])
 
   const anyEnabled = toggles.dataGhost || toggles.mouseJitter || toggles.keystroke
+  const tier = deriveTier(anyEnabled, score)
+
+  // Ambient orb tint follows the armed/standby system state. The `unknown`
+  // hop lets us set CSS custom properties regardless of @types/react version.
+  const rootStyle = {
+    "--orb": anyEnabled ? "rgba(43,212,196,0.24)" : "rgba(110,116,128,0.16)"
+  } as unknown as CSSProperties
+
+  // Per-child entrance index for the staggered mount choreography.
+  const v = (i: number) => ({ "--i": i }) as unknown as CSSProperties
 
   return (
-    <div className="flex w-[360px] flex-col gap-4 bg-slate-950 p-4 font-sans text-slate-100">
-      {/* Nagłówek */}
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🗡️</span>
-          <div className="leading-tight">
-            <h1 className="text-sm font-bold tracking-tight">Cloak &amp; Dagger</h1>
-            <p className="text-[10px] text-slate-500">Active Privacy Defense</p>
+    <div
+      className="console relative w-[360px] font-sans text-fg-hi"
+      style={rootStyle}>
+      <div className="console-grid" />
+
+      <div className="stagger relative z-[1] flex flex-col gap-3 p-4">
+        {/* Nagłówek — tożsamość + stan systemu */}
+        <header style={v(0)} className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="edge-lit flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-fg-hi shadow-card">
+              <Logo size={20} />
+            </span>
+            <div className="leading-tight">
+              <h1 className="text-[13px] font-semibold tracking-tight text-fg-hi">
+                Cloak <span className="text-fg-low">&amp;</span> Dagger
+              </h1>
+              <p className="text-[9px] uppercase tracking-[0.16em] text-fg-low">
+                Active Privacy Defense
+              </p>
+            </div>
           </div>
-        </div>
-        <span
-          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-            anyEnabled
-              ? "bg-emerald-400/10 text-emerald-400"
-              : "bg-red-400/10 text-red-400"
-          }`}>
+
           <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              anyEnabled ? "bg-emerald-400" : "bg-red-400"
-            }`}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ring-1 ring-inset ${
+              anyEnabled
+                ? "bg-accent-dim text-accent ring-accent/25"
+                : "bg-white/[0.03] text-fg-low ring-line-strong"
+            }`}>
+            <span className="relative flex h-1.5 w-1.5">
+              {anyEnabled && (
+                <span className="anim-ping absolute inline-flex h-full w-full rounded-full bg-accent" />
+              )}
+              <span
+                className="relative inline-flex h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: anyEnabled ? "#2BD4C4" : "#6E7480" }}
+              />
+            </span>
+            {anyEnabled ? <ShieldCheck size={12} /> : <ShieldOff size={12} />}
+            <span className="text-micro font-semibold">
+              {anyEnabled ? "ARMED" : "STANDBY"}
+            </span>
+          </span>
+        </header>
+
+        {/* Privacy Score — hero */}
+        <div style={v(1)} className="pt-1">
+          <ScoreChart
+            score={score}
+            tier={tier}
+            armed={anyEnabled}
+            noiseCount={state.noiseGeneratedCount}
+            trackerCount={state.trackersBlockedCount}
           />
-          {anyEnabled ? "ACTIVE" : "IDLE"}
-        </span>
-      </header>
-
-      {/* Privacy Score */}
-      <ScoreChart score={score} />
-
-      {/* Statystyki */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
-          <p className="text-lg font-bold tabular-nums text-violet-400">
-            {state.noiseGeneratedCount}
-          </p>
-          <p className="text-[10px] text-slate-400">Wstrzyknięty szum</p>
         </div>
-        <div className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
-          <p className="text-lg font-bold tabular-nums text-cyan-400">
-            {state.trackersBlockedCount}
+
+        {/* Statystyki */}
+        <div style={v(2)}>
+          <StatCards state={state} />
+        </div>
+
+        {/* Przełączniki modułów */}
+        <div style={v(3)}>
+          <ModuleToggles toggles={toggles} onToggle={handleToggle} />
+        </div>
+
+        {/* Telemetria na żywo */}
+        <div style={v(4)}>
+          <LoggerView entries={logs} />
+        </div>
+
+        {/* Panic — hold-to-wipe */}
+        <div style={v(5)}>
+          <PanicButton onPanic={handlePanic} />
+        </div>
+
+        {/* Stopka — sygnał zaufania */}
+        <div style={v(6)} className="flex flex-col items-center gap-1 pt-0.5">
+          {state.activeAliasEmail && (
+            <p className="text-[10px] text-fg-low">
+              Alias:{" "}
+              <span className="font-mono text-fg-mid">{state.activeAliasEmail}</span>
+            </p>
+          )}
+          <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-fg-low/70">
+            <Lock size={10} /> Privacy-by-Design · dane lokalne
           </p>
-          <p className="text-[10px] text-slate-400">Zmylone trackery</p>
         </div>
       </div>
 
-      {/* Przełączniki modułów */}
-      <ModuleToggles toggles={toggles} onToggle={handleToggle} />
-
-      {/* Real-time logger */}
-      <LoggerView entries={logs} />
-
-      {/* Panic Button */}
-      <button
-        type="button"
-        onClick={handlePanic}
-        className="group flex items-center justify-center gap-2 rounded-xl bg-red-500/90 py-2.5 text-sm font-bold tracking-wide text-white transition-all hover:bg-red-500 active:scale-[0.98]">
-        <span className="transition-transform group-hover:rotate-12">🧨</span>
-        PANIC BUTTON
-      </button>
-
-      {state.activeAliasEmail && (
-        <p className="text-center text-[10px] text-slate-500">
-          Alias e-mail: <span className="text-slate-300">{state.activeAliasEmail}</span>
-        </p>
-      )}
+      <div className="grain-layer" />
     </div>
   )
 }
