@@ -106,6 +106,33 @@
           "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
       }
 
+      .fp-grid {
+        display: grid;
+        gap: 8px;
+      }
+
+      .fp-row {
+        display: grid;
+        grid-template-columns: 124px minmax(0, 1fr);
+        gap: 10px;
+        align-items: baseline;
+      }
+
+      .fp-row .k {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+      }
+
+      .fp-row .val {
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 12.5px;
+        color: #67e8f9;
+        word-break: break-all;
+      }
+
       body[data-proof-pulse="on"] #pointer-zone {
         border-color: rgba(52, 211, 153, 0.88);
         box-shadow: inset 0 0 42px rgba(52, 211, 153, 0.16);
@@ -270,6 +297,17 @@
             Inject high-risk sample
           </button>
           <pre id="ai-deep-dive-output">No AI risk sample injected.</pre>
+        </div>
+
+        <div class="panel stack" id="identity-demo">
+          <h2>Wirtualna Tożsamość — co widzi ta strona</h2>
+          <p style="margin: 0; font-size: 12px; color: #94a3b8">
+            Przełącz personę w popupie wtyczki (Auto / Biuro·Windows /
+            Kreatywny·macOS / Developer·Linux / Custom), a wartości poniżej
+            zmienią się na żywo — to fingerprint, który widzi strona.
+          </p>
+          <div class="fp-grid" id="identity-grid"></div>
+          <button id="refresh-identity" type="button">Odśwież odczyt</button>
         </div>
       </section>
 
@@ -555,13 +593,98 @@ This is fake demo text, not user data.
           })
         })
 
+      // --- Virtual Identity: live fingerprint the page actually sees ---
+      const identityGrid = document.getElementById("identity-grid")
+
+      function fnv1a(str) {
+        let h = 2166136261
+        for (let i = 0; i < str.length; i += 1) {
+          h ^= str.charCodeAt(i)
+          h = Math.imul(h, 16777619)
+        }
+        return (h >>> 0).toString(16).padStart(8, "0")
+      }
+
+      function readWebglRenderer() {
+        try {
+          const c = document.createElement("canvas")
+          const gl =
+            c.getContext("webgl") || c.getContext("experimental-webgl")
+          if (!gl) return "—"
+          const dbg = gl.getExtension("WEBGL_debug_renderer_info")
+          return dbg
+            ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL))
+            : String(gl.getParameter(gl.RENDERER))
+        } catch {
+          return "—"
+        }
+      }
+
+      function readCanvasHash() {
+        try {
+          const c = document.createElement("canvas")
+          c.width = 200
+          c.height = 40
+          const ctx = c.getContext("2d")
+          if (!ctx) return "—"
+          ctx.textBaseline = "top"
+          ctx.font = "16px Arial"
+          ctx.fillStyle = "#f60"
+          ctx.fillRect(0, 0, 100, 20)
+          ctx.fillStyle = "#069"
+          ctx.fillText("cloak·dagger·proof", 4, 4)
+          return fnv1a(c.toDataURL())
+        } catch {
+          return "—"
+        }
+      }
+
+      function readIdentity() {
+        const mem = navigator.deviceMemory
+        const rows = [
+          ["Platforma", navigator.platform],
+          ["User-Agent", navigator.userAgent],
+          ["GPU (WebGL)", readWebglRenderer()],
+          ["Strefa", Intl.DateTimeFormat().resolvedOptions().timeZone],
+          [
+            "Ekran",
+            `${screen.width}×${screen.height} @${screen.colorDepth}-bit`
+          ],
+          ["Języki", (navigator.languages || [navigator.language]).join(", ")],
+          [
+            "Rdzenie / RAM",
+            `${navigator.hardwareConcurrency} / ${mem == null ? "?" : mem} GB`
+          ],
+          ["Canvas hash", readCanvasHash()]
+        ]
+        identityGrid.innerHTML = rows
+          .map(
+            ([k, val]) =>
+              `<div class="fp-row"><span class="k">${k}</span><span class="val">${String(
+                val
+              ).replace(/</g, "&lt;")}</span></div>`
+          )
+          .join("")
+        log("identity-read", {
+          platform: navigator.platform,
+          tz: Intl.DateTimeFormat().resolvedOptions().timeZone
+        })
+      }
+
+      document
+        .getElementById("refresh-identity")
+        .addEventListener("click", readIdentity)
+
       log("ready", {
         url: location.href,
         note: "Serve this page over http://127.0.0.1 so MV3 http/https content scripts can inject."
       })
       updateScore()
+      readIdentity()
       window.setTimeout(() => void runLiveProofCycle(), 750)
       window.setInterval(() => void runLiveProofCycle(), 3000)
+      // Auto-refresh fingerprint so switching persona in the popup shows up live.
+      window.setInterval(readIdentity, 3000)
     </script>
   </body>
 </html>
