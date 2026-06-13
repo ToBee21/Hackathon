@@ -42,3 +42,4 @@ export type RuntimeMessage =
   | { type: "TRIGGER_HONEYPOT_TEST" }
   | { type: "PANIC_BUTTON" }
   | { type: "REQUEST_STATE" }
+  | { type: "HONEYPOT_ATTACK"; payload: { trackerName: string; targetUrl: string; poisonedData: string; timestamp: number } }
