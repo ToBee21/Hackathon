@@ -10,6 +10,7 @@ export interface PrivacyState {
   aiDeepDiveRisk?: AiDeepDiveRiskResult | null;
   aiDeepDiveDetectionCount?: number;
   maxCamoActive?: boolean;
+  cookiesRotatedCount?: number;
 }
 
 export interface MouseJitterConfig {
@@ -123,7 +124,7 @@ export interface SetNoiseEnabledMessage {
 
 export interface ToggleModuleMessage {
   type: "TOGGLE_MODULE";
-  module: "dataGhost" | "mouseJitter" | "keystroke" | "honeypot";
+  module: "dataGhost" | "mouseJitter" | "keystroke" | "honeypot" | "cookieShredder";
   enabled: boolean;
 }
 
@@ -239,6 +240,7 @@ export interface PrivacyState {
   aiDeepDiveRisk?: AiDeepDiveRiskResult | null;
   aiDeepDiveDetectionCount?: number;
   maxCamoActive?: boolean;
+  cookiesRotatedCount?: number;
 }
 
 // --- Module D+: Honeypot Trap (Data Poisoning / Zatruwanie Profilera) ---

@@ -6,7 +6,12 @@
 import type { PrivacyState } from "../types"
 
 /** Identyfikatory funkcji, które użytkownik może włączać/wyłączać. */
-export type ModuleId = "dataGhost" | "mouseJitter" | "keystroke" | "honeypot"
+export type ModuleId =
+  | "dataGhost"
+  | "mouseJitter"
+  | "keystroke"
+  | "honeypot"
+  | "cookieShredder"
 
 /**
  * Źródło wpisu w loggerze (moduł funkcjonalny lub sam rdzeń systemu).
@@ -31,6 +36,7 @@ export interface ModuleToggleState {
   mouseJitter: boolean
   keystroke: boolean
   honeypot: boolean
+  cookieShredder: boolean
 }
 
 /**

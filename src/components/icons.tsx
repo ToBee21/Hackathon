@@ -180,6 +180,16 @@ export function Crosshair(props: IconProps) {
   )
 }
 
+/** Cookie Shredder — a cookie with crumbs (tracking cookie being mangled). */
+export function Cookie(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3a9 9 0 1 0 9 9 3.6 3.6 0 0 1-4-4 3.6 3.6 0 0 1-5-5z" />
+      <path d="M9 10v.02M14 9v.02M15 14v.02M10 15v.02" />
+    </Svg>
+  )
+}
+
 /** Local-only / encrypted footer mark. */
 export function Lock(props: IconProps) {
   return (

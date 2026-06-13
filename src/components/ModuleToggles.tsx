@@ -31,6 +31,11 @@ const MODULES: { id: ModuleId; title: string; desc: string }[] = [
     id: "honeypot",
     title: "Honeypot Trap",
     desc: "Zatruwa żądania trackerów sprzecznym profilem w locie"
+  },
+  {
+    id: "cookieShredder",
+    title: "Cookie Shredder",
+    desc: "Rotuje ID ciasteczek trackerów — co cykl wyglądasz jak nowy użytkownik"
   }
 ]
 

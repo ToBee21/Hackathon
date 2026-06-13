@@ -8,6 +8,7 @@
 //   "https://www.google.com/*"
 
 import { initHoneypotTrap } from "./shared/honeypot"
+import { initCookieShredder } from "./shared/cookieShredder"
 import { generateAlias, saveApiToken } from "./shared/emailAlias"
 import type {
   BackgroundInboundMessage,
@@ -23,6 +24,9 @@ import type { AiDeepDiveRiskResult } from "./shared/aiDeepDive/types"
 // Moduł D+: "The Honeypot Trap" — przechwytuje i zatruwa żądania trackerów.
 // Rejestruje własne reguły DNR oraz listenery wiadomości (idempotentnie).
 void initHoneypotTrap()
+
+// Moduł: "Cookie Shredder" — rotuje/zatruwa ciasteczka trackingowe.
+void initCookieShredder()
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -267,6 +271,7 @@ async function performPanicWipe(): Promise<{
   try {
     await chrome.storage.local.set({
       noiseGeneratedCount: 0,
+      cookiesRotatedCount: 0,
       [STORAGE_KEY_STATE]: {
         privacyScore: 0,
         trackersBlockedCount: 0,
@@ -274,7 +279,8 @@ async function performPanicWipe(): Promise<{
         activeAliasEmail: null,
         aiDeepDiveRisk: null,
         aiDeepDiveDetectionCount: 0,
-        maxCamoActive: false
+        maxCamoActive: false,
+        cookiesRotatedCount: 0
       }
     })
     clearedState = true
@@ -287,7 +293,8 @@ async function performPanicWipe(): Promise<{
         activeAliasEmail: null,
         aiDeepDiveRisk: null,
         aiDeepDiveDetectionCount: 0,
-        maxCamoActive: false
+        maxCamoActive: false,
+        cookiesRotatedCount: 0
       }
     })
   } catch {
@@ -641,9 +648,11 @@ chrome.runtime.onInstalled.addListener(async () => {
   await chrome.storage.local.set({
     noiseGeneratedCount: 0,
     isNoiseEnabled: true,
+    isCookieShredderEnabled: true,
     [STORAGE_KEY_STATE]: {
       ...(stored[STORAGE_KEY_STATE] as Record<string, unknown>),
       noiseGeneratedCount: 0,
+      cookiesRotatedCount: 0,
     },
   })
   applyBrowserPrivacyGuards()

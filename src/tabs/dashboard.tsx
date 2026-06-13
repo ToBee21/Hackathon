@@ -46,6 +46,7 @@ const DEFAULT_TOGGLES: ModuleToggleState = {
   mouseJitter: true,
   keystroke: true,
   honeypot: true,
+  cookieShredder: true,
 }
 
 const DEFAULT_STATE: PrivacyState = {
@@ -56,17 +57,22 @@ const DEFAULT_STATE: PrivacyState = {
   aiDeepDiveRisk: null,
   aiDeepDiveDetectionCount: 0,
   maxCamoActive: false,
+  cookiesRotatedCount: 0,
 }
 
 const ext: typeof chrome | undefined = (globalThis as any).chrome
 
 function computePrivacyScore(toggles: ModuleToggleState, state: PrivacyState): number {
   let score = 0
-  if (toggles.dataGhost) score += 15
-  if (toggles.honeypot) score += 15
-  if (toggles.mouseJitter) score += 10
-  if (toggles.keystroke) score += 10
-  const activity = state.noiseGeneratedCount * 2 + state.trackersBlockedCount * 3
+  if (toggles.dataGhost) score += 12
+  if (toggles.honeypot) score += 12
+  if (toggles.cookieShredder) score += 12
+  if (toggles.mouseJitter) score += 7
+  if (toggles.keystroke) score += 7
+  const activity =
+    state.noiseGeneratedCount * 2 +
+    state.trackersBlockedCount * 3 +
+    (state.cookiesRotatedCount ?? 0) * 2
   score += Math.min(50, activity)
   return Math.max(0, Math.min(100, score))
 }
@@ -203,7 +209,8 @@ export default function Dashboard() {
     addLog({ timestamp: Date.now(), source: "system", message: "PANIC: wyczyszczono sesje śledzące i dane lokalne" })
   }, [addLog])
 
-  const anyEnabled = toggles.dataGhost || toggles.mouseJitter || toggles.keystroke || toggles.honeypot
+  const anyEnabled =
+    toggles.dataGhost || toggles.mouseJitter || toggles.keystroke || toggles.honeypot || toggles.cookieShredder
   const tier = deriveTier(anyEnabled, score)
 
   const rootStyle = {

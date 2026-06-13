@@ -50,7 +50,8 @@ const DEFAULT_TOGGLES: ModuleToggleState = {
   dataGhost: true,
   mouseJitter: true,
   keystroke: true,
-  honeypot: true
+  honeypot: true,
+  cookieShredder: true
 }
 
 const DEFAULT_STATE: PrivacyState = {
@@ -60,7 +61,8 @@ const DEFAULT_STATE: PrivacyState = {
   activeAliasEmail: null,
   aiDeepDiveRisk: null,
   aiDeepDiveDetectionCount: 0,
-  maxCamoActive: false
+  maxCamoActive: false,
+  cookiesRotatedCount: 0
 }
 
 const ext: typeof chrome | undefined = (globalThis as any).chrome
@@ -70,13 +72,16 @@ function computePrivacyScore(
   state: PrivacyState
 ): number {
   let score = 0
-  if (toggles.dataGhost) score += 15
-  if (toggles.honeypot) score += 15
-  if (toggles.mouseJitter) score += 10
-  if (toggles.keystroke) score += 10
+  if (toggles.dataGhost) score += 12
+  if (toggles.honeypot) score += 12
+  if (toggles.cookieShredder) score += 12
+  if (toggles.mouseJitter) score += 7
+  if (toggles.keystroke) score += 7
 
   const activity =
-    state.noiseGeneratedCount * 2 + state.trackersBlockedCount * 3
+    state.noiseGeneratedCount * 2 +
+    state.trackersBlockedCount * 3 +
+    (state.cookiesRotatedCount ?? 0) * 2
   score += Math.min(50, activity)
 
   return Math.max(0, Math.min(100, score))
@@ -319,7 +324,8 @@ export default function Popup() {
     toggles.dataGhost ||
     toggles.mouseJitter ||
     toggles.keystroke ||
-    toggles.honeypot
+    toggles.honeypot ||
+    toggles.cookieShredder
   const tier = deriveTier(anyEnabled, score)
 
   const rootStyle = {
