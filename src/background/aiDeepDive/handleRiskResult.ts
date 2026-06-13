@@ -135,7 +135,15 @@ function maybeLogDetection(
 
 function safeOrigin(value: string): string {
   try {
-    return new URL(value).origin
+    const parsed = new URL(value)
+    if (parsed.origin !== "null") return parsed.origin
+    if (parsed.protocol === "file:") return "file://local"
+    if (parsed.protocol === "about:") {
+      return `about://${parsed.hostname || parsed.pathname || "blank"}`
+    }
+
+    const host = parsed.hostname || parsed.pathname.split("/").find(Boolean)
+    return host ? `${parsed.protocol}//${host}` : "unknown-origin"
   } catch {
     return "unknown-origin"
   }

@@ -22,14 +22,19 @@ export default function AiDeepDiveCard({
 }) {
   const active = risk && risk.level !== "low"
   const serious = risk?.level === "high" || risk?.level === "critical"
+  const scanUnavailable = risk?.evidenceTags.includes("dom_scan_unavailable")
   const meta = risk ? LEVEL_META[risk.level] : LEVEL_META.low
   const categories =
-    risk?.categories
-      .slice(0, 3)
-      .map((entry) => AI_DEEP_DIVE_CATEGORY_LABELS[entry.category])
-      .join(", ") || (risk ? "brak wrażliwych kategorii" : "brak raportu")
+    scanUnavailable
+      ? "DOM niedostępny, zapisano fallback bez raw URL"
+      : risk?.categories
+          .slice(0, 3)
+          .map((entry) => AI_DEEP_DIVE_CATEGORY_LABELS[entry.category])
+          .join(", ") || (risk ? "brak wrażliwych kategorii" : "brak raportu")
   const statusText = !risk
     ? "Czekam na raport tej strony"
+    : scanUnavailable
+      ? "Raport strony: Chrome blokuje skan DOM tutaj"
     : serious
       ? "Ta treść jest wysoko profilowalna przez AI/trackerów"
       : risk.level === "medium"

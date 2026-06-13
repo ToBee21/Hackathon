@@ -14,6 +14,7 @@ import type {
   DataGhostStatus,
 } from "./types"
 import { handleAiDeepDiveRiskResult } from "./background/aiDeepDive/handleRiskResult"
+import { registerAiDeepDiveTabCoverage } from "./background/aiDeepDive/tabCoverage"
 
 // Moduł D+: "The Honeypot Trap" — przechwytuje i zatruwa żądania trackerów.
 // Rejestruje własne reguły DNR oraz listenery wiadomości (idempotentnie).
@@ -484,6 +485,16 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_NAME) {
     injectNoise()
   }
+})
+
+registerAiDeepDiveTabCoverage({
+  tabs: chrome.tabs,
+  recordResult: (result) =>
+    handleAiDeepDiveRiskResult(result, {
+      storage: chrome.storage.local,
+      sendRuntimeMessage,
+      injectNoise
+    })
 })
 
 // ---------------------------------------------------------------------------

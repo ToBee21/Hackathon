@@ -42,6 +42,7 @@
       "browsingData",
       "cookies",
       "alarms",
+      "tabs",
       "scripting",
       "privacy",
       "declarativeNetRequest",

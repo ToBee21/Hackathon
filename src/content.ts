@@ -15,7 +15,7 @@ import type {
 } from "./types"
 
 export const config: PlasmoCSConfig = {
-  matches: ["http://*/*", "https://*/*"],
+  matches: ["<all_urls>"],
   run_at: "document_start",
   all_frames: true
 }
