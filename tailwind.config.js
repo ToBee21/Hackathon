@@ -3,7 +3,7 @@
  * @type {import('tailwindcss').Config}
  */
 module.exports = {
-  content: ["./src/**/*.{ts,tsx,html}"],
+  content: ["./src/**/*.{ts,tsx,html,js,jsx}"],
   darkMode: "class",
   theme: {
     extend: {
