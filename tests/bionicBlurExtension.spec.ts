@@ -114,6 +114,13 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
           { timeout: 7000 }
         )
         .toBeGreaterThanOrEqual(3)
+      await expect
+        .poll(
+          async () =>
+            Number(await page.locator("#key-count").evaluate((node) => node.textContent ?? "0")),
+          { timeout: 7000 }
+        )
+        .toBeGreaterThanOrEqual(3)
       await mkdir(path.dirname(PROOF_SCREENSHOT), { recursive: true })
       await page.screenshot({ path: PROOF_SCREENSHOT, fullPage: true })
     } catch (error) {

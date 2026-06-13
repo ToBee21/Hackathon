@@ -274,7 +274,8 @@
         inputOk: false,
         apiRuns: 0,
         cycle: 0,
-        lastSignal: "boot"
+        lastSignal: "boot",
+        keyboardProbeAttached: false
       }
 
       const logEl = document.getElementById("log")
@@ -371,6 +372,17 @@
         element.addEventListener("keydown", () => updateScore())
       }
 
+      function attachKeyboardProofListeners() {
+        if (state.keyboardProbeAttached) return
+        if (!window.__cloakDaggerBionicBlurInstalled) return
+        state.keyboardProbeAttached = true
+        for (const target of [window, document, input, textarea, editable]) {
+          target.addEventListener("keydown", () => updateScore(), true)
+          target.addEventListener("input", () => updateScore(), true)
+        }
+        log("keyboard-proof-listeners-attached")
+      }
+
       async function runApiProbes(source = "manual") {
         state.apiRuns += 1
         const canvas = document.createElement("canvas")
@@ -414,7 +426,19 @@
         element.dispatchEvent(new InputEvent("input", { bubbles: true }))
       }
 
+      function dispatchKeyboardSignal(element) {
+        element.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            cancelable: true,
+            key: "Proof",
+            code: "KeyP"
+          })
+        )
+      }
+
       async function runLiveProofCycle() {
+        attachKeyboardProofListeners()
         state.cycle += 1
         document.body.dataset.proofPulse = "on"
         input.value = `alias-${state.cycle}@cloak.test`
@@ -422,6 +446,7 @@
         editable.textContent = `contenteditable cycle ${state.cycle}`
         for (const element of [input, textarea, editable]) {
           dispatchInputSignal(element)
+          dispatchKeyboardSignal(element)
         }
         await runApiProbes("auto-loop")
         log("proof-cycle", {
