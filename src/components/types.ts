@@ -6,7 +6,7 @@
 import type { PrivacyState } from "../types"
 
 /** Identyfikatory funkcji, które użytkownik może włączać/wyłączać. */
-export type ModuleId = "dataGhost" | "mouseJitter" | "keystroke"
+export type ModuleId = "dataGhost" | "mouseJitter" | "keystroke" | "honeypot"
 
 /**
  * Źródło wpisu w loggerze (moduł funkcjonalny lub sam rdzeń systemu).
@@ -30,6 +30,7 @@ export interface ModuleToggleState {
   dataGhost: boolean
   mouseJitter: boolean
   keystroke: boolean
+  honeypot: boolean
 }
 
 /**
@@ -43,5 +44,6 @@ export type RuntimeMessage =
   | { type: "LOG_EVENT"; entry: Omit<LogEntry, "id"> }
   | { type: "STATE_UPDATE"; state: Partial<PrivacyState> }
   | { type: "TOGGLE_MODULE"; module: ModuleId; enabled: boolean }
+  | { type: "TRIGGER_HONEYPOT_TEST" }
   | { type: "PANIC_BUTTON" }
   | { type: "REQUEST_STATE" }

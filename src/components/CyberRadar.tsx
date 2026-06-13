@@ -590,7 +590,7 @@ const CyberRadar: FC<CyberRadarProps> = ({
               letterSpacing: "0.04em",
             }}
           >
-            🔴 {hovered}
+            {hovered}
           </span>
         </div>
       )}

@@ -18,7 +18,7 @@ import {
 
 import AiDeepDiveCard from "./components/AiDeepDiveCard"
 import CyberRadar from "./components/CyberRadar"
-import { Logo, Lock, Mail, ShieldCheck, ShieldOff } from "./components/icons"
+import { Crosshair, Logo, Lock, Mail, ShieldCheck, ShieldOff } from "./components/icons"
 import LoggerView from "./components/LoggerView"
 import ModuleToggles from "./components/ModuleToggles"
 import PanicButton from "./components/PanicButton"
@@ -50,7 +50,8 @@ const LOG_COLLAPSE_WINDOW_MS = 8000
 const DEFAULT_TOGGLES: ModuleToggleState = {
   dataGhost: true,
   mouseJitter: true,
-  keystroke: true
+  keystroke: true,
+  honeypot: true
 }
 
 const DEFAULT_STATE: PrivacyState = {
@@ -75,9 +76,10 @@ function computePrivacyScore(
   state: PrivacyState
 ): number {
   let score = 0
-  if (toggles.dataGhost) score += 20
-  if (toggles.mouseJitter) score += 15
-  if (toggles.keystroke) score += 15
+  if (toggles.dataGhost) score += 15
+  if (toggles.honeypot) score += 15
+  if (toggles.mouseJitter) score += 10
+  if (toggles.keystroke) score += 10
 
   const activity =
     state.noiseGeneratedCount * 2 + state.trackersBlockedCount * 3
@@ -172,7 +174,12 @@ export default function Popup() {
         case "STATE_UPDATE":
           setState((prev) => ({ ...prev, ...message.state }))
           if (message.state.maxCamoActive) {
-            setToggles({ dataGhost: true, mouseJitter: true, keystroke: true })
+            setToggles((prev) => ({
+              ...prev,
+              dataGhost: true,
+              mouseJitter: true,
+              keystroke: true
+            }))
           }
           break
       }
@@ -261,6 +268,20 @@ export default function Popup() {
     [addLog, aiDeepDiveConfig]
   )
 
+  // Demo: ręcznie wystrzel wabik do trackera, by jury zobaczyło pełny przepływ
+  // przechwycenie → zatrucie → log. Realny log "TRAP" przyjdzie z backgroundu.
+  const handleHoneypotTest = useCallback(() => {
+    ext?.runtime?.sendMessage({
+      type: "TRIGGER_HONEYPOT_TEST"
+    } as RuntimeMessage)
+
+    addLog({
+      timestamp: Date.now(),
+      source: "honeypot",
+      message: "Wysłano wabik do Google Analytics — czekam na zatrucie…"
+    })
+  }, [addLog])
+
   const handlePanic = useCallback(() => {
     // Logika głębokiego czyszczenia należy do Modułu D — wywołujemy ją
     // przez magistralę wiadomości, by nie wiązać się z jego implementacją.
@@ -275,7 +296,11 @@ export default function Popup() {
     })
   }, [addLog])
 
-  const anyEnabled = toggles.dataGhost || toggles.mouseJitter || toggles.keystroke
+  const anyEnabled =
+    toggles.dataGhost ||
+    toggles.mouseJitter ||
+    toggles.keystroke ||
+    toggles.honeypot
   const tier = deriveTier(anyEnabled, score)
 
   // Ambient orb tint follows the armed/standby system state. The `unknown`
@@ -369,8 +394,20 @@ export default function Popup() {
         </div>
 
         {/* Przełączniki modułów */}
-        <div style={v(5)}>
+        <div style={v(5)} className="flex flex-col gap-2">
           <ModuleToggles toggles={toggles} onToggle={handleToggle} />
+
+          {/* Demo: ręczny wabik dla Honeypota — widoczny tylko gdy moduł zbrojny */}
+          {toggles.honeypot && (
+            <button
+              type="button"
+              onClick={handleHoneypotTest}
+              className="flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2 text-[11px] font-medium transition-colors duration-base hover:bg-white/[0.03]"
+              style={{ borderColor: "#FF5C7A55", color: "#FF5C7A" }}>
+              <Crosshair size={13} />
+              Testuj Honeypot · wyślij wabik do trackera
+            </button>
+          )}
         </div>
 
         {/* Telemetria na żywo */}
