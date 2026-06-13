@@ -1,4 +1,9 @@
 import { AI_DEEP_DIVE_CATEGORY_LABELS } from "../shared/aiDeepDive/categories"
+import {
+  AI_DEEP_DIVE_MODELS,
+  DEFAULT_AI_DEEP_DIVE_MODEL_ID,
+  getModelOption
+} from "../shared/aiDeepDive/models"
 import type { AiDeepDiveRiskResult } from "../shared/aiDeepDive/types"
 import { ShieldAlert } from "./icons"
 
@@ -9,17 +14,28 @@ const LEVEL_META = {
   critical: { label: "CRITICAL", color: "#FF5C77" }
 } as const
 
+function modelModeLabel(mode: string | undefined): string {
+  if (mode === "heuristic+llm-json") return "lokalny LLM"
+  if (mode === "heuristic+nli") return "lokalny NLI"
+  return "heurystyka lokalna"
+}
+
 export default function AiDeepDiveCard({
   risk,
   maxCamoActive,
   aiModeEnabled,
-  onToggleAiMode
+  onToggleAiMode,
+  selectedModelId = DEFAULT_AI_DEEP_DIVE_MODEL_ID,
+  onSelectModel
 }: {
   risk: AiDeepDiveRiskResult | null | undefined
   maxCamoActive?: boolean
   aiModeEnabled: boolean
   onToggleAiMode: (enabled: boolean) => void
+  selectedModelId?: string
+  onSelectModel?: (modelId: string) => void
 }) {
+  const selectedModel = getModelOption(selectedModelId)
   const active = risk && risk.level !== "low"
   const serious = risk?.level === "high" || risk?.level === "critical"
   const scanUnavailable = risk?.evidenceTags.includes("dom_scan_unavailable")
@@ -75,7 +91,7 @@ export default function AiDeepDiveCard({
         <div className="min-w-0">
           <p className="truncate text-[11px] text-fg-mid">{categories}</p>
           <p className="mt-0.5 text-[10px] text-fg-low">
-            rawTextRetained: false · {risk?.model?.mode ?? "heuristic"}
+            Tryb: {modelModeLabel(risk?.model?.mode)} · bez zapisu treści strony
           </p>
         </div>
         <div className="text-right">
@@ -94,16 +110,17 @@ export default function AiDeepDiveCard({
 
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-2.5">
         <div className="min-w-0">
-          <p className="text-[10px] font-medium text-fg-mid">Local HF/NLI</p>
+          <p className="text-[10px] font-medium text-fg-mid">Lokalny model</p>
           <p className="truncate text-[9px] text-fg-low">
-            Xenova/nli-deberta-v3-small · feature flag
+            {selectedModel.modelId} · ~{selectedModel.approxDownloadMb} MB ·{" "}
+            {selectedModel.license}
           </p>
         </div>
         <button
           type="button"
           role="switch"
           aria-checked={aiModeEnabled}
-          aria-label="Przełącz lokalny klasyfikator HF NLI"
+          aria-label="Przełącz lokalny klasyfikator AI Deep-Dive"
           onClick={() => onToggleAiMode(!aiModeEnabled)}
           className="relative h-[22px] w-10 shrink-0 rounded-full transition-colors duration-base ease-standard"
           style={{
@@ -121,6 +138,28 @@ export default function AiDeepDiveCard({
           />
         </button>
       </div>
+
+      <label className="mt-2 flex flex-col gap-1">
+        <span className="text-[9px] uppercase tracking-[0.14em] text-fg-low">
+          Silnik klasyfikacji
+        </span>
+        <select
+          value={selectedModelId}
+          disabled={!aiModeEnabled || !onSelectModel}
+          aria-label="Wybierz lokalny model AI Deep-Dive"
+          onChange={(event) => onSelectModel?.(event.target.value)}
+          className="w-full rounded-lg bg-white/[0.04] px-2 py-1.5 text-[11px] text-fg-hi outline-none ring-1 ring-inset ring-line-strong transition-colors focus:ring-accent disabled:opacity-40"
+          style={{ colorScheme: "dark" }}>
+          {AI_DEEP_DIVE_MODELS.map((model) => (
+            <option key={model.id} value={model.id}>
+              {model.label} · ~{model.approxDownloadMb} MB
+            </option>
+          ))}
+        </select>
+        {selectedModel.note && (
+          <span className="text-[9px] text-fg-low">{selectedModel.note}</span>
+        )}
+      </label>
     </div>
   )
 }

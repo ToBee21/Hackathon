@@ -47,15 +47,23 @@
       "scripting",
       "privacy",
       "declarativeNetRequest",
-      "declarativeNetRequestFeedback"
+      "declarativeNetRequestFeedback",
+      "sidePanel",
+      "contextMenus",
+      "offscreen"
     ],
     "host_permissions": [
       "<all_urls>"
     ],
+    "content_security_policy": {
+      "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+    },
     "web_accessible_resources": [
       {
         "resources": [
-          "assets/onnxruntime/*"
+          "assets/onnxruntime/*",
+          "assets/offscreen/*",
+          "assets/vendor/*"
         ],
         "matches": [
           "http://*/*",

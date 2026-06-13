@@ -1,4 +1,3 @@
-import { AI_DEEP_DIVE_CATEGORY_LABELS } from "../../shared/aiDeepDive/categories"
 import type { AiDeepDiveRiskResult } from "../../shared/aiDeepDive/types"
 
 const HOST_ID = "cloak-dagger-ai-deep-dive-alert"
@@ -12,61 +11,68 @@ export function showAiDeepDiveToast(result: AiDeepDiveRiskResult): void {
   const host = document.createElement("div")
   host.id = HOST_ID
   const shadow = host.attachShadow({ mode: "closed" })
-  const categories = result.categories
-    .slice(0, 2)
-    .map((entry) => AI_DEEP_DIVE_CATEGORY_LABELS[entry.category])
-    .join(", ")
+  const severity = result.level === "critical" ? "krytyczne" : "wysokie"
 
   shadow.innerHTML = `
     <style>
       :host { all: initial; }
       .wrap {
         position: fixed;
-        top: 18px;
-        right: 18px;
+        top: 14px;
+        right: 14px;
         z-index: 2147483647;
-        width: min(360px, calc(100vw - 36px));
+        width: min(230px, calc(100vw - 28px));
         box-sizing: border-box;
-        border: 1px solid rgba(255, 85, 105, 0.55);
-        border-radius: 12px;
-        background: rgba(20, 8, 12, 0.96);
-        box-shadow: 0 18px 48px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.06) inset;
+        border: 1px solid rgba(255, 92, 119, 0.42);
+        border-radius: 10px;
+        background: rgba(14, 17, 22, 0.94);
+        box-shadow: 0 12px 34px rgba(0,0,0,0.34), 0 0 0 1px rgba(255,255,255,0.05) inset;
         color: #fff5f6;
-        font: 13px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        padding: 14px;
+        font: 12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        padding: 9px 34px 9px 10px;
+        animation: cnd-in 120ms ease-out;
       }
-      .top { display: flex; gap: 10px; align-items: flex-start; }
+      @keyframes cnd-in {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .top { display: flex; gap: 8px; align-items: center; }
       .dot {
-        width: 10px;
-        height: 10px;
-        margin-top: 5px;
+        width: 8px;
+        height: 8px;
         border-radius: 999px;
         background: #ff4564;
-        box-shadow: 0 0 18px rgba(255, 69, 100, 0.9);
+        box-shadow: 0 0 14px rgba(255, 69, 100, 0.75);
         flex: 0 0 auto;
       }
       .title {
         margin: 0;
-        color: #ff8ea0;
+        color: #E6EDF3;
         font-weight: 750;
         letter-spacing: 0;
-        font-size: 13px;
+        font-size: 12px;
       }
-      .body { margin: 4px 0 0; color: rgba(255,245,246,0.86); }
-      .meta { margin: 8px 0 0; color: rgba(255,245,246,0.62); font-size: 11px; }
+      .meta {
+        margin: 2px 0 0;
+        color: rgba(255,245,246,0.62);
+        font-size: 10px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       button {
         position: absolute;
-        top: 8px;
-        right: 8px;
+        top: 6px;
+        right: 6px;
         border: 0;
-        border-radius: 8px;
+        border-radius: 7px;
         background: rgba(255,255,255,0.08);
         color: rgba(255,255,255,0.78);
         cursor: pointer;
-        width: 26px;
-        height: 26px;
-        line-height: 26px;
-        font-size: 16px;
+        width: 22px;
+        height: 22px;
+        line-height: 22px;
+        font-size: 14px;
       }
     </style>
     <div class="wrap" role="status" aria-live="polite">
@@ -74,18 +80,19 @@ export function showAiDeepDiveToast(result: AiDeepDiveRiskResult): void {
       <div class="top">
         <span class="dot"></span>
         <div>
-          <p class="title">AI Deep-Dive Risk: ${escapeHtml(result.level)}</p>
-          <p class="body">
-            Ta treść jest wysoko profilowalna przez AI/trackerów.
-            ${categories ? `Wrażliwe sygnały: <strong>${escapeHtml(categories)}</strong>.` : ""}
-          </p>
-          <p class="meta">Aktywowano maksymalny kamuflaż behawioralny.</p>
+          <p class="title">Max Camo aktywny</p>
+          <p class="meta">Ryzyko: ${escapeHtml(severity)}</p>
         </div>
       </div>
     </div>
   `
 
-  shadow.querySelector("button")?.addEventListener("click", () => host.remove())
+  const remove = () => host.remove()
+  const timer = window.setTimeout(remove, 6500)
+  shadow.querySelector("button")?.addEventListener("click", () => {
+    window.clearTimeout(timer)
+    remove()
+  })
   document.documentElement.appendChild(host)
 }
 

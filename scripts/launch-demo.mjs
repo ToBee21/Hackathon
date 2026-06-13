@@ -9,7 +9,6 @@ import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
 import { access, appendFile, mkdir, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
 import { spawn } from "node:child_process"
 
 const require = createRequire(import.meta.url)
@@ -19,6 +18,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const EXT = join(ROOT, "build", "chrome-mv3-prod")
 const LOG = join(ROOT, "build", "demo-launch.log")
 const PORT = 9333
+const DEMO_PROFILE =
+  process.env.CND_DEMO_PROFILE || join(ROOT, "build", "llm-demo-profile")
 
 // Edge first — recent Chrome silently ignores --load-extension.
 const BROWSER_CANDIDATES = [
@@ -76,9 +77,10 @@ async function main() {
   })
 
   const exe = await resolveBrowser()
-  const userDataDir = join(tmpdir(), "cnd-demo-profile")
+  const userDataDir = DEMO_PROFILE
   await log(`Browser: ${exe}`)
   await log(`Extension: ${EXT}`)
+  await log(`Profile: ${userDataDir}`)
 
   const args = [
     `--remote-debugging-port=${PORT}`,

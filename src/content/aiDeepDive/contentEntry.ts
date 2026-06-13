@@ -4,10 +4,8 @@ import {
   STORAGE_KEY_AI_DEEP_DIVE_CONFIG,
   normalizeAiDeepDiveConfig
 } from "../../shared/aiDeepDive/config"
-import {
-  classifyWithLocalNli,
-  shouldRunLocalNli
-} from "../../shared/aiDeepDive/localNli"
+import { shouldRunModel } from "../../shared/aiDeepDive/gate"
+import { requestDeepScan } from "../deepScanClient"
 import {
   shouldSendAiDeepDiveReport,
   shouldShowAiDeepDiveNotification
@@ -39,10 +37,11 @@ async function runAiDeepDiveScan(
     const input = extractVisibleTextFromPage()
     const heuristic = classifyHeuristic(input)
     const config = await loadAiDeepDiveConfig()
-    const result =
-      shouldRunLocalNli(heuristic, config)
-        ? await classifyWithLocalNli(input, heuristic, config).catch(() => heuristic)
-        : heuristic
+    let result = heuristic
+    if (shouldRunModel(heuristic, config)) {
+      const deep = await requestDeepScan(input, config, crypto.randomUUID())
+      if (deep.result) result = deep.result
+    }
 
     if (!shouldSendAiDeepDiveReport(result)) return
     if (!shouldEmit(result)) return

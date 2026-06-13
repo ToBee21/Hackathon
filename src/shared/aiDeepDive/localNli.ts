@@ -31,7 +31,12 @@ type TransformersRuntime = TransformersModule & {
     backends?: {
       onnx?: {
         wasm?: {
-          wasmPaths?: OnnxWasmPaths
+          // String = directory prefix ORT appends the wasm filename to. This is
+          // what onnxruntime-web actually expects; an {mjs,wasm} object is not a
+          // valid wasmPaths value and leaves backends unresolved.
+          wasmPaths?: OnnxWasmPaths | string
+          numThreads?: number
+          proxy?: boolean
         }
       }
     }
@@ -77,6 +82,15 @@ export function getPackagedOnnxWasmPaths(
     mjs: resolveUrl(PACKAGED_ONNX_WASM_ASSET_PATHS.mjs),
     wasm: resolveUrl(PACKAGED_ONNX_WASM_ASSET_PATHS.wasm)
   }
+}
+
+// onnxruntime-web wants a DIRECTORY prefix (trailing slash) and appends whichever
+// ort-wasm-*.{mjs,wasm} file the chosen backend needs. The full file set is
+// vendored under assets/onnxruntime/.
+export function getPackagedOnnxWasmDir(
+  resolveUrl: RuntimeUrlResolver = resolveExtensionAssetUrl
+): string {
+  return resolveUrl("assets/onnxruntime/")
 }
 
 export async function classifyWithLocalNli(
@@ -172,26 +186,29 @@ async function loadLocalNliClassifier(): Promise<ZeroShotClassifier> {
   const transformers = (await import("@huggingface/transformers")) as TransformersModule
   configureTransformersRuntime(transformers)
 
-  const nav = navigator as Navigator & { gpu?: unknown }
+  // Force the WASM backend: it needs no cross-origin isolation / SharedArrayBuffer
+  // and runs reliably inside the offscreen document. (WebGPU can be re-enabled
+  // once its jsep path is verified on the target browsers.)
   const classifier = await transformers.pipeline(
     "zero-shot-classification",
     AI_DEEP_DIVE_NLI_MODEL_ID,
     {
-      device: nav.gpu ? "webgpu" : "wasm",
-      dtype: nav.gpu ? "fp16" : "q4"
+      device: "wasm",
+      dtype: "q4"
     }
   )
 
   return classifier as unknown as ZeroShotClassifier
 }
 
-function configureTransformersRuntime(transformers: TransformersModule): void {
+export function configureTransformersRuntime(transformers: TransformersModule): void {
   const runtime = transformers as TransformersRuntime
   const env = runtime.env
   const onnxWasm = env?.backends?.onnx?.wasm
   if (!env || !onnxWasm) return
 
-  onnxWasm.wasmPaths = getPackagedOnnxWasmPaths()
+  onnxWasm.wasmPaths = getPackagedOnnxWasmDir()
+  onnxWasm.numThreads = 1
   env.useWasmCache = true
   env.allowRemoteModels = true
 
@@ -221,7 +238,7 @@ function pickDenseBodyChunk(body: string): string {
     .join("\n")
 }
 
-function mergeCategories(
+export function mergeCategories(
   heuristic: AiDeepDiveCategoryScore[],
   nli: AiDeepDiveCategoryScore[]
 ): AiDeepDiveCategoryScore[] {
@@ -245,7 +262,7 @@ function mergeCategories(
   return Array.from(byCategory.values()).sort((a, b) => b.score - a.score).slice(0, 5)
 }
 
-function levelForScore(score: number): AiDeepDiveRiskLevel {
+export function levelForScore(score: number): AiDeepDiveRiskLevel {
   if (score >= 80) return "critical"
   if (score >= 55) return "high"
   if (score >= 25) return "medium"

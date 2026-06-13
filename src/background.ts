@@ -641,7 +641,337 @@ chrome.runtime.onMessage.addListener(
 // Initialisation on install / browser startup
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Contextual floating layer: side panel + context menu wiring
+// ---------------------------------------------------------------------------
+
+const STORAGE_KEY_LAST_ANALYSIS = "cnd:last-analysis"
+const STORAGE_KEY_OFFSCREEN_LOGS = "cnd:offscreen-logs"
+const MAX_OFFSCREEN_LOGS = 200
+const activeDeepScanTabs = new Map<string, number>()
+const MINUTE_MS = 60 * 1000
+
+function setupContextualSurfaces(): void {
+  try {
+    // We keep the popup as the action target; the side panel opens via context
+    // menu (a real user gesture) and via explicit messages from popup/floating.
+    chrome.sidePanel
+      ?.setOptions?.({ path: "sidepanel.html", enabled: true })
+      ?.catch?.(() => undefined)
+  } catch {
+    // sidePanel API unavailable (older/other browser) — degrade gracefully.
+  }
+  try {
+    chrome.contextMenus?.removeAll?.(() => {
+      chrome.contextMenus?.create?.({
+        id: "cnd-open-side-panel",
+        title: "Cloak & Dagger: otwórz Side Panel",
+        contexts: ["all"]
+      })
+    })
+  } catch {
+    // contextMenus unavailable — non-fatal.
+  }
+}
+
+chrome.contextMenus?.onClicked?.addListener((info, tab) => {
+  if (info.menuItemId !== "cnd-open-side-panel") return
+  openSidePanel(tab?.id, tab?.windowId)
+})
+
+function openSidePanel(tabId?: number, windowId?: number): void {
+  // chrome.sidePanel.open() must run in response to a user gesture. The context
+  // menu click and popup button click both qualify; the in-page bubble may not
+  // in all browsers — that limitation is documented, not faked.
+  try {
+    const opener = chrome.sidePanel?.open as
+      | ((opts: { tabId?: number; windowId?: number }) => Promise<void>)
+      | undefined
+    if (!opener) return
+    if (typeof tabId === "number") {
+      opener({ tabId }).catch(() => {
+        if (typeof windowId === "number") opener({ windowId }).catch(() => undefined)
+      })
+    } else if (typeof windowId === "number") {
+      opener({ windowId }).catch(() => undefined)
+    }
+  } catch {
+    // Open failed (no gesture / unsupported) — caller surface stays usable.
+  }
+}
+
+// Ensure the single offscreen inference document exists. Heavy model work runs
+// in a raw static extension page, outside Parcel's dynamic import shim. Parcel
+// cannot load onnxruntime-web's runtime WASM module URLs reliably.
+let offscreenSetup: Promise<boolean> | null = null
+const OFFSCREEN_DOCUMENT_PATH = "assets/offscreen/offscreen.html"
+const OFFSCREEN_INFERENCE_TIMEOUTS_MS: Record<string, number> = {
+  "nli-deberta-small": 4 * MINUTE_MS,
+  "granite-350m": 15 * MINUTE_MS,
+  "gemma-4-e2b": 45 * MINUTE_MS
+}
+
+async function ensureOffscreen(): Promise<boolean> {
+  const offscreen = chrome.offscreen as
+    | {
+        hasDocument?: () => Promise<boolean>
+        closeDocument?: () => Promise<void>
+        createDocument?: (opts: {
+          url: string
+          reasons: string[]
+          justification: string
+        }) => Promise<void>
+      }
+    | undefined
+  if (!offscreen?.createDocument) return false
+  try {
+    if (await hasCurrentOffscreenDocument(offscreen)) return true
+    if (!offscreenSetup) {
+      offscreenSetup = offscreen
+        .createDocument({
+          url: OFFSCREEN_DOCUMENT_PATH,
+          reasons: ["WORKERS"],
+          justification:
+            "Local AI risk classification (Transformers.js) off the page and service worker."
+        })
+        .then(() => true)
+        .catch(() => false)
+        .finally(() => {
+          offscreenSetup = null
+        })
+    }
+    return await offscreenSetup
+  } catch {
+    return false
+  }
+}
+
+async function hasCurrentOffscreenDocument(offscreen: {
+  hasDocument?: () => Promise<boolean>
+  closeDocument?: () => Promise<void>
+}): Promise<boolean> {
+  if (!(await offscreen.hasDocument?.())) return false
+
+  const runtimeWithContexts = chrome.runtime as typeof chrome.runtime & {
+    getContexts?: (query: {
+      contextTypes?: string[]
+    }) => Promise<Array<{ contextType?: string; documentUrl?: string }>>
+  }
+  const expectedUrl = chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH)
+
+  try {
+    const contexts = await runtimeWithContexts.getContexts?.({
+      contextTypes: ["OFFSCREEN_DOCUMENT"]
+    })
+    const documentUrl = contexts?.find(
+      (context) => context.contextType === "OFFSCREEN_DOCUMENT"
+    )?.documentUrl
+    if (!documentUrl || documentUrl === expectedUrl) return true
+
+    await offscreen.closeDocument?.()
+    return false
+  } catch {
+    // Older Chrome builds may not expose getContexts. In that case, the bool is
+    // the best signal available and avoids repeatedly recreating the document.
+    return true
+  }
+}
+
+// Send the inference request to the offscreen document, retrying while its
+// message listener is still registering. createDocument() resolves before the
+// offscreen page's bundle finishes loading, so the first send can hit "no
+// receiver" ("message port closed before a response") — that's a readiness race,
+// not a real failure. Once a real inference starts, the await simply waits for it.
+async function inferInOffscreen(
+  input: unknown,
+  config: unknown,
+  requestId: string
+): Promise<{ ok: boolean; result?: unknown; error?: string }> {
+  const attempts = 8
+  const inferenceTimeoutMs = getOffscreenInferenceTimeoutMs(config)
+  let lastErr = "offscreen did not respond"
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await sendOffscreenInferWithTimeout(
+        input,
+        config,
+        requestId,
+        inferenceTimeoutMs
+      )
+      if (res) return res
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err)
+      // Offscreen listener not ready yet — wait and retry.
+    }
+    await new Promise((r) => setTimeout(r, 700))
+  }
+  return { ok: false, error: lastErr }
+}
+
+function sendOffscreenInferWithTimeout(
+  input: unknown,
+  config: unknown,
+  requestId: string,
+  timeoutMs: number
+): Promise<{ ok: boolean; result?: unknown; error?: string } | undefined> {
+  return Promise.race([
+    chrome.runtime.sendMessage({
+      type: "CND_OFFSCREEN_INFER",
+      requestId,
+      input,
+      config
+    }) as Promise<{ ok: boolean; result?: unknown; error?: string } | undefined>,
+    new Promise<{ ok: false; error: string }>((resolve) => {
+      setTimeout(
+        () =>
+          resolve({
+            ok: false,
+            error: `model inference timed out after ${Math.round(timeoutMs / 1000)}s`
+          }),
+        timeoutMs
+      )
+    })
+  ])
+}
+
+function getOffscreenInferenceTimeoutMs(config: unknown): number {
+  const selectedModelId =
+    typeof config === "object" && config !== null
+      ? (config as { selectedModelId?: unknown }).selectedModelId
+      : undefined
+  if (
+    typeof selectedModelId === "string" &&
+    selectedModelId in OFFSCREEN_INFERENCE_TIMEOUTS_MS
+  ) {
+    return OFFSCREEN_INFERENCE_TIMEOUTS_MS[selectedModelId]
+  }
+  return OFFSCREEN_INFERENCE_TIMEOUTS_MS["nli-deberta-small"]
+}
+
+async function recordOffscreenLog(entry: unknown): Promise<void> {
+  const normalized = normalizeOffscreenLog(entry)
+  const stored = await chrome.storage.local.get({ [STORAGE_KEY_OFFSCREEN_LOGS]: [] })
+  const logs = Array.isArray(stored[STORAGE_KEY_OFFSCREEN_LOGS])
+    ? (stored[STORAGE_KEY_OFFSCREEN_LOGS] as unknown[])
+    : []
+  logs.push(normalized)
+  await chrome.storage.local.set({
+    [STORAGE_KEY_OFFSCREEN_LOGS]: logs.slice(-MAX_OFFSCREEN_LOGS)
+  })
+  broadcastDeepScanStatus(normalized)
+}
+
+function normalizeOffscreenLog(entry: unknown): Record<string, unknown> {
+  const record =
+    typeof entry === "object" && entry !== null
+      ? (entry as Record<string, unknown>)
+      : { message: String(entry) }
+  return {
+    ts: typeof record.ts === "number" ? record.ts : Date.now(),
+    level: typeof record.level === "string" ? record.level : "info",
+    stage: typeof record.stage === "string" ? record.stage : "unknown",
+    elapsedMs: typeof record.elapsedMs === "number" ? record.elapsedMs : 0,
+    ...record
+  }
+}
+
+function broadcastDeepScanStatus(entry: Record<string, unknown>): void {
+  const requestId =
+    typeof entry.requestId === "string" ? entry.requestId : undefined
+  if (!requestId) return
+  const tabId = activeDeepScanTabs.get(requestId)
+  if (typeof tabId !== "number") return
+  try {
+    const sent = chrome.tabs.sendMessage(tabId, {
+      type: "CND_DEEP_SCAN_STATUS",
+      status: entry
+    })
+    sent?.catch?.(() => undefined)
+  } catch {
+    // Content script may be gone; status is still stored for diagnostics.
+  }
+}
+
+// Dedicated listener for the CND_* contextual-layer protocol. Kept separate from
+// the typed switch above so it doesn't widen that message union.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  const type = (message as { type?: string })?.type
+  if (typeof type !== "string" || !type.startsWith("CND_")) return
+
+  if (type === "CND_OPEN_SIDE_PANEL") {
+    openSidePanel(sender.tab?.id, sender.tab?.windowId)
+    sendResponse({ ok: true })
+    return
+  }
+
+  if (type === "CND_DEEP_SCAN") {
+    void (async () => {
+      const requestId =
+        typeof (message as { requestId?: unknown }).requestId === "string"
+          ? ((message as { requestId: string }).requestId)
+          : crypto.randomUUID()
+      if (typeof sender.tab?.id === "number") {
+        activeDeepScanTabs.set(requestId, sender.tab.id)
+      }
+      const ready = await ensureOffscreen()
+      if (!ready) {
+        const error = "offscreen document unavailable"
+        await recordOffscreenLog({
+          requestId,
+          level: "error",
+          stage: "failed",
+          error,
+          elapsedMs: 0
+        })
+        sendResponse({ ok: false, error: "offscreen document unavailable" })
+        activeDeepScanTabs.delete(requestId)
+        return
+      }
+      const response = await inferInOffscreen(
+        (message as { input?: unknown }).input,
+        (message as { config?: unknown }).config,
+        requestId
+      )
+      if (!response.ok) {
+        await recordOffscreenLog({
+          requestId,
+          level: "error",
+          stage: "failed",
+          error: response.error ?? "unknown model failure",
+          elapsedMs: 0
+        })
+      }
+      sendResponse({ ...response, requestId })
+      activeDeepScanTabs.delete(requestId)
+    })()
+    return true // async response
+  }
+
+  if (type === "CND_OFFSCREEN_LOG") {
+    void recordOffscreenLog((message as { entry?: unknown }).entry).then(() =>
+      sendResponse({ ok: true })
+    )
+    return true // async response
+  }
+
+  if (type === "CND_ANALYSIS_UPDATED") {
+    const tabId = sender.tab?.id
+    if (typeof tabId !== "number") {
+      sendResponse({ ok: false })
+      return
+    }
+    chrome.storage.local.get({ [STORAGE_KEY_LAST_ANALYSIS]: {} }).then((res) => {
+      const all = (res[STORAGE_KEY_LAST_ANALYSIS] ?? {}) as Record<string, unknown>
+      all[String(tabId)] = (message as { analysis?: unknown }).analysis
+      chrome.storage.local.set({ [STORAGE_KEY_LAST_ANALYSIS]: all })
+      sendResponse({ ok: true })
+    })
+    return true // async response
+  }
+})
+
 chrome.runtime.onInstalled.addListener(async () => {
+  setupContextualSurfaces()
   // Seed both the internal counter and the shared dashboard state so Module C
   // reads a consistent value from the first open.
   const stored = await chrome.storage.local.get({ [STORAGE_KEY_STATE]: {} })
@@ -664,6 +994,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 // Re-register alarm on service-worker wake-up (MV3 workers can be killed)
 chrome.runtime.onStartup.addListener(() => {
   applyBrowserPrivacyGuards()
+  setupContextualSurfaces()
   chrome.alarms.get(ALARM_NAME, (existing) => {
     if (!existing) {
       chrome.alarms.create(ALARM_NAME, {
