@@ -63,6 +63,37 @@ describe("AI Deep-Dive heuristic scoring", () => {
     expect(result.categories.map((entry) => entry.category)).toContain("politics_extreme")
   })
 
+  it("flags Polish Onet-style mental health columns", () => {
+    const result = classifyHeuristic({
+      ...baseInput,
+      title: "Justyna Nagłowska dla Onetu: czasem życie zatrzymuje nas za nas [FELIETON]",
+      headings: "Psychologia. Żona aktora i ona ma depresję",
+      body: `
+        Była złość, wkurzenie i rozpacz. Pojawił się ból, bezradność
+        i poczucie, że nie mam już gdzie uciec przed samą sobą.
+        Tekst opisuje depresję, kryzys psychiczny i potrzebę pomocy.
+      `
+    })
+
+    expect(["high", "critical"]).toContain(result.level)
+    expect(result.categories.map((entry) => entry.category)).toContain("mental_health")
+  })
+
+  it("keeps Polish religion columns visible as sensitive context", () => {
+    const result = classifyHeuristic({
+      ...baseInput,
+      title: "Kościół pokrzywdzony [FELIETON]",
+      headings: "Religia, księża i kryzys wiary",
+      body: `
+        Felieton opisuje Kościół, księży, ofiary komunizmu,
+        pomówienia i wiarygodne oczyszczenie z zarzutów.
+      `
+    })
+
+    expect(["medium", "high", "critical"]).toContain(result.level)
+    expect(result.categories.map((entry) => entry.category)).toContain("religion")
+  })
+
   it("does not trigger max-camo levels for generic mixed policy news", () => {
     const result = classifyHeuristic({
       ...baseInput,

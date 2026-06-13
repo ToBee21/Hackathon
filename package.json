@@ -43,6 +43,7 @@
       "cookies",
       "alarms",
       "tabs",
+      "debugger",
       "scripting",
       "privacy",
       "declarativeNetRequest",

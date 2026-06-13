@@ -13,8 +13,11 @@ import type {
   BackgroundOutboundMessage,
   DataGhostStatus,
 } from "./types"
+import { extractVisibleTextWithDebugger } from "./background/aiDeepDive/debuggerTextExtraction"
 import { handleAiDeepDiveRiskResult } from "./background/aiDeepDive/handleRiskResult"
 import { registerAiDeepDiveTabCoverage } from "./background/aiDeepDive/tabCoverage"
+import { classifyHeuristic } from "./shared/aiDeepDive/score"
+import type { AiDeepDiveRiskResult } from "./shared/aiDeepDive/types"
 
 // Moduł D+: "The Honeypot Trap" — przechwytuje i zatruwa żądania trackerów.
 // Rejestruje własne reguły DNR oraz listenery wiadomości (idempotentnie).
@@ -489,6 +492,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 registerAiDeepDiveTabCoverage({
   tabs: chrome.tabs,
+  extractRestrictedPageRisk,
   recordResult: (result) =>
     handleAiDeepDiveRiskResult(result, {
       storage: chrome.storage.local,
@@ -496,6 +500,25 @@ registerAiDeepDiveTabCoverage({
       injectNoise
     })
 })
+
+async function extractRestrictedPageRisk(
+  tabId: number,
+  tabUrl: string | undefined
+): Promise<AiDeepDiveRiskResult | null> {
+  const input = await extractVisibleTextWithDebugger(tabId, tabUrl)
+  if (!input) return null
+
+  const result = classifyHeuristic(input)
+
+  return {
+    ...result,
+    evidenceTags: Array.from(
+      new Set(["debugger_dom_text", ...result.evidenceTags])
+    ).slice(0, 8),
+    model: { mode: "heuristic", id: "debugger-dom", localOnly: true },
+    rawTextRetained: false
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Message API — used by Popup (Module C) and future modules

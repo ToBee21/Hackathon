@@ -1,7 +1,12 @@
+import { vi } from "vitest"
+
 import {
   canDomScannerRunOnUrl,
-  createTabCoverageFallbackResult
+  createTabCoverageFallbackResult,
+  registerAiDeepDiveTabCoverage,
+  resolveAiDeepDiveCoverageResult
 } from "../src/background/aiDeepDive/tabCoverage"
+import type { AiDeepDiveRiskResult } from "../src/shared/aiDeepDive/types"
 
 describe("AI Deep-Dive tab coverage fallback", () => {
   it("leaves normal web pages to the DOM scanner", () => {
@@ -45,5 +50,89 @@ describe("AI Deep-Dive tab coverage fallback", () => {
     expect(result?.origin).toBe("about://blank")
     expect(result?.level).toBe("low")
     expect(result?.rawTextRetained).toBe(false)
+  })
+
+  it("prefers debugger-derived risk when restricted page text can be extracted", async () => {
+    const debuggerRisk: AiDeepDiveRiskResult = {
+      type: "AI_DEEP_DIVE_RESULT",
+      version: 1,
+      level: "high",
+      score: 72,
+      confidence: 0.82,
+      categories: [
+        {
+          category: "mental_health",
+          score: 72,
+          confidence: 0.82,
+          evidenceTags: ["debugger_dom_text"]
+        }
+      ],
+      evidenceTags: ["debugger_dom_text"],
+      origin: "chrome://settings",
+      urlHash: "p_debugger",
+      timestamp: 101,
+      model: { mode: "heuristic", id: "debugger-dom", localOnly: true },
+      rawTextRetained: false
+    }
+
+    await expect(
+      resolveAiDeepDiveCoverageResult(
+        3,
+        "chrome://settings/privacy",
+        async () => debuggerRisk
+      )
+    ).resolves.toBe(debuggerRisk)
+  })
+
+  it("falls back when debugger extraction returns nothing", async () => {
+    const result = await resolveAiDeepDiveCoverageResult(
+      4,
+      "chrome://settings/privacy",
+      async () => null,
+      202
+    )
+
+    expect(result?.level).toBe("low")
+    expect(result?.evidenceTags).toEqual(["dom_scan_unavailable"])
+    expect(result?.timestamp).toBe(202)
+  })
+
+  it("cancels stale about:blank fallback when the tab finishes a normal web page", async () => {
+    vi.useFakeTimers()
+
+    try {
+      const updatedListeners: Array<
+        (
+          tabId: number,
+          changeInfo: { status?: string },
+          tab: { url?: string }
+        ) => void
+      > = []
+      const recordResult = vi.fn(async () => undefined)
+
+      registerAiDeepDiveTabCoverage({
+        tabs: {
+          onUpdated: {
+            addListener: (
+              listener: (typeof updatedListeners)[number]
+            ) => updatedListeners.push(listener)
+          },
+          onActivated: {
+            addListener: vi.fn()
+          },
+          get: vi.fn()
+        } as unknown as typeof chrome.tabs,
+        recordResult
+      })
+
+      updatedListeners[0]?.(15, { status: "complete" }, { url: "about:blank" })
+      updatedListeners[0]?.(15, { status: "complete" }, { url: "https://onet.pl/" })
+
+      await vi.advanceTimersByTimeAsync(1000)
+
+      expect(recordResult).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

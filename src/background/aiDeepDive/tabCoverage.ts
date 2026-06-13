@@ -7,6 +7,10 @@ const FALLBACK_EVIDENCE_TAG = "dom_scan_unavailable"
 interface RegisterDeps {
   tabs: typeof chrome.tabs | undefined
   recordResult: (result: AiDeepDiveRiskResult) => Promise<unknown>
+  extractRestrictedPageRisk?: (
+    tabId: number,
+    tabUrl: string | undefined
+  ) => Promise<AiDeepDiveRiskResult | null>
 }
 
 const timers = new Map<number, ReturnType<typeof setTimeout>>()
@@ -48,19 +52,35 @@ export function createTabCoverageFallbackResult(
   }
 }
 
+export async function resolveAiDeepDiveCoverageResult(
+  tabId: number,
+  tabUrl: string | undefined,
+  extractRestrictedPageRisk?: RegisterDeps["extractRestrictedPageRisk"],
+  timestamp = Date.now()
+): Promise<AiDeepDiveRiskResult | null> {
+  const fallback = createTabCoverageFallbackResult(tabUrl, timestamp)
+  if (!fallback) return null
+
+  const extracted = extractRestrictedPageRisk
+    ? await extractRestrictedPageRisk(tabId, tabUrl).catch(() => null)
+    : null
+
+  return extracted ?? fallback
+}
+
 export function registerAiDeepDiveTabCoverage(deps: RegisterDeps): void {
   const tabs = deps.tabs
   if (!tabs?.onUpdated || !tabs.onActivated || !tabs.get) return
 
   tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status !== "complete") return
-    scheduleFallback(tabId, tab.url, deps.recordResult)
+    scheduleFallback(tabId, tab.url, deps)
   })
 
   tabs.onActivated.addListener(({ tabId }) => {
     tabs.get(tabId, (tab) => {
       if (chrome.runtime.lastError) return
-      scheduleFallback(tabId, tab.url, deps.recordResult)
+      scheduleFallback(tabId, tab.url, deps)
     })
   })
 }
@@ -68,8 +88,14 @@ export function registerAiDeepDiveTabCoverage(deps: RegisterDeps): void {
 function scheduleFallback(
   tabId: number,
   tabUrl: string | undefined,
-  recordResult: RegisterDeps["recordResult"]
+  deps: RegisterDeps
 ): void {
+  const previousTimer = timers.get(tabId)
+  if (previousTimer) {
+    clearTimeout(previousTimer)
+    timers.delete(tabId)
+  }
+
   const result = createTabCoverageFallbackResult(tabUrl)
   if (!result) return
 
@@ -77,12 +103,18 @@ function scheduleFallback(
   if (lastFallbackSignatureByTab.get(tabId) === signature) return
   lastFallbackSignatureByTab.set(tabId, signature)
 
-  const previousTimer = timers.get(tabId)
-  if (previousTimer) clearTimeout(previousTimer)
-
   const timer = setTimeout(() => {
     timers.delete(tabId)
-    recordResult(result).catch(() => undefined)
+    resolveAiDeepDiveCoverageResult(
+      tabId,
+      tabUrl,
+      deps.extractRestrictedPageRisk
+    )
+      .then((coverageResult) => {
+        if (coverageResult) return deps.recordResult(coverageResult)
+        return undefined
+      })
+      .catch(() => undefined)
   }, FALLBACK_DELAY_MS)
   timers.set(tabId, timer)
 }

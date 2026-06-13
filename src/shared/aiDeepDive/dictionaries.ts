@@ -22,6 +22,11 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "panic attacks",
       "therapy support",
       "crisis helpline",
+      "depresja",
+      "depresji",
+      "depresje",
+      "objawy depresji",
+      "stany depresyjne",
       "zaburzenia depresyjne",
       "mysli samobojcze",
       "samookaleczenie"
@@ -38,7 +43,28 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "urgent support",
       "symptoms checklist",
       "nie daje rady",
-      "kryzys psychiczny"
+      "kryzys psychiczny",
+      "rozpacz",
+      "bezradnosc",
+      "bol psychiczny",
+      "uciec przed sama soba",
+      "poczucie wlasnej wartosci"
+    ]
+  },
+  {
+    category: "mental_health",
+    clusterId: "psychological_profile_terms",
+    weight: 28,
+    terms: [
+      "psychologia",
+      "samoocena",
+      "emocje",
+      "zlosc",
+      "wkurzenie",
+      "rozpacz",
+      "bezradnosc",
+      "poczucie wlasnej wartosci",
+      "uciec przed sama soba"
     ]
   },
   {
@@ -55,6 +81,10 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "financial hardship",
       "urgent financial",
       "dlugi",
+      "dlug",
+      "zadluzenie",
+      "komornik",
+      "windykacja",
       "eksmisja",
       "upadlosc"
     ]
@@ -70,6 +100,8 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "emergency cash",
       "hardship support",
       "brak pieniedzy",
+      "trudna sytuacja finansowa",
+      "problemy finansowe",
       "utrata mieszkania"
     ]
   },
@@ -86,7 +118,10 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "militia cells",
       "terror cell",
       "radykalizacja",
-      "ekstremizm polityczny"
+      "ekstremizm polityczny",
+      "radykalne poglady",
+      "skrajna prawica",
+      "skrajna lewica"
     ]
   },
   {
@@ -100,7 +135,9 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "propaganda channel",
       "violent uprising",
       "hate movement",
-      "symbolika przemocy"
+      "symbolika przemocy",
+      "mowa nienawisci",
+      "propaganda"
     ]
   },
   {
@@ -116,7 +153,11 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "pregnancy symptoms",
       "prescription medication",
       "diagnoza",
-      "leczenie"
+      "leczenie",
+      "choroba",
+      "objawy",
+      "recepta",
+      "terapia"
     ]
   },
   {
@@ -131,7 +172,11 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "immigration hearing",
       "legal trouble",
       "pozew",
-      "zarzuty karne"
+      "zarzuty karne",
+      "zarzuty",
+      "oskarzenie",
+      "rozwod",
+      "prokuratura"
     ]
   },
   {
@@ -146,7 +191,11 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "grief support",
       "domestic abuse",
       "identity targeting",
-      "przemoc domowa"
+      "przemoc domowa",
+      "zaloba",
+      "utrata pracy",
+      "coming out",
+      "tozsamosc plciowa"
     ]
   },
   {
@@ -161,6 +210,9 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "gambling addiction",
       "addiction recovery",
       "uzaleznienie",
+      "uzaleznienie od alkoholu",
+      "narkotyki",
+      "hazard",
       "odwyk"
     ]
   },
@@ -175,7 +227,13 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "religious persecution",
       "belief identity",
       "nawrocenie",
-      "kryzys wiary"
+      "kryzys wiary",
+      "religia",
+      "wiara",
+      "kosciol",
+      "ksiadz",
+      "ksieza",
+      "duchowny"
     ]
   }
 ]
@@ -193,6 +251,10 @@ export const EMOTIONAL_INTENT_TERMS = [
   "pilne",
   "kryzys",
   "strach",
-  "pomoc"
+  "pomoc",
+  "zlosc",
+  "wkurzenie",
+  "rozpacz",
+  "bezradnosc",
+  "bol"
 ]
-
