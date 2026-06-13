@@ -135,6 +135,14 @@ export interface InjectBionicMainMessage {
   type: "INJECT_BIONIC_MAIN";
 }
 
+export interface GenerateAliasMessage {
+  type: "GENERATE_ALIAS";
+}
+
+export type GenerateAliasResponse =
+  | { success: true; alias: EmailAlias }
+  | { success: false; error: string };
+
 export type BackgroundInboundMessage =
   | TriggerNoiseMessage
   | GetStatusMessage
@@ -142,6 +150,7 @@ export type BackgroundInboundMessage =
   | ToggleModuleMessage
   | RequestStateMessage
   | InjectBionicMainMessage
+  | GenerateAliasMessage
   | TriggerHoneypotTestMessage
   | BionicBlurTelemetryMessage;
 
