@@ -57,6 +57,62 @@ export interface PrivacyProfile {
   webglRenderer: string;
 }
 
+// --- Virtual Identity: nazwane persony fingerprintu ---
+
+/** Techniczne pola jednego spójnego profilu (OS↔GPU↔UA↔ekran↔strefa). */
+export interface ProfileBucket {
+  locale: string;
+  timezone: string;
+  timezoneOffsetMinutes: number;
+  platform: string;
+  screen: {
+    width: number;
+    height: number;
+    colorDepth: number;
+  };
+  hardwareConcurrency: number;
+  deviceMemory: number;
+  maxTouchPoints: number;
+  webglVendor: string;
+  webglRenderer: string;
+}
+
+/** Rodzina systemu operacyjnego — baza spójności przy budowie profilu Custom. */
+export type OsFamily = "windows" | "macos" | "linux";
+
+/** Identyfikatory nazwanych person (każda mapuje się na jeden ProfileBucket). */
+export type ProfilePresetId =
+  | "gaming-win"
+  | "office-win"
+  | "creative-mac"
+  | "dev-linux";
+
+/**
+ * Tryb wyboru wirtualnej tożsamości w popupie:
+ * - "auto"   → rotacja per-site (domyślne, najlepsza nielinkowalność),
+ * - <preset> → stała nazwana persona,
+ * - "custom" → profil zbudowany przez użytkownika.
+ */
+export type ProfileId = "auto" | ProfilePresetId | "custom";
+
+/** Nazwana persona = bucket + metadane prezentacyjne dla UI. */
+export interface ProfilePreset {
+  id: ProfilePresetId;
+  label: string;
+  persona: string;
+  os: OsFamily;
+  bucket: ProfileBucket;
+}
+
+/**
+ * Opcje budowy profilu przekazywane przez most do świata MAIN. Pozwalają
+ * wymusić konkretną personę lub profil Custom zamiast losowej rotacji.
+ */
+export interface BuildProfileOptions {
+  profileId?: ProfileId;
+  customBucket?: ProfileBucket | null;
+}
+
 export interface PointerLikeFields {
   clientX: number;
   clientY: number;

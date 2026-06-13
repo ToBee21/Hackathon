@@ -1,17 +1,21 @@
 // src/components/ShadowAudit.tsx
 // Digital Shadow Audit — the judge-safe, non-counterproductive Category-3 view.
 // Passively measures the user's REAL browser fingerprint (the popup is not
-// patched by Bionic Blur) and shows an honest, estimated identifiability gauge
-// plus the per-attribute breakdown. Mono is used for the data layer only.
+// patched by Bionic Blur) and now shows an "Entropy Drop": the real, identifiable
+// trace (red) versus the estimated masked trace for the selected Virtual Identity
+// (green). Mono is used for the data layer only. Numbers stay illustrative.
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { Fingerprint } from "./icons"
+import { getProfilePreset } from "../shared/bionicBlurCore"
 import {
   collectShadowProfile,
+  estimateMaskedShadow,
   type ShadowProfile,
   type ShadowRarity
 } from "../shared/shadowAudit"
+import type { ProfileBucket, ProfileId } from "../types"
 
 const RARITY: Record<ShadowRarity, { label: string; color: string }> = {
   low: { label: "Niska", color: "#2BD4C4" },
@@ -19,6 +23,9 @@ const RARITY: Record<ShadowRarity, { label: string; color: string }> = {
   high: { label: "Wysoka", color: "#F5A623" },
   "very-high": { label: "Bardzo wysoka", color: "#E5484D" }
 }
+
+const REAL_COLOR = "#E5484D"
+const MASK_COLOR = "#46E6A8"
 
 // Scale the entropy bar against ~30 bits (≈ effectively unique on the web).
 const SCALE_BITS = 30
@@ -30,7 +37,50 @@ function formatOneInN(n: number): string {
   return String(n)
 }
 
-export default function ShadowAudit() {
+interface ShadowAuditProps {
+  /** Wybrana wirtualna tożsamość (steruje paskiem „po"). */
+  profileId?: ProfileId
+  /** Bucket profilu Custom (gdy profileId === "custom"). */
+  customBucket?: ProfileBucket | null
+}
+
+function EntropyRow({
+  caption,
+  bits,
+  oneIn,
+  color,
+  widthPct
+}: {
+  caption: string
+  bits: string
+  oneIn: string
+  color: string
+  widthPct: number
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-end justify-between">
+        <span className="text-[10px] uppercase tracking-wide text-fg-low">
+          {caption}
+        </span>
+        <span className="font-mono text-[11px] tnum" style={{ color }}>
+          {bits} <span className="text-[9px] text-fg-low">bit · {oneIn}</span>
+        </span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+        <div
+          className="h-full rounded-full transition-[width] duration-base ease-standard"
+          style={{ width: `${widthPct}%`, backgroundColor: color }}
+        />
+      </div>
+    </div>
+  )
+}
+
+export default function ShadowAudit({
+  profileId = "auto",
+  customBucket = null
+}: ShadowAuditProps) {
   const [profile, setProfile] = useState<ShadowProfile | null>(null)
 
   const scan = useCallback(() => {
@@ -45,7 +95,24 @@ export default function ShadowAudit() {
     scan()
   }, [scan])
 
+  const masked = useMemo(
+    () => estimateMaskedShadow(profileId, customBucket),
+    [profileId, customBucket]
+  )
+
   const rarity = profile ? RARITY[profile.rarity] : null
+  const presetLabel = getProfilePreset(profileId)?.label
+  const maskedCaption =
+    masked.mode === "custom"
+      ? "Maska · Custom"
+      : presetLabel
+        ? `Maska · ${presetLabel}`
+        : masked.label
+
+  const drop =
+    profile && masked.totalBits != null
+      ? Math.round((profile.totalBits - masked.totalBits) * 10) / 10
+      : null
 
   return (
     <div className="overflow-hidden rounded-xl bg-surface-1 shadow-card">
@@ -64,35 +131,46 @@ export default function ShadowAudit() {
 
       {profile && rarity ? (
         <div className="p-3">
-          <div className="mb-2.5 flex items-end justify-between">
-            <div className="leading-tight">
-              <p className="text-micro uppercase text-fg-low">Rozpoznawalność</p>
-              <p
-                className="text-[15px] font-semibold"
-                style={{ color: rarity.color }}>
-                {rarity.label}
-              </p>
-            </div>
-            <div className="text-right leading-tight">
-              <p className="font-mono text-[15px] tnum text-fg-hi">
-                ~{profile.totalBits}{" "}
-                <span className="text-[10px] text-fg-low">bit</span>
-              </p>
-              <p className="font-mono text-[10px] tnum text-fg-low">
-                ≈ 1 / {formatOneInN(profile.oneInN)}
-              </p>
-            </div>
+          <div className="mb-2.5 flex items-center justify-between">
+            <p className="text-micro uppercase text-fg-low">Rozpoznawalność</p>
+            {drop != null && drop > 0 && (
+              <span
+                className="font-mono text-[10px] tnum"
+                style={{ color: MASK_COLOR }}>
+                −{drop} bit
+              </span>
+            )}
           </div>
 
-          {/* estimated-entropy bar */}
-          <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-            <div
-              className="h-full rounded-full transition-[width] duration-base ease-standard"
-              style={{
-                width: `${Math.min(100, (profile.totalBits / SCALE_BITS) * 100)}%`,
-                backgroundColor: rarity.color
-              }}
+          {/* Entropy Drop: przed (realny ślad) → po (maska) */}
+          <div className="mb-3 flex flex-col gap-2.5">
+            <EntropyRow
+              caption="Twój ślad (realny)"
+              bits={`~${profile.totalBits}`}
+              oneIn={`1 / ${formatOneInN(profile.oneInN)}`}
+              color={REAL_COLOR}
+              widthPct={Math.min(100, (profile.totalBits / SCALE_BITS) * 100)}
             />
+
+            {masked.totalBits != null ? (
+              <EntropyRow
+                caption={maskedCaption}
+                bits={`~${masked.totalBits}`}
+                oneIn={`1 / ${formatOneInN(masked.oneInN ?? 0)}`}
+                color={MASK_COLOR}
+                widthPct={Math.min(100, (masked.totalBits / SCALE_BITS) * 100)}
+              />
+            ) : (
+              <div className="rounded-lg border border-dashed border-line px-2.5 py-1.5">
+                <p className="text-[10px] uppercase tracking-wide text-fg-low">
+                  Maska · Auto
+                </p>
+                <p className="mt-0.5 text-[10px] leading-snug text-fg-mid">
+                  Rotacja per-site — inny profil na każdej stronie, brak stałego
+                  śladu do połączenia.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -118,7 +196,7 @@ export default function ShadowAudit() {
           <p className="mt-2.5 text-[9px] leading-snug text-fg-low/70">
             Szacunek poglądowy (typowe wartości entropii — Panopticlick/AmIUnique),
             nie pomiar względem realnej populacji. Popup pokazuje Twój prawdziwy
-            fingerprint; maskowanie Bionic Blur działa na stronach WWW.
+            fingerprint; maskowanie działa na stronach WWW.
           </p>
         </div>
       ) : (

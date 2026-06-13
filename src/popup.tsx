@@ -2,8 +2,8 @@
 // Moduł C — Privacy Dashboard (popup). Lekki panel szybkiej kontroli.
 //
 // Po refaktorze popup zawiera tylko sterowanie i skrót stanu:
-//  • Privacy Score + statystyki, przełączniki modułów, test Honeypota,
-//    Panic Button, generator aliasu e-mail, zakładka Radar.
+//  • Privacy Score + statystyki, przełączniki modułów, selektor Wirtualnej
+//    Tożsamości, test Honeypota, Panic Button, generator aliasu e-mail, Radar.
 // Widoki szczegółowe — Telemetria na żywo, Cień cyfrowy (Shadow Audit) oraz
 // AI Deep-Dive — żyją wyłącznie w pełnoekranowym dashboardzie (tabs/dashboard).
 
@@ -21,18 +21,29 @@ import ModuleToggles from "./components/ModuleToggles"
 import PanicButton from "./components/PanicButton"
 import ScoreChart, { type ProtectionTier } from "./components/ScoreChart"
 import StatCards from "./components/StatCards"
+import VirtualIdentity from "./components/VirtualIdentity"
 import type {
   ModuleId,
   ModuleToggleState,
   RuntimeMessage
 } from "./components/types"
+import {
+  buildCustomBucket,
+  configToExtremity,
+  DEFAULT_BIONIC_BLUR_CONFIG,
+  DEFAULT_CUSTOM_OS,
+  extremityToConfig
+} from "./shared/bionicBlurCore"
 import { generateAlias } from "./shared/emailAlias"
-import type { PrivacyState } from "./types"
+import type { PrivacyState, ProfileBucket, ProfileId } from "./types"
 
 import "./style.css"
 
 const STORAGE_KEY_TOGGLES = "cnd:toggles"
 const STORAGE_KEY_STATE = "cnd:state"
+const STORAGE_KEY_PROFILE_ID = "cnd:bionic-blur:profile-id"
+const STORAGE_KEY_CUSTOM_PROFILE = "cnd:bionic-blur:custom-profile"
+const STORAGE_KEY_BIONIC_CONFIG = "cnd:bionic-blur:config"
 
 const DEFAULT_TOGGLES: ModuleToggleState = {
   dataGhost: true,
@@ -97,6 +108,11 @@ export default function Popup() {
   const [hydrated, setHydrated] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>("status")
   const [honeypotEvents, setHoneypotEvents] = useState<HoneypotEvent[]>([])
+  const [profileId, setProfileId] = useState<ProfileId>("auto")
+  const [customBucket, setCustomBucket] = useState<ProfileBucket | null>(null)
+  const [extremity, setExtremity] = useState<number>(
+    configToExtremity(DEFAULT_BIONIC_BLUR_CONFIG)
+  )
 
   // --- Inicjalizacja: wczytanie zapisanego stanu + nasłuch wiadomości ---
   useEffect(() => {
@@ -106,7 +122,13 @@ export default function Popup() {
     }
 
     ext.storage.local.get(
-      [STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE],
+      [
+        STORAGE_KEY_TOGGLES,
+        STORAGE_KEY_STATE,
+        STORAGE_KEY_PROFILE_ID,
+        STORAGE_KEY_CUSTOM_PROFILE,
+        STORAGE_KEY_BIONIC_CONFIG
+      ],
       (result) => {
         if (result?.[STORAGE_KEY_TOGGLES]) {
           setToggles({ ...DEFAULT_TOGGLES, ...result[STORAGE_KEY_TOGGLES] })
@@ -114,6 +136,22 @@ export default function Popup() {
         if (result?.[STORAGE_KEY_STATE]) {
           setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
         }
+
+        const storedProfileId = result?.[STORAGE_KEY_PROFILE_ID]
+        if (typeof storedProfileId === "string") {
+          setProfileId(storedProfileId as ProfileId)
+        }
+        const storedCustom = result?.[STORAGE_KEY_CUSTOM_PROFILE]
+        if (storedCustom && typeof storedCustom === "object") {
+          setCustomBucket(storedCustom as ProfileBucket)
+        }
+        const storedConfig = result?.[STORAGE_KEY_BIONIC_CONFIG] as
+          | { mouseIntensity?: number }
+          | undefined
+        if (typeof storedConfig?.mouseIntensity === "number") {
+          setExtremity(configToExtremity({ mouseIntensity: storedConfig.mouseIntensity }))
+        }
+
         setHydrated(true)
       }
     )
@@ -182,6 +220,39 @@ export default function Popup() {
       module,
       enabled
     } as RuntimeMessage)
+  }, [])
+
+  // --- Virtual Identity: wybór persony + intensywność maski ---
+  const handleSelectProfile = useCallback((id: ProfileId) => {
+    setProfileId(id)
+    ext?.storage?.local?.set({ [STORAGE_KEY_PROFILE_ID]: id })
+
+    // Custom bez zapisanego profilu → ustaw domyślny spójny bucket.
+    if (id === "custom") {
+      setCustomBucket((prev) => {
+        if (prev) return prev
+        const fresh = buildCustomBucket(DEFAULT_CUSTOM_OS)
+        ext?.storage?.local?.set({ [STORAGE_KEY_CUSTOM_PROFILE]: fresh })
+        return fresh
+      })
+    }
+  }, [])
+
+  const handleChangeCustom = useCallback((bucket: ProfileBucket) => {
+    setCustomBucket(bucket)
+    ext?.storage?.local?.set({ [STORAGE_KEY_CUSTOM_PROFILE]: bucket })
+  }, [])
+
+  const handleChangeExtremity = useCallback((value: number) => {
+    setExtremity(value)
+    const patch = extremityToConfig(value)
+    // Scal z istniejącym configiem, by nie nadpisać pozostałych pól maski.
+    ext?.storage?.local?.get(STORAGE_KEY_BIONIC_CONFIG, (res) => {
+      const prev = (res?.[STORAGE_KEY_BIONIC_CONFIG] ?? {}) as Record<string, unknown>
+      ext?.storage?.local?.set({
+        [STORAGE_KEY_BIONIC_CONFIG]: { ...prev, ...patch }
+      })
+    })
   }, [])
 
   const handleGenerateAlias = useCallback(async () => {
@@ -343,10 +414,22 @@ export default function Popup() {
               )}
             </div>
 
+            {/* Wirtualna tożsamość — selektor person + intensywność maski */}
+            <div style={v(5)}>
+              <VirtualIdentity
+                profileId={profileId}
+                customBucket={customBucket}
+                extremity={extremity}
+                onSelectProfile={handleSelectProfile}
+                onChangeExtremity={handleChangeExtremity}
+                onChangeCustom={handleChangeCustom}
+              />
+            </div>
+
             {/* Skrót do widoków szczegółowych — Telemetria, AI, Cień cyfrowy */}
             <button
               type="button"
-              style={v(5)}
+              style={v(6)}
               onClick={handleOpenFullscreen}
               className="flex items-center justify-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2.5 text-[11px] font-medium text-fg-mid ring-1 ring-inset ring-line-strong transition-colors hover:text-fg-hi hover:ring-line-hover">
               <Maximize size={13} />

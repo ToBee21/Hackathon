@@ -10,6 +10,9 @@
 // bitów entropii z literatury (Panopticlick / AmIUnique), a nie z pomiaru
 // względem realnej, bieżącej populacji. Liczby traktuj jako rząd wielkości.
 
+import { getProfilePreset } from "./bionicBlurCore"
+import type { OsFamily, ProfileBucket, ProfileId } from "../types"
+
 export interface ShadowAttribute {
   key: string
   label: string
@@ -146,4 +149,93 @@ export function collectShadowProfile(): ShadowProfile {
   else if (totalBits >= 11) rarity = "moderate"
 
   return { attributes, totalBits, rarity, oneInN }
+}
+
+// ─── Estymacja maski (stan „po") ──────────────────────────────────────────────
+// UCZCIWIE: gdy persona ujednolica profil, wysokoentropijne atrybuty schodzą do
+// wartości popularnych w populacji (pospolity Chrome+OS, typowa rozdzielczość,
+// 8 rdzeni/8 GB), a canvas/webgl są zaszumiane/podstawiane. Bity są POGLĄDOWE —
+// rząd wielkości, nie pomiar względem realnej populacji.
+
+export interface MaskedShadowEstimate {
+  /** Tryb wybranej tożsamości. */
+  mode: "auto" | "persona" | "custom"
+  /** Poglądowe bity entropii maski; null dla rotacji (brak stałego śladu). */
+  totalBits: number | null
+  /** ≈ 1 na N (2^bits); null dla rotacji. */
+  oneInN: number | null
+  /** Krótki opis stanu maski do UI. */
+  label: string
+}
+
+/** Poglądowe bity „maski" per atrybut po ujednoliceniu profilu. */
+const MASKED_ATTRIBUTE_BITS: Record<string, number> = {
+  ua: 3,
+  platform: 1,
+  languages: 1,
+  timezone: 2,
+  screen: 1.5,
+  cores: 0.5,
+  memory: 0.5,
+  touch: 0,
+  canvas: 0.5,
+  webgl: 1
+}
+
+/** Lekka korekta rzadkości wg rodziny OS (Windows najpospolitszy). */
+const OS_RARITY_BITS: Record<OsFamily, number> = {
+  windows: 0,
+  macos: 1.5,
+  linux: 2.5
+}
+
+const MASKED_BASE_BITS = Object.values(MASKED_ATTRIBUTE_BITS).reduce(
+  (sum, bits) => sum + bits,
+  0
+)
+
+function osFamilyFromPlatform(platform: string): OsFamily {
+  if (platform.includes("Mac")) return "macos"
+  if (platform.includes("Linux")) return "linux"
+  return "windows"
+}
+
+/**
+ * Szacuje rozpoznawalność PO włączeniu maski dla wybranej tożsamości.
+ * - "auto"   → rotacja: brak pojedynczego śladu do połączenia między stronami.
+ * - persona  → wartości popularne w populacji → niska, ujednolicona entropia.
+ * - "custom" → jw., bazując na rodzinie OS profilu Custom.
+ */
+export function estimateMaskedShadow(
+  profileId: ProfileId,
+  customBucket?: ProfileBucket | null
+): MaskedShadowEstimate {
+  if (profileId === "auto") {
+    return {
+      mode: "auto",
+      totalBits: null,
+      oneInN: null,
+      label: "Rotacja per-site"
+    }
+  }
+
+  let os: OsFamily = "windows"
+  let mode: "persona" | "custom" = "persona"
+  if (profileId === "custom") {
+    mode = "custom"
+    os = customBucket ? osFamilyFromPlatform(customBucket.platform) : "windows"
+  } else {
+    os = getProfilePreset(profileId)?.os ?? "windows"
+  }
+
+  const totalBits =
+    Math.round((MASKED_BASE_BITS + (OS_RARITY_BITS[os] ?? 0)) * 10) / 10
+  const oneInN = Math.round(Math.pow(2, totalBits))
+
+  return {
+    mode,
+    totalBits,
+    oneInN,
+    label: mode === "custom" ? "Maska Custom" : "Maska aktywna"
+  }
 }

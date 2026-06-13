@@ -12,7 +12,9 @@ import type {
   BionicBlurConfig,
   FingerprintSurface,
   PointerLikeFields,
-  PrivacyProfile
+  PrivacyProfile,
+  ProfileBucket,
+  ProfileId
 } from "../types"
 
 export const config: PlasmoCSConfig = {
@@ -47,6 +49,8 @@ interface BridgeConfigMessage {
   payload: {
     config: BionicBlurConfig
     profileSeed: string
+    profileId?: ProfileId
+    customBucket?: ProfileBucket | null
   }
 }
 
@@ -111,7 +115,10 @@ function installBionicBlur(): void {
       ...DEFAULT_BIONIC_BLUR_CONFIG,
       ...message.payload.config
     }
-    profile = buildPrivacyProfile(location.href, message.payload.profileSeed)
+    profile = buildPrivacyProfile(location.href, message.payload.profileSeed, {
+      profileId: message.payload.profileId,
+      customBucket: message.payload.customBucket
+    })
     emitTelemetry("event-listener", "configured", 1)
   }
 

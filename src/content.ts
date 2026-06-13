@@ -12,7 +12,9 @@ import type {
   BionicBlurConfig,
   BionicBlurTelemetryMessage,
   FingerprintSurface,
-  PrivacyState
+  PrivacyState,
+  ProfileBucket,
+  ProfileId
 } from "./types"
 
 export const config: PlasmoCSConfig = {
@@ -28,6 +30,8 @@ const STORAGE_KEY_TOGGLES = "cnd:toggles"
 const STORAGE_KEY_STATE = "cnd:state"
 const STORAGE_KEY_CONFIG = "cnd:bionic-blur:config"
 const STORAGE_KEY_SEED = "cnd:bionic-blur:profile-seed"
+const STORAGE_KEY_PROFILE_ID = "cnd:bionic-blur:profile-id"
+const STORAGE_KEY_CUSTOM_PROFILE = "cnd:bionic-blur:custom-profile"
 const LOG_EVENT_MIN_INTERVAL_MS = 8000
 
 type RuntimeLogSource = "dataGhost" | "mouseJitter" | "keystroke" | "system"
@@ -55,6 +59,8 @@ interface StoredToggles {
 
 const ext = globalThis.chrome
 let profileSeed = "boot"
+let profileId: ProfileId = "auto"
+let customBucket: ProfileBucket | null = null
 let activeConfig: BionicBlurConfig = {
   ...DEFAULT_BIONIC_BLUR_CONFIG,
   debugMode:
@@ -71,6 +77,7 @@ async function initializeBridge(): Promise<void> {
   }
 
   profileSeed = await getOrCreateProfileSeed()
+  await loadProfileSelection()
   activeConfig = await loadConfig()
   injectMainWorldScriptTag()
   requestMainWorldInjection()
@@ -83,7 +90,9 @@ async function initializeBridge(): Promise<void> {
     if (
       changes[STORAGE_KEY_TOGGLES] ||
       changes[STORAGE_KEY_CONFIG] ||
-      changes[STORAGE_KEY_SEED]
+      changes[STORAGE_KEY_SEED] ||
+      changes[STORAGE_KEY_PROFILE_ID] ||
+      changes[STORAGE_KEY_CUSTOM_PROFILE]
     ) {
       void refreshConfig()
     }
@@ -101,6 +110,7 @@ async function initializeBridge(): Promise<void> {
 
 async function refreshConfig(): Promise<void> {
   profileSeed = await getOrCreateProfileSeed()
+  await loadProfileSelection()
   activeConfig = await loadConfig()
   postConfigToMain(activeConfig, profileSeed)
 }
@@ -113,11 +123,26 @@ function postConfigToMain(config: BionicBlurConfig, seed: string): void {
       type: "BIONIC_BLUR_CONFIG",
       payload: {
         config,
-        profileSeed: seed
+        profileSeed: seed,
+        profileId,
+        customBucket
       }
     },
     "*"
   )
+}
+
+/** Wczytuje wybraną personę i ewentualny profil Custom z storage. */
+async function loadProfileSelection(): Promise<void> {
+  const stored = await storageGet([
+    STORAGE_KEY_PROFILE_ID,
+    STORAGE_KEY_CUSTOM_PROFILE
+  ])
+  const id = stored[STORAGE_KEY_PROFILE_ID]
+  profileId = typeof id === "string" ? (id as ProfileId) : "auto"
+  const custom = stored[STORAGE_KEY_CUSTOM_PROFILE]
+  customBucket =
+    custom && typeof custom === "object" ? (custom as ProfileBucket) : null
 }
 
 async function loadConfig(): Promise<BionicBlurConfig> {
