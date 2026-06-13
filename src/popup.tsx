@@ -16,8 +16,9 @@ import {
   type CSSProperties
 } from "react"
 
-import { Logo, Lock, Mail, ShieldCheck, ShieldOff } from "./components/icons"
 import AiDeepDiveCard from "./components/AiDeepDiveCard"
+import CyberRadar from "./components/CyberRadar"
+import { Logo, Lock, Mail, ShieldCheck, ShieldOff } from "./components/icons"
 import LoggerView from "./components/LoggerView"
 import ModuleToggles from "./components/ModuleToggles"
 import PanicButton from "./components/PanicButton"
@@ -312,13 +313,23 @@ export default function Popup() {
           />
         </div>
 
+        {/* Cyber Radar — wizualizacja zagrożeń w czasie rzeczywistym */}
+        <div style={v(2)} className="flex justify-center">
+          <CyberRadar
+            armed={anyEnabled}
+            trackerCount={state.trackersBlockedCount}
+            noiseCount={state.noiseGeneratedCount}
+            size={260}
+          />
+        </div>
+
         {/* Statystyki */}
-        <div style={v(2)}>
+        <div style={v(3)}>
           <StatCards state={state} />
         </div>
 
         {/* AI Deep-Dive Risk */}
-        <div style={v(3)}>
+        <div style={v(4)}>
           <AiDeepDiveCard
             risk={state.aiDeepDiveRisk}
             maxCamoActive={state.maxCamoActive}
@@ -326,27 +337,27 @@ export default function Popup() {
         </div>
 
         {/* Przełączniki modułów */}
-        <div style={v(4)}>
+        <div style={v(5)}>
           <ModuleToggles toggles={toggles} onToggle={handleToggle} />
         </div>
 
         {/* Telemetria na żywo */}
-        <div style={v(5)}>
+        <div style={v(6)}>
           <LoggerView entries={logs} />
         </div>
 
         {/* Audyt cienia cyfrowego — pasywny pomiar własnego fingerprintu */}
-        <div style={v(6)}>
+        <div style={v(7)}>
           <ShadowAudit />
         </div>
 
         {/* Panic — hold-to-wipe */}
-        <div style={v(7)}>
+        <div style={v(8)}>
           <PanicButton onPanic={handlePanic} />
         </div>
 
         {/* Stopka — tożsamość jednorazowa + sygnał zaufania */}
-        <div style={v(8)} className="flex flex-col items-center gap-1.5 pt-0.5">
+        <div style={v(9)} className="flex flex-col items-center gap-1.5 pt-0.5">
           {state.activeAliasEmail ? (
             <p className="text-[10px] text-fg-low">
               Alias:{" "}

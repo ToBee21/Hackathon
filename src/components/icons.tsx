@@ -169,6 +169,17 @@ export function Fingerprint(props: IconProps) {
   )
 }
 
+/** Honeypot Trap — a crosshair/target, the active data-poisoning trap. */
+export function Crosshair(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="7.5" />
+      <path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" />
+      <circle cx="12" cy="12" r="1.6" />
+    </Svg>
+  )
+}
+
 /** Local-only / encrypted footer mark. */
 export function Lock(props: IconProps) {
   return (

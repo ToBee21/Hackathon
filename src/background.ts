@@ -7,12 +7,17 @@
 //   "https://html.duckduckgo.com/*"
 //   "https://www.google.com/*"
 
+import { initHoneypotTrap } from "./shared/honeypot"
 import type {
   BackgroundInboundMessage,
   BackgroundOutboundMessage,
   DataGhostStatus,
 } from "./types"
 import { handleAiDeepDiveRiskResult } from "./background/aiDeepDive/handleRiskResult"
+
+// Moduł D+: "The Honeypot Trap" — przechwytuje i zatruwa żądania trackerów.
+// Rejestruje własne reguły DNR oraz listenery wiadomości (idempotentnie).
+void initHoneypotTrap()
 
 // ---------------------------------------------------------------------------
 // Configuration

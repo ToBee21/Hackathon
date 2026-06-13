@@ -8,8 +8,13 @@ import type { PrivacyState } from "../types"
 /** Identyfikatory funkcji, które użytkownik może włączać/wyłączać. */
 export type ModuleId = "dataGhost" | "mouseJitter" | "keystroke"
 
-/** Źródło wpisu w loggerze (moduł funkcjonalny lub sam rdzeń systemu). */
-export type LogSource = ModuleId | "aiDeepDive" | "system"
+/**
+ * Źródło wpisu w loggerze (moduł funkcjonalny lub sam rdzeń systemu).
+ * "aiDeepDive" = Moduł E (AI Deep Dive Risk); "honeypot" = Moduł D+
+ * (Zatruwanie Profilera) — żaden nie jest przełącznikiem UI w ModuleToggles,
+ * ale oba mają własną tożsamość wizualną w telemetrii.
+ */
+export type LogSource = ModuleId | "aiDeepDive" | "honeypot" | "system"
 
 /** Pojedyncze zdarzenie pokazywane w Real-time Loggerze. */
 export interface LogEntry {

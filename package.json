@@ -39,7 +39,8 @@
       "alarms",
       "scripting",
       "privacy",
-      "declarativeNetRequest"
+      "declarativeNetRequest",
+      "declarativeNetRequestFeedback"
     ],
     "host_permissions": [
       "<all_urls>"
