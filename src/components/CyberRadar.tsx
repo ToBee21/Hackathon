@@ -3,16 +3,16 @@
 //
 // Renders an animated radar (concentric rings, sweep line, grid) with:
 //   • Central USER node (teal glow when armed)
-//   • Tracker blips (red dots) spawning from the perimeter
+//   • Tracker blips spawned ONLY from real HONEYPOT_ATTACK events (real tracker names)
 //   • Shield aura that neutralises blips (→ gray, bounced outward)
-//   • Noise-injection flashes (violet ghost pulses)
+//   • Noise-injection ghost pulses from real DataGhost injections
 //
 // Zero external dependencies — pure Canvas 2D + requestAnimationFrame.
-// Design language: "Stealth Intelligence Console" tokens from tailwind.config.js / style.css.
+// No auto-spawn / random blips — every dot on the radar is a real interception.
 
 import { useCallback, useEffect, useRef, useState, type FC } from "react"
 
-// ─── Colour tokens (mirroring tailwind.config.js) ───────────────────────────
+// ─── Colour tokens ───────────────────────────────────────────────────────────
 
 const C = {
   void:        "#0A0B0E",
@@ -36,31 +36,22 @@ const C = {
   lineStrong:  "rgba(255,255,255,0.10)",
 } as const
 
-// ─── Tracker blip model ─────────────────────────────────────────────────────
+// ─── Tracker blip model ──────────────────────────────────────────────────────
 
 interface Blip {
   id: number
-  /** Angle in radians on the radar */
   angle: number
-  /** Normalised distance from centre (0 = centre, 1 = rim) */
   dist: number
-  /** Target distance — where the blip wants to reach */
   targetDist: number
-  /** Speed factor (normalised dist per second) */
   speed: number
-  /** "alive" → approaching, "neutralised" → fading/bouncing, "dead" → remove */
   state: "alive" | "neutralised" | "dead"
-  /** Remaining opacity (1 → 0) */
   opacity: number
-  /** Visual radius */
   radius: number
-  /** Timestamp of state change */
   stateChangedAt: number
-  /** Label shown on hover/near (tracker domain) */
   label: string
 }
 
-// ─── Noise flash (ghost pulse) ──────────────────────────────────────────────
+// ─── Noise flash (ghost pulse) ───────────────────────────────────────────────
 
 interface GhostPulse {
   angle: number
@@ -70,35 +61,26 @@ interface GhostPulse {
   born: number
 }
 
-// ─── Props ──────────────────────────────────────────────────────────────────
+// ─── Real tracker event (from HONEYPOT_ATTACK) ───────────────────────────────
+
+export interface HoneypotEvent {
+  id: number
+  trackerName: string
+  timestamp: number
+}
+
+// ─── Props ───────────────────────────────────────────────────────────────────
 
 export interface CyberRadarProps {
-  /** Is the protection system armed? Controls shield visibility. */
   armed: boolean
-  /** Number of trackers blocked — drives blip spawn rate. */
-  trackerCount: number
-  /** Number of noise injections — drives ghost pulse spawns. */
+  /** Real HONEYPOT_ATTACK events — each spawns one blip with the real tracker name. */
+  honeypotEvents: HoneypotEvent[]
+  /** Real DataGhost noise injection count — drives ghost pulse spawns. */
   noiseCount: number
-  /** Canvas size in CSS pixels (square). Defaults to 280. */
   size?: number
 }
 
-// ─── Fake tracker domains for visual flavour ────────────────────────────────
-
-const TRACKER_DOMAINS = [
-  "doubleclick.net", "facebook.com", "google-analytics.com",
-  "hotjar.com", "segment.io", "criteo.com", "taboola.com",
-  "outbrain.com", "adnxs.com", "demdex.net", "mixpanel.com",
-  "amplitude.com", "hubspot.com", "marketo.net", "pardot.com",
-  "linkedin.com", "twitter.com", "pinterest.com", "tiktok.com",
-  "snapchat.com", "bing.com", "yandex.ru", "baidu.com",
-]
-
-function randomDomain(): string {
-  return TRACKER_DOMAINS[Math.floor(Math.random() * TRACKER_DOMAINS.length)]
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 let _blipId = 0
 function nextBlipId() { return ++_blipId }
@@ -106,11 +88,11 @@ function nextBlipId() { return ++_blipId }
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t }
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)) }
 
-// ─── Component ──────────────────────────────────────────────────────────────
+// ─── Component ───────────────────────────────────────────────────────────────
 
 const CyberRadar: FC<CyberRadarProps> = ({
   armed,
-  trackerCount,
+  honeypotEvents,
   noiseCount,
   size = 280,
 }) => {
@@ -120,32 +102,27 @@ const CyberRadar: FC<CyberRadarProps> = ({
   const sweepAngleRef = useRef(0)
   const lastTimeRef = useRef(0)
   const rafRef = useRef(0)
-  const prevTrackerRef = useRef(trackerCount)
+  const prevEventCountRef = useRef(0)
   const prevNoiseRef = useRef(noiseCount)
   const [hovered, setHovered] = useState<string | null>(null)
 
-  // Shield radius (normalised 0–1). Animates up/down with armed state.
   const shieldRef = useRef(armed ? 0.38 : 0)
   const shieldTargetRef = useRef(armed ? 0.38 : 0)
 
-  // Keep armed ref current for the render loop
   const armedRef = useRef(armed)
   useEffect(() => {
     armedRef.current = armed
     shieldTargetRef.current = armed ? 0.38 : 0
   }, [armed])
 
-  // Spawn blips when trackerCount increases
+  // Spawn one blip per real HONEYPOT_ATTACK event with the actual tracker name
   useEffect(() => {
-    const diff = trackerCount - prevTrackerRef.current
-    prevTrackerRef.current = trackerCount
-    if (diff <= 0) return
-    const toSpawn = Math.min(diff, 5) // cap burst
-    for (let i = 0; i < toSpawn; i++) {
-      const angle = Math.random() * Math.PI * 2
+    const newEvents = honeypotEvents.slice(prevEventCountRef.current)
+    prevEventCountRef.current = honeypotEvents.length
+    for (const event of newEvents) {
       blipsRef.current.push({
         id: nextBlipId(),
-        angle,
+        angle: Math.random() * Math.PI * 2,
         dist: 0.92 + Math.random() * 0.08,
         targetDist: 0.08 + Math.random() * 0.25,
         speed: 0.06 + Math.random() * 0.08,
@@ -153,12 +130,12 @@ const CyberRadar: FC<CyberRadarProps> = ({
         opacity: 1,
         radius: 2.5 + Math.random() * 2,
         stateChangedAt: performance.now(),
-        label: randomDomain(),
+        label: event.trackerName,
       })
     }
-  }, [trackerCount])
+  }, [honeypotEvents])
 
-  // Spawn ghost pulses when noiseCount increases
+  // Spawn ghost pulses when real noise injections happen
   useEffect(() => {
     const diff = noiseCount - prevNoiseRef.current
     prevNoiseRef.current = noiseCount
@@ -173,44 +150,6 @@ const CyberRadar: FC<CyberRadarProps> = ({
       })
     }
   }, [noiseCount])
-
-  // Auto-spawn blips periodically for demo / idle state
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (blipsRef.current.length < 18) {
-        const angle = Math.random() * Math.PI * 2
-        blipsRef.current.push({
-          id: nextBlipId(),
-          angle,
-          dist: 0.95,
-          targetDist: 0.1 + Math.random() * 0.28,
-          speed: 0.04 + Math.random() * 0.06,
-          state: "alive",
-          opacity: 1,
-          radius: 2 + Math.random() * 2.5,
-          stateChangedAt: performance.now(),
-          label: randomDomain(),
-        })
-      }
-    }, 1800 + Math.random() * 1200)
-    return () => clearInterval(interval)
-  }, [])
-
-  // Auto-spawn ghost pulses periodically when armed
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (armedRef.current && ghostsRef.current.length < 6) {
-        ghostsRef.current.push({
-          angle: Math.random() * Math.PI * 2,
-          dist: 0.12 + Math.random() * 0.35,
-          opacity: 0.7,
-          radius: 3 + Math.random() * 3,
-          born: performance.now(),
-        })
-      }
-    }, 2600 + Math.random() * 1500)
-    return () => clearInterval(interval)
-  }, [])
 
   // ── Main render loop ────────────────────────────────────────────────────
   const draw = useCallback((timestamp: number) => {
@@ -228,23 +167,20 @@ const CyberRadar: FC<CyberRadarProps> = ({
 
     const cx = w / 2
     const cy = h / 2
-    const maxR = Math.min(cx, cy) - 8 // radar radius
+    const maxR = Math.min(cx, cy) - 8
 
     const dt = lastTimeRef.current ? (timestamp - lastTimeRef.current) / 1000 : 0.016
     lastTimeRef.current = timestamp
 
-    // Animate shield radius
     shieldRef.current = lerp(shieldRef.current, shieldTargetRef.current, clamp(dt * 3.5, 0, 1))
     const shieldR = shieldRef.current * maxR
 
-    // Sweep rotation (one full revolution every ~4s)
     sweepAngleRef.current = (sweepAngleRef.current + dt * 1.57) % (Math.PI * 2)
     const sweep = sweepAngleRef.current
 
-    // ── Clear ──
     ctx.clearRect(0, 0, w, h)
 
-    // ── Background radial glow ──
+    // Background radial glow
     const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 1.1)
     bgGrad.addColorStop(0, C.surface1)
     bgGrad.addColorStop(0.7, C.surface0)
@@ -252,7 +188,7 @@ const CyberRadar: FC<CyberRadarProps> = ({
     ctx.fillStyle = bgGrad
     ctx.fillRect(0, 0, w, h)
 
-    // ── Concentric rings ──
+    // Concentric rings
     const rings = [0.25, 0.5, 0.75, 1.0]
     for (const r of rings) {
       ctx.beginPath()
@@ -262,7 +198,7 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.stroke()
     }
 
-    // ── Cross-hair lines ──
+    // Cross-hair lines
     ctx.strokeStyle = C.line
     ctx.lineWidth = 1
     for (let i = 0; i < 4; i++) {
@@ -272,9 +208,6 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.lineTo(cx + Math.cos(a) * maxR, cy + Math.sin(a) * maxR)
       ctx.stroke()
     }
-
-    // ── Sweep line + trail ──
-    // (conic gradient intentionally omitted — limited support; radial trail below)
 
     // Sweep trail (wedge gradient)
     ctx.save()
@@ -301,11 +234,10 @@ const CyberRadar: FC<CyberRadarProps> = ({
     ctx.stroke()
     ctx.restore()
 
-    // ── Shield aura ──
+    // Shield aura
     if (shieldRef.current > 0.01) {
       ctx.save()
 
-      // Outer glow
       ctx.beginPath()
       ctx.arc(cx, cy, shieldR + 6, 0, Math.PI * 2)
       ctx.strokeStyle = C.accentGlow
@@ -313,7 +245,6 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.globalAlpha = 0.08 + 0.04 * Math.sin(timestamp * 0.002)
       ctx.stroke()
 
-      // Shield ring
       ctx.beginPath()
       ctx.arc(cx, cy, shieldR, 0, Math.PI * 2)
       ctx.strokeStyle = C.accent
@@ -321,7 +252,6 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.globalAlpha = 0.5 + 0.15 * Math.sin(timestamp * 0.003)
       ctx.stroke()
 
-      // Shield fill
       const shieldGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, shieldR)
       shieldGrad.addColorStop(0, "rgba(43,212,196,0.03)")
       shieldGrad.addColorStop(0.8, "rgba(43,212,196,0.06)")
@@ -332,7 +262,6 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.arc(cx, cy, shieldR, 0, Math.PI * 2)
       ctx.fill()
 
-      // Segmented shield arcs (sci-fi detail)
       const segments = 8
       for (let i = 0; i < segments; i++) {
         const segStart = (Math.PI * 2 / segments) * i + timestamp * 0.0004
@@ -348,24 +277,21 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.restore()
     }
 
-    // ── Update & draw blips ──
+    // Update & draw blips
     const blips = blipsRef.current
     for (let i = blips.length - 1; i >= 0; i--) {
       const b = blips[i]
 
       if (b.state === "alive") {
-        // Move toward centre
         b.dist = lerp(b.dist, b.targetDist, clamp(dt * b.speed * 12, 0, 1))
 
-        // Check shield collision
         if (armedRef.current && b.dist * maxR <= shieldR + 4) {
           b.state = "neutralised"
           b.stateChangedAt = timestamp
-          b.targetDist = 0.85 + Math.random() * 0.15 // bounce outward
+          b.targetDist = 0.85 + Math.random() * 0.15
           b.speed *= 1.8
         }
       } else if (b.state === "neutralised") {
-        // Bounce outward and fade
         b.dist = lerp(b.dist, b.targetDist, clamp(dt * b.speed * 10, 0, 1))
         const elapsed = (timestamp - b.stateChangedAt) / 1000
         b.opacity = Math.max(0, 1 - elapsed * 0.7)
@@ -377,7 +303,6 @@ const CyberRadar: FC<CyberRadarProps> = ({
         continue
       }
 
-      // Draw blip
       const bx = cx + Math.cos(b.angle) * b.dist * maxR
       const by = cy + Math.sin(b.angle) * b.dist * maxR
 
@@ -385,20 +310,17 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.globalAlpha = b.opacity
 
       if (b.state === "alive") {
-        // Red glow
         const glowGrad = ctx.createRadialGradient(bx, by, 0, bx, by, b.radius * 4)
         glowGrad.addColorStop(0, C.dangerGlow)
         glowGrad.addColorStop(1, "transparent")
         ctx.fillStyle = glowGrad
         ctx.fillRect(bx - b.radius * 4, by - b.radius * 4, b.radius * 8, b.radius * 8)
 
-        // Red dot
         ctx.beginPath()
         ctx.arc(bx, by, b.radius, 0, Math.PI * 2)
         ctx.fillStyle = C.danger
         ctx.fill()
 
-        // Pulsing ring on alive blips
         const pulse = 1 + 0.3 * Math.sin(timestamp * 0.005 + b.id)
         ctx.beginPath()
         ctx.arc(bx, by, b.radius * pulse * 1.8, 0, Math.PI * 2)
@@ -407,7 +329,6 @@ const CyberRadar: FC<CyberRadarProps> = ({
         ctx.globalAlpha = b.opacity * 0.3
         ctx.stroke()
       } else {
-        // Neutralised — gray, shrinking
         ctx.beginPath()
         ctx.arc(bx, by, b.radius * 0.7, 0, Math.PI * 2)
         ctx.fillStyle = C.neutral
@@ -417,7 +338,7 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.restore()
     }
 
-    // ── Ghost pulses (noise injection flashes) ──
+    // Ghost pulses (real noise injection flashes)
     const ghosts = ghostsRef.current
     for (let i = ghosts.length - 1; i >= 0; i--) {
       const g = ghosts[i]
@@ -446,7 +367,6 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.arc(gx, gy, g.radius, 0, Math.PI * 2)
       ctx.fill()
 
-      // Tiny core dot
       ctx.beginPath()
       ctx.arc(gx, gy, 2, 0, Math.PI * 2)
       ctx.fillStyle = C.ghost
@@ -456,9 +376,8 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.restore()
     }
 
-    // ── Central user node ──
+    // Central user node
     ctx.save()
-    // Outer glow
     const userGlowR = 14 + 2 * Math.sin(timestamp * 0.003)
     const userGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, userGlowR)
     if (armedRef.current) {
@@ -473,13 +392,11 @@ const CyberRadar: FC<CyberRadarProps> = ({
     ctx.arc(cx, cy, userGlowR, 0, Math.PI * 2)
     ctx.fill()
 
-    // Core dot
     ctx.beginPath()
     ctx.arc(cx, cy, 4, 0, Math.PI * 2)
     ctx.fillStyle = armedRef.current ? C.accent : C.fgMid
     ctx.fill()
 
-    // Inner ring
     ctx.beginPath()
     ctx.arc(cx, cy, 7, 0, Math.PI * 2)
     ctx.strokeStyle = armedRef.current ? C.accent : C.fgLow
@@ -488,30 +405,27 @@ const CyberRadar: FC<CyberRadarProps> = ({
     ctx.stroke()
     ctx.restore()
 
-    // ── HUD text overlays ──
+    // HUD text overlays
     ctx.save()
     ctx.font = "600 9px 'Inter', sans-serif"
     ctx.textAlign = "center"
     ctx.fillStyle = C.fgLow
     ctx.globalAlpha = 0.5
 
-    // Ring distance labels
     const labels = ["25%", "50%", "75%"]
     for (let i = 0; i < labels.length; i++) {
       const r = maxR * rings[i]
       ctx.fillText(labels[i], cx + r - 12, cy - 3)
     }
 
-    // Status label
     ctx.font = "700 8px 'Inter', sans-serif"
-    ctx.letterSpacing = "0.12em"
     ctx.fillStyle = armedRef.current ? C.accent : C.fgLow
     ctx.globalAlpha = 0.7
     ctx.textAlign = "center"
     ctx.fillText(armedRef.current ? "SHIELD ACTIVE" : "SHIELD DOWN", cx, h - 10)
     ctx.restore()
 
-    // ── Blip count indicator ──
+    // Alive blip counter
     const aliveCount = blips.filter(b => b.state === "alive").length
     if (aliveCount > 0) {
       ctx.save()
@@ -519,20 +433,18 @@ const CyberRadar: FC<CyberRadarProps> = ({
       ctx.textAlign = "right"
       ctx.fillStyle = C.danger
       ctx.globalAlpha = 0.8
-      ctx.fillText(`${aliveCount} THREAT${aliveCount > 1 ? "S" : ""}`, w - 10, 16)
+      ctx.fillText(`⚠ ${aliveCount} THREAT${aliveCount > 1 ? "S" : ""}`, w - 10, 16)
       ctx.restore()
     }
 
     rafRef.current = requestAnimationFrame(draw)
   }, [size])
 
-  // Start / stop animation loop
   useEffect(() => {
     rafRef.current = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(rafRef.current)
   }, [draw])
 
-  // Mouse hover for blip labels
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -550,7 +462,7 @@ const CyberRadar: FC<CyberRadarProps> = ({
       const by = cy + Math.sin(b.angle) * b.dist * maxR
       const dx = mx - bx
       const dy = my - by
-      if (dx * dx + dy * dy < 144) { // 12px radius hit area
+      if (dx * dx + dy * dy < 144) {
         found = b.label
         break
       }
@@ -571,7 +483,6 @@ const CyberRadar: FC<CyberRadarProps> = ({
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHovered(null)}
       />
-      {/* Tooltip */}
       {hovered && (
         <div
           className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-md px-2.5 py-1"
@@ -583,14 +494,14 @@ const CyberRadar: FC<CyberRadarProps> = ({
         >
           <span
             style={{
-              color: C.danger,
+              color: "#E5484D",
               fontSize: 10,
               fontWeight: 700,
               fontFamily: "ui-monospace, 'Cascadia Code', Consolas, monospace",
               letterSpacing: "0.04em",
             }}
           >
-            {hovered}
+            🔴 {hovered}
           </span>
         </div>
       )}

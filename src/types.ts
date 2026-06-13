@@ -147,6 +147,14 @@ export interface PanicButtonMessage {
   type: "PANIC_BUTTON";
 }
 
+export interface GenerateAliasMessage {
+  type: "GENERATE_ALIAS";
+}
+
+export type GenerateAliasResponse =
+  | { success: true; alias: EmailAlias }
+  | { success: false; error: string };
+
 export type BackgroundInboundMessage =
   | TriggerNoiseMessage
   | GetStatusMessage
@@ -155,6 +163,7 @@ export type BackgroundInboundMessage =
   | RequestStateMessage
   | InjectBionicMainMessage
   | PanicButtonMessage
+  | GenerateAliasMessage
   | TriggerHoneypotTestMessage
   | BionicBlurTelemetryMessage
   | AiDeepDiveRiskMessage;

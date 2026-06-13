@@ -8,6 +8,7 @@
 //   "https://www.google.com/*"
 
 import { initHoneypotTrap } from "./shared/honeypot"
+import { generateAlias, saveApiToken } from "./shared/emailAlias"
 import type {
   BackgroundInboundMessage,
   BackgroundOutboundMessage,
@@ -614,6 +615,17 @@ chrome.runtime.onMessage.addListener(
           .then((result) => sendResponse(result))
           .catch(() => sendResponse({ success: false, maxCamo: false }))
         return true
+
+      case "GENERATE_ALIAS":
+        generateAlias()
+          .then((alias) => sendResponse({ success: true, alias }))
+          .catch((err) =>
+            sendResponse({
+              success: false,
+              error: err instanceof Error ? err.message : "Unknown error",
+            })
+          )
+        return true
     }
   }
 )
@@ -635,6 +647,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     },
   })
   applyBrowserPrivacyGuards()
+  await saveApiToken("simplelogin", "bkfweyfgzamesjizhrygdkcewbbyomlwnymfvjffchyvyplvquhdtvazgrxd")
   // Kick off the first injection shortly after install
   injectNoise()
 })
