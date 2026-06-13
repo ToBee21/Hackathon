@@ -9,6 +9,7 @@
 
 import { initHoneypotTrap } from "./shared/honeypot"
 import { initCookieShredder } from "./shared/cookieShredder"
+import { initTargetingShield } from "./shared/targetingShield"
 import { generateAlias, saveApiToken } from "./shared/emailAlias"
 import type {
   BackgroundInboundMessage,
@@ -27,6 +28,10 @@ void initHoneypotTrap()
 
 // Moduł: "Cookie Shredder" — rotuje/zatruwa ciasteczka trackingowe.
 void initCookieShredder()
+
+// Moduł: "Targeting Shield" — strip atrybucji (gclid/fbclid/utm) + per-origin
+// blackout trackerów na wrażliwych stronach (eskalacja z AI Deep-Dive).
+void initTargetingShield()
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -272,6 +277,8 @@ async function performPanicWipe(): Promise<{
     await chrome.storage.local.set({
       noiseGeneratedCount: 0,
       cookiesRotatedCount: 0,
+      paramsStrippedCount: 0,
+      targetingBlockedCount: 0,
       [STORAGE_KEY_STATE]: {
         privacyScore: 0,
         trackersBlockedCount: 0,
@@ -280,7 +287,9 @@ async function performPanicWipe(): Promise<{
         aiDeepDiveRisk: null,
         aiDeepDiveDetectionCount: 0,
         maxCamoActive: false,
-        cookiesRotatedCount: 0
+        cookiesRotatedCount: 0,
+        paramsStrippedCount: 0,
+        targetingBlockedCount: 0
       }
     })
     clearedState = true
@@ -294,7 +303,9 @@ async function performPanicWipe(): Promise<{
         aiDeepDiveRisk: null,
         aiDeepDiveDetectionCount: 0,
         maxCamoActive: false,
-        cookiesRotatedCount: 0
+        cookiesRotatedCount: 0,
+        paramsStrippedCount: 0,
+        targetingBlockedCount: 0
       }
     })
   } catch {
@@ -979,10 +990,13 @@ chrome.runtime.onInstalled.addListener(async () => {
     noiseGeneratedCount: 0,
     isNoiseEnabled: true,
     isCookieShredderEnabled: true,
+    isTargetingShieldEnabled: true,
     [STORAGE_KEY_STATE]: {
       ...(stored[STORAGE_KEY_STATE] as Record<string, unknown>),
       noiseGeneratedCount: 0,
       cookiesRotatedCount: 0,
+      paramsStrippedCount: 0,
+      targetingBlockedCount: 0,
     },
   })
   applyBrowserPrivacyGuards()

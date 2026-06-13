@@ -16,7 +16,7 @@ import {
 } from "react"
 
 import CyberRadar, { type HoneypotEvent } from "./components/CyberRadar"
-import { Crosshair, Logo, Lock, Mail, Maximize, ShieldCheck, ShieldOff } from "./components/icons"
+import { Crosshair, Filter, Logo, Lock, Mail, Maximize, ShieldCheck, ShieldOff } from "./components/icons"
 import ModuleToggles from "./components/ModuleToggles"
 import PanicButton from "./components/PanicButton"
 import ScoreChart, { type ProtectionTier } from "./components/ScoreChart"
@@ -50,7 +50,8 @@ const DEFAULT_TOGGLES: ModuleToggleState = {
   mouseJitter: true,
   keystroke: true,
   honeypot: true,
-  cookieShredder: true
+  cookieShredder: true,
+  targetingShield: true
 }
 
 const DEFAULT_STATE: PrivacyState = {
@@ -61,7 +62,9 @@ const DEFAULT_STATE: PrivacyState = {
   aiDeepDiveRisk: null,
   aiDeepDiveDetectionCount: 0,
   maxCamoActive: false,
-  cookiesRotatedCount: 0
+  cookiesRotatedCount: 0,
+  paramsStrippedCount: 0,
+  targetingBlockedCount: 0
 }
 
 const ext: typeof chrome | undefined = (globalThis as any).chrome
@@ -71,16 +74,18 @@ function computePrivacyScore(
   state: PrivacyState
 ): number {
   let score = 0
-  if (toggles.dataGhost) score += 12
-  if (toggles.honeypot) score += 12
-  if (toggles.cookieShredder) score += 12
+  if (toggles.dataGhost) score += 9
+  if (toggles.honeypot) score += 9
+  if (toggles.cookieShredder) score += 9
+  if (toggles.targetingShield) score += 9
   if (toggles.mouseJitter) score += 7
   if (toggles.keystroke) score += 7
 
   const activity =
     state.noiseGeneratedCount * 2 +
     state.trackersBlockedCount * 3 +
-    (state.cookiesRotatedCount ?? 0) * 2
+    (state.cookiesRotatedCount ?? 0) * 2 +
+    (state.targetingBlockedCount ?? 0) * 1
   score += Math.min(50, activity)
 
   return Math.max(0, Math.min(100, score))
@@ -275,6 +280,11 @@ export default function Popup() {
     } as RuntimeMessage)
   }, [])
 
+  // Test: wymusza blackout trackerów na aktywnej karcie (bez czekania na AI).
+  const handleTargetingTest = useCallback(() => {
+    ext?.runtime?.sendMessage({ type: "TRIGGER_TARGETING_TEST" } as unknown as RuntimeMessage)
+  }, [])
+
   const handlePanic = useCallback(() => {
     ext?.runtime?.sendMessage({ type: "PANIC_BUTTON" } as RuntimeMessage)
     setState(DEFAULT_STATE)
@@ -291,7 +301,8 @@ export default function Popup() {
     toggles.mouseJitter ||
     toggles.keystroke ||
     toggles.honeypot ||
-    toggles.cookieShredder
+    toggles.cookieShredder ||
+    toggles.targetingShield
   const tier = deriveTier(anyEnabled, score)
 
   const rootStyle = {
@@ -410,6 +421,17 @@ export default function Popup() {
                   style={{ borderColor: "#FF5C7A55", color: "#FF5C7A" }}>
                   <Crosshair size={13} />
                   Testuj Honeypot · wyślij wabik do trackera
+                </button>
+              )}
+
+              {toggles.targetingShield && (
+                <button
+                  type="button"
+                  onClick={handleTargetingTest}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2 text-[11px] font-medium transition-colors duration-base hover:bg-white/[0.03]"
+                  style={{ borderColor: "#3DD4A055", color: "#3DD4A0" }}>
+                  <Filter size={13} />
+                  Testuj Targeting Shield · blackout tej strony
                 </button>
               )}
             </div>

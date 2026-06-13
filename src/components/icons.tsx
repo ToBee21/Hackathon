@@ -180,6 +180,15 @@ export function Crosshair(props: IconProps) {
   )
 }
 
+/** Targeting Shield — a funnel/filter that strips and blocks targeting. */
+export function Filter(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 5h18l-7 8v6l-4-2v-4z" />
+    </Svg>
+  )
+}
+
 /** Fullscreen — expand to four corners. */
 export function Maximize(props: IconProps) {
   return (

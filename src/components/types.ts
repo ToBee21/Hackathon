@@ -12,6 +12,7 @@ export type ModuleId =
   | "keystroke"
   | "honeypot"
   | "cookieShredder"
+  | "targetingShield"
 
 /**
  * Źródło wpisu w loggerze (moduł funkcjonalny lub sam rdzeń systemu).
@@ -37,6 +38,7 @@ export interface ModuleToggleState {
   keystroke: boolean
   honeypot: boolean
   cookieShredder: boolean
+  targetingShield: boolean
 }
 
 /**

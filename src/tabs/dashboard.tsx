@@ -47,6 +47,7 @@ const DEFAULT_TOGGLES: ModuleToggleState = {
   keystroke: true,
   honeypot: true,
   cookieShredder: true,
+  targetingShield: true,
 }
 
 const DEFAULT_STATE: PrivacyState = {
@@ -58,21 +59,25 @@ const DEFAULT_STATE: PrivacyState = {
   aiDeepDiveDetectionCount: 0,
   maxCamoActive: false,
   cookiesRotatedCount: 0,
+  paramsStrippedCount: 0,
+  targetingBlockedCount: 0,
 }
 
 const ext: typeof chrome | undefined = (globalThis as any).chrome
 
 function computePrivacyScore(toggles: ModuleToggleState, state: PrivacyState): number {
   let score = 0
-  if (toggles.dataGhost) score += 12
-  if (toggles.honeypot) score += 12
-  if (toggles.cookieShredder) score += 12
+  if (toggles.dataGhost) score += 9
+  if (toggles.honeypot) score += 9
+  if (toggles.cookieShredder) score += 9
+  if (toggles.targetingShield) score += 9
   if (toggles.mouseJitter) score += 7
   if (toggles.keystroke) score += 7
   const activity =
     state.noiseGeneratedCount * 2 +
     state.trackersBlockedCount * 3 +
-    (state.cookiesRotatedCount ?? 0) * 2
+    (state.cookiesRotatedCount ?? 0) * 2 +
+    (state.targetingBlockedCount ?? 0) * 1
   score += Math.min(50, activity)
   return Math.max(0, Math.min(100, score))
 }
@@ -210,7 +215,8 @@ export default function Dashboard() {
   }, [addLog])
 
   const anyEnabled =
-    toggles.dataGhost || toggles.mouseJitter || toggles.keystroke || toggles.honeypot || toggles.cookieShredder
+    toggles.dataGhost || toggles.mouseJitter || toggles.keystroke || toggles.honeypot ||
+    toggles.cookieShredder || toggles.targetingShield
   const tier = deriveTier(anyEnabled, score)
 
   const rootStyle = {

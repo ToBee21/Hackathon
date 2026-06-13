@@ -7,7 +7,7 @@
 
 import type { ComponentType, SVGProps } from "react"
 
-import { Aperture, Cookie, Crosshair, Cursor, Ghost, Keyboard, ShieldAlert } from "./icons"
+import { Aperture, Cookie, Crosshair, Cursor, Filter, Ghost, Keyboard, ShieldAlert } from "./icons"
 import type { LogSource } from "./types"
 
 type IconType = ComponentType<{ size?: number } & SVGProps<SVGSVGElement>>
@@ -24,6 +24,7 @@ export const SIGNAL: Record<LogSource, SignalMeta> = {
   mouseJitter: { label: "Mysz", short: "MOUSE", color: "#5E8BFF", Icon: Cursor },
   keystroke: { label: "Klawiatura", short: "KEYS", color: "#46E6A8", Icon: Keyboard },
   cookieShredder: { label: "Cookie Shredder", short: "COOKIE", color: "#F2C14E", Icon: Cookie },
+  targetingShield: { label: "Targeting Shield", short: "FILTER", color: "#3DD4A0", Icon: Filter },
   aiDeepDive: { label: "AI Deep-Dive", short: "AI-RISK", color: "#FF5C77", Icon: ShieldAlert },
   honeypot: { label: "Honeypot", short: "TRAP", color: "#FF8A3D", Icon: Crosshair },
   system: { label: "Rdzeń", short: "CORE", color: "#A3A8B4", Icon: Aperture }

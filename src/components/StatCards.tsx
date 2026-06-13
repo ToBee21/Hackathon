@@ -5,7 +5,7 @@
 
 import type { ReactNode } from "react"
 
-import { Aperture, Cookie, Ghost } from "./icons"
+import { Aperture, Cookie, Filter, Ghost } from "./icons"
 import type { PrivacyState } from "../types"
 
 function Card({
@@ -68,6 +68,20 @@ export default function StatCards({ state }: { state: PrivacyState }) {
         value={state.cookiesRotatedCount ?? 0}
         unit="zatrute ID trackerów"
         span2
+      />
+      <Card
+        icon={<Filter size={15} />}
+        color="#3DD4A0"
+        label="Atrybucja zerwana"
+        value={state.paramsStrippedCount ?? 0}
+        unit="usunięte click-ID / utm"
+      />
+      <Card
+        icon={<Filter size={15} />}
+        color="#3DD4A0"
+        label="Targeting odcięty"
+        value={state.targetingBlockedCount ?? 0}
+        unit="beacony na wrażliwych stronach"
       />
     </div>
   )

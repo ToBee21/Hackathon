@@ -36,6 +36,11 @@ const MODULES: { id: ModuleId; title: string; desc: string }[] = [
     id: "cookieShredder",
     title: "Cookie Shredder",
     desc: "Rotuje ID ciasteczek trackerów — co cykl wyglądasz jak nowy użytkownik"
+  },
+  {
+    id: "targetingShield",
+    title: "Targeting Shield",
+    desc: "Zrywa atrybucję (gclid/fbclid/utm) i odcina trackery na wrażliwych stronach"
   }
 ]
 
