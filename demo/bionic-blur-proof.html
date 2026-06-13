@@ -65,7 +65,7 @@
 
       .grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 10px;
       }
 
@@ -88,6 +88,27 @@
         margin-top: 4px;
         font-size: 11px;
         color: #94a3b8;
+      }
+
+      .proof-strip {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        color: #cbd5e1;
+        font-size: 12px;
+      }
+
+      .proof-strip code {
+        display: block;
+        margin-top: 3px;
+        color: #67e8f9;
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      }
+
+      body[data-proof-pulse="on"] #pointer-zone {
+        border-color: rgba(52, 211, 153, 0.88);
+        box-shadow: inset 0 0 42px rgba(52, 211, 153, 0.16);
       }
 
       #pointer-zone {
@@ -175,6 +196,11 @@
           grid-template-columns: 1fr;
           padding: 16px;
         }
+
+        .grid,
+        .proof-strip {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
     </style>
   </head>
@@ -200,6 +226,21 @@
               <strong id="score">0</strong>
               <span>proof score</span>
             </div>
+            <div class="metric">
+              <strong id="api-count">0</strong>
+              <span>API proof cycles</span>
+            </div>
+          </div>
+
+          <div class="proof-strip">
+            <p>
+              Last signal
+              <code id="last-signal">none</code>
+            </p>
+            <p>
+              Live loop
+              <code id="cycle-label">armed</code>
+            </p>
           </div>
         </div>
 
@@ -230,7 +271,10 @@
         mouse: [],
         keys: [],
         api: {},
-        inputOk: false
+        inputOk: false,
+        apiRuns: 0,
+        cycle: 0,
+        lastSignal: "boot"
       }
 
       const logEl = document.getElementById("log")
@@ -242,6 +286,7 @@
       const editable = document.getElementById("proof-editable")
 
       function log(message, data) {
+        state.lastSignal = message
         const line = `[${new Date().toLocaleTimeString()}] ${message}${
           data ? " " + JSON.stringify(data) : ""
         }`
@@ -287,6 +332,10 @@
           state.keys.length
         )
         document.getElementById("score").textContent = String(score)
+        document.getElementById("api-count").textContent = String(state.apiRuns)
+        document.getElementById("last-signal").textContent = state.lastSignal
+        document.getElementById("cycle-label").textContent =
+          `cycle ${state.cycle} / next pulse < 3s`
 
         statusEl.className = score >= 75 ? "pass" : score > 0 ? "partial" : "fail"
         statusEl.textContent =
@@ -322,7 +371,8 @@
         element.addEventListener("keydown", () => updateScore())
       }
 
-      document.getElementById("run-probes").addEventListener("click", async () => {
+      async function runApiProbes(source = "manual") {
+        state.apiRuns += 1
         const canvas = document.createElement("canvas")
         canvas.width = 64
         canvas.height = 32
@@ -356,8 +406,36 @@
           state.api.audioTouched = "blocked"
         }
 
-        log("api-probes", state.api)
+        log("api-probes", { source, run: state.apiRuns, ...state.api })
         updateScore()
+      }
+
+      function dispatchInputSignal(element) {
+        element.dispatchEvent(new InputEvent("input", { bubbles: true }))
+      }
+
+      async function runLiveProofCycle() {
+        state.cycle += 1
+        document.body.dataset.proofPulse = "on"
+        input.value = `alias-${state.cycle}@cloak.test`
+        textarea.value = `cycle ${state.cycle}: behavioral blur and fingerprint probes`
+        editable.textContent = `contenteditable cycle ${state.cycle}`
+        for (const element of [input, textarea, editable]) {
+          dispatchInputSignal(element)
+        }
+        await runApiProbes("auto-loop")
+        log("proof-cycle", {
+          cycle: state.cycle,
+          status: statusEl.textContent,
+          score: document.getElementById("score").textContent
+        })
+        window.setTimeout(() => {
+          document.body.dataset.proofPulse = "off"
+        }, 520)
+      }
+
+      document.getElementById("run-probes").addEventListener("click", () => {
+        void runApiProbes("button")
       })
 
       log("ready", {
@@ -365,6 +443,8 @@
         note: "Serve this page over http://127.0.0.1 so MV3 http/https content scripts can inject."
       })
       updateScore()
+      window.setTimeout(() => void runLiveProofCycle(), 750)
+      window.setInterval(() => void runLiveProofCycle(), 3000)
     </script>
   </body>
 </html>

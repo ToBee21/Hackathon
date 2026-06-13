@@ -1,5 +1,5 @@
 import { createServer } from "node:http"
-import { access, mkdtemp, readFile, rm, stat } from "node:fs/promises"
+import { access, mkdir, mkdtemp, readFile, rm, stat } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
@@ -8,6 +8,7 @@ import { chromium, expect, test } from "@playwright/test"
 const ROOT = path.resolve(__dirname, "..")
 const EXTENSION_PATH = path.join(ROOT, "build", "chrome-mv3-prod")
 const PROOF_PAGE = path.join(ROOT, "demo", "bionic-blur-proof.html")
+const PROOF_SCREENSHOT = path.join(ROOT, "test-results", "bionic-blur-proof.png")
 const BROWSER_CANDIDATES = [
   process.env.PLAYWRIGHT_CHROME_PATH,
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -75,17 +76,28 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
     const box = await page.locator("#pointer-zone").boundingBox()
     if (!box) throw new Error("Pointer proof zone is missing")
 
-    await page.mouse.move(box.x + 20, box.y + 20)
-    await page.mouse.move(box.x + box.width - 30, box.y + 60, { steps: 8 })
-    await page.mouse.move(box.x + 70, box.y + box.height - 40, { steps: 8 })
+    const selectAll = process.platform === "darwin" ? "Meta+A" : "Control+A"
+    for (let cycle = 1; cycle <= 3; cycle += 1) {
+      await page.mouse.move(box.x + 20, box.y + 20 + cycle * 6)
+      await page.mouse.move(box.x + box.width - 30, box.y + 60 + cycle * 8, {
+        steps: 8
+      })
+      await page.mouse.move(box.x + 70 + cycle * 12, box.y + box.height - 40, {
+        steps: 8
+      })
 
-    await page.locator("#proof-input").focus()
-    await page.keyboard.type("privacytest")
-    await page.locator("#proof-textarea").focus()
-    await page.keyboard.type("textarea proof")
-    await page.locator("#proof-editable").focus()
-    await page.keyboard.type(" editable proof")
-    await page.locator("#run-probes").click()
+      await page.locator("#proof-input").focus()
+      await page.keyboard.press(selectAll)
+      await page.keyboard.type(`privacytest-${cycle}`)
+      await page.locator("#proof-textarea").focus()
+      await page.keyboard.press(selectAll)
+      await page.keyboard.type(`textarea proof ${cycle}`)
+      await page.locator("#proof-editable").focus()
+      await page.keyboard.press(selectAll)
+      await page.keyboard.type(`editable proof ${cycle}`)
+      await page.locator("#run-probes").click()
+      await page.waitForTimeout(1800)
+    }
 
     try {
       await expect
@@ -95,10 +107,21 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
           { timeout: 15000 }
         )
         .toContain("PASS")
+      await expect
+        .poll(
+          async () =>
+            Number(await page.locator("#api-count").evaluate((node) => node.textContent ?? "0")),
+          { timeout: 7000 }
+        )
+        .toBeGreaterThanOrEqual(3)
+      await mkdir(path.dirname(PROOF_SCREENSHOT), { recursive: true })
+      await page.screenshot({ path: PROOF_SCREENSHOT, fullPage: true })
     } catch (error) {
       const diagnostics = await page.evaluate(() => ({
         status: document.querySelector("#status")?.textContent,
         score: document.querySelector("#score")?.textContent,
+        apiRuns: document.querySelector("#api-count")?.textContent,
+        cycle: document.querySelector("#cycle-label")?.textContent,
         mouse: document.querySelector("#mouse-count")?.textContent,
         keys: document.querySelector("#key-count")?.textContent,
         log: document.querySelector("#log")?.textContent?.slice(0, 2000)
