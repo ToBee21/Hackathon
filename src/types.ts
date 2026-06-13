@@ -118,8 +118,13 @@ export interface SetNoiseEnabledMessage {
 
 export interface ToggleModuleMessage {
   type: "TOGGLE_MODULE";
-  module: "dataGhost" | "mouseJitter" | "keystroke";
+  module: "dataGhost" | "mouseJitter" | "keystroke" | "honeypot";
   enabled: boolean;
+}
+
+/** Demo: ręczne wyzwolenie ataku Honeypota (np. przycisk w UI dla jury). */
+export interface TriggerHoneypotTestMessage {
+  type: "TRIGGER_HONEYPOT_TEST";
 }
 
 export interface RequestStateMessage {
@@ -137,9 +142,10 @@ export type BackgroundInboundMessage =
   | ToggleModuleMessage
   | RequestStateMessage
   | InjectBionicMainMessage
+  | TriggerHoneypotTestMessage
   | BionicBlurTelemetryMessage;
 
-export type BackgroundOutboundMessage = NoiseInjectedMessage;
+export type BackgroundOutboundMessage = NoiseInjectedMessage | HoneypotLog;
 
 export interface DataGhostStatus {
   noiseGeneratedCount: number;
@@ -207,6 +213,46 @@ export interface PrivacyState {
   trackersBlockedCount: number;
   noiseGeneratedCount: number;
   activeAliasEmail: string | null;
+}
+
+// --- Module D+: Honeypot Trap (Data Poisoning / Zatruwanie Profilera) ---
+
+/**
+ * Log pojedynczego udanego przechwycenia i zatrucia żądania trackera.
+ * Wysyłany do dashboardu (Moduł C) po każdym ataku — "mocne logi dla jury".
+ */
+export interface HoneypotLog {
+  type: "HONEYPOT_ATTACK";
+  payload: {
+    /** Czytelna nazwa trackera, np. "Facebook Pixel". */
+    trackerName: string;
+    /** Oryginalny URL żądania trackera (przed zatruciem). */
+    targetUrl: string;
+    /** Ludzki opis wstrzykniętego profilu — co podaliśmy profilerowi. */
+    poisonedData: string;
+    timestamp: number;
+  };
+}
+
+/** Sygnatura znanego trackera używana do budowy reguł DNR. */
+export interface TrackerSignature {
+  /** Czytelna nazwa, np. "Google Analytics". */
+  name: string;
+  /** Wzorzec DNR (urlFilter) dopasowujący żądania trackera. */
+  urlFilter: string;
+  /**
+   * Nazwy realnych parametrów profilujących trackera (np. "cid", "_fbp"),
+   * które nadpisujemy trucizną zamiast jedynie dokładać śmieci obok.
+   */
+  identityParams: string[];
+}
+
+/** Wygenerowany ładunek dezinformacyjny ("Poison Payload"). */
+export interface HoneypotPoison {
+  /** Parametry query wstrzykiwane/nadpisywane w żądaniu (klucz → wartość). */
+  params: Record<string, string>;
+  /** Ludzki opis wstrzykniętego profilu (trafia do HoneypotLog.poisonedData). */
+  description: string;
 }
 
 // --- Runtime message format shared by modules ---

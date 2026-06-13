@@ -8,8 +8,12 @@ import type { PrivacyState } from "../types"
 /** Identyfikatory funkcji, które użytkownik może włączać/wyłączać. */
 export type ModuleId = "dataGhost" | "mouseJitter" | "keystroke"
 
-/** Źródło wpisu w loggerze (moduł funkcjonalny lub sam rdzeń systemu). */
-export type LogSource = ModuleId | "system"
+/**
+ * Źródło wpisu w loggerze (moduł funkcjonalny lub sam rdzeń systemu).
+ * "honeypot" = Moduł D+ (Zatruwanie Profilera) — nie jest przełącznikiem UI,
+ * ale ma własną tożsamość wizualną w telemetrii.
+ */
+export type LogSource = ModuleId | "system" | "honeypot"
 
 /** Pojedyncze zdarzenie pokazywane w Real-time Loggerze. */
 export interface LogEntry {
