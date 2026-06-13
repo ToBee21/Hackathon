@@ -10,12 +10,14 @@ import {
   type CSSProperties,
 } from "react"
 
+import AiDeepDiveCard from "../components/AiDeepDiveCard"
 import CyberRadar, { type HoneypotEvent } from "../components/CyberRadar"
-import { Crosshair, Lock, Logo, ShieldCheck, ShieldOff } from "../components/icons"
+import { Crosshair, Lock, Logo, Mail, ShieldCheck, ShieldOff } from "../components/icons"
 import LoggerView from "../components/LoggerView"
 import ModuleToggles from "../components/ModuleToggles"
 import PanicButton from "../components/PanicButton"
 import ScoreChart, { type ProtectionTier } from "../components/ScoreChart"
+import ShadowAudit from "../components/ShadowAudit"
 import StatCards from "../components/StatCards"
 import type {
   LogEntry,
@@ -23,6 +25,13 @@ import type {
   ModuleToggleState,
   RuntimeMessage,
 } from "../components/types"
+import {
+  DEFAULT_AI_DEEP_DIVE_CONFIG,
+  STORAGE_KEY_AI_DEEP_DIVE_CONFIG,
+  normalizeAiDeepDiveConfig,
+  type AiDeepDiveRuntimeConfig,
+} from "../shared/aiDeepDive/config"
+import { generateAlias } from "../shared/emailAlias"
 import type { PrivacyState } from "../types"
 
 import "../style.css"
@@ -44,6 +53,9 @@ const DEFAULT_STATE: PrivacyState = {
   trackersBlockedCount: 0,
   noiseGeneratedCount: 0,
   activeAliasEmail: null,
+  aiDeepDiveRisk: null,
+  aiDeepDiveDetectionCount: 0,
+  maxCamoActive: false,
 }
 
 const ext: typeof chrome | undefined = (globalThis as any).chrome
@@ -74,6 +86,7 @@ function makeLogId(): string {
 export default function Dashboard() {
   const [toggles, setToggles] = useState<ModuleToggleState>(DEFAULT_TOGGLES)
   const [state, setState] = useState<PrivacyState>(DEFAULT_STATE)
+  const [aiDeepDiveConfig, setAiDeepDiveConfig] = useState<AiDeepDiveRuntimeConfig>(DEFAULT_AI_DEEP_DIVE_CONFIG)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [hydrated, setHydrated] = useState(false)
   const [honeypotEvents, setHoneypotEvents] = useState<HoneypotEvent[]>([])
@@ -98,9 +111,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!ext?.storage?.local) { setHydrated(true); return }
-    ext.storage.local.get([STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE], (result) => {
+    ext.storage.local.get([STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE, STORAGE_KEY_AI_DEEP_DIVE_CONFIG], (result) => {
       if (result?.[STORAGE_KEY_TOGGLES]) setToggles({ ...DEFAULT_TOGGLES, ...result[STORAGE_KEY_TOGGLES] })
       if (result?.[STORAGE_KEY_STATE]) setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
+      setAiDeepDiveConfig(normalizeAiDeepDiveConfig(result?.[STORAGE_KEY_AI_DEEP_DIVE_CONFIG]))
       setHydrated(true)
     })
   }, [])
@@ -114,6 +128,10 @@ export default function Dashboard() {
           break
         case "STATE_UPDATE":
           setState((prev) => ({ ...prev, ...message.state }))
+          // MaxCamo: gdy AI Deep-Dive wykryje wysokie ryzyko, zazbrój wektory.
+          if (message.state.maxCamoActive) {
+            setToggles((prev) => ({ ...prev, dataGhost: true, mouseJitter: true, keystroke: true }))
+          }
           break
         case "HONEYPOT_ATTACK":
           setState((prev) => ({ ...prev, trackersBlockedCount: prev.trackersBlockedCount + 1 }))
@@ -149,6 +167,27 @@ export default function Dashboard() {
     })
     ext?.runtime?.sendMessage({ type: "TOGGLE_MODULE", module, enabled } as RuntimeMessage)
     addLog({ timestamp: Date.now(), source: "system", message: `${enabled ? "Włączono" : "Wyłączono"} moduł: ${module}` })
+  }, [addLog])
+
+  const handleToggleAiDeepDiveMode = useCallback((enabled: boolean) => {
+    const next = { ...aiDeepDiveConfig, aiModeEnabled: enabled }
+    setAiDeepDiveConfig(next)
+    ext?.storage?.local?.set({ [STORAGE_KEY_AI_DEEP_DIVE_CONFIG]: next })
+    addLog({
+      timestamp: Date.now(),
+      source: "aiDeepDive",
+      message: enabled ? "AI Deep-Dive: lokalny HF/NLI wlaczony" : "AI Deep-Dive: lokalny HF/NLI wylaczony",
+    })
+  }, [addLog, aiDeepDiveConfig])
+
+  const handleGenerateAlias = useCallback(async () => {
+    try {
+      const alias = await generateAlias()
+      setState((prev) => ({ ...prev, activeAliasEmail: alias.alias }))
+      addLog({ timestamp: Date.now(), source: "system", message: `Wygenerowano alias e-mail: ${alias.alias}` })
+    } catch {
+      addLog({ timestamp: Date.now(), source: "system", message: "Nie udało się wygenerować aliasu e-mail" })
+    }
   }, [addLog])
 
   const handleHoneypotTest = useCallback(() => {
@@ -232,6 +271,12 @@ export default function Dashboard() {
           <div className="flex flex-col gap-4">
             <ScoreChart score={score} tier={tier} armed={anyEnabled} noiseCount={state.noiseGeneratedCount} trackerCount={state.trackersBlockedCount} />
             <StatCards state={state} />
+            <AiDeepDiveCard
+              risk={state.aiDeepDiveRisk}
+              maxCamoActive={state.maxCamoActive}
+              aiModeEnabled={aiDeepDiveConfig.aiModeEnabled}
+              onToggleAiMode={handleToggleAiDeepDiveMode}
+            />
             <ModuleToggles toggles={toggles} onToggle={handleToggle} />
             {toggles.honeypot && (
               <button
@@ -280,13 +325,37 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right column — logs + panic */}
+          {/* Right column — logs + shadow audit + panic */}
           <div className="flex flex-col gap-4">
             <LoggerView entries={logs} />
+            <ShadowAudit />
             <PanicButton onPanic={handlePanic} />
-            <p className="flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-fg-low/50">
-              <Lock size={10} /> Privacy-by-Design · dane lokalne
-            </p>
+            <div className="flex flex-col items-center gap-1.5">
+              {state.activeAliasEmail ? (
+                <p className="text-[10px] text-fg-low">
+                  Alias:{" "}
+                  <span className="font-mono text-fg-mid">{state.activeAliasEmail}</span>{" "}
+                  <button
+                    type="button"
+                    onClick={handleGenerateAlias}
+                    className="text-accent/80 transition-colors hover:text-accent"
+                  >
+                    nowy
+                  </button>
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGenerateAlias}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] px-2.5 py-1 text-[10px] text-fg-mid ring-1 ring-inset ring-line-strong transition-colors hover:text-fg-hi hover:ring-line-hover"
+                >
+                  <Mail size={11} /> Generuj alias e-mail
+                </button>
+              )}
+              <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-fg-low/50">
+                <Lock size={10} /> Privacy-by-Design · dane lokalne
+              </p>
+            </div>
           </div>
         </div>
       </div>
