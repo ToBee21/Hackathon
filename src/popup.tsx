@@ -1,11 +1,11 @@
 // src/popup.tsx
-// Moduł C — Privacy Dashboard. Punkt wejścia interfejsu (Plasmo popup).
+// Moduł C — Privacy Dashboard (popup). Lekki panel szybkiej kontroli.
 //
-// Scalenie dwóch ścieżek:
-//  • zakładki Status / Radar + przycisk pełnego ekranu (szalik / origin/main)
-//  • pełny zestaw modułów feat: AI Deep-Dive, Shadow Audit, Honeypot,
-//    generator aliasu e-mail, "Stealth Intelligence Console" GUI.
-// Logika (score, collapse logów, hydration, storage, panic) zachowana.
+// Po refaktorze popup zawiera tylko sterowanie i skrót stanu:
+//  • Privacy Score + statystyki, przełączniki modułów, test Honeypota,
+//    Panic Button, generator aliasu e-mail, zakładka Radar.
+// Widoki szczegółowe — Telemetria na żywo, Cień cyfrowy (Shadow Audit) oraz
+// AI Deep-Dive — żyją wyłącznie w pełnoekranowym dashboardzie (tabs/dashboard).
 
 import {
   useCallback,
@@ -15,27 +15,17 @@ import {
   type CSSProperties
 } from "react"
 
-import AiDeepDiveCard from "./components/AiDeepDiveCard"
 import CyberRadar, { type HoneypotEvent } from "./components/CyberRadar"
-import { Crosshair, Logo, Lock, Mail, ShieldCheck, ShieldOff } from "./components/icons"
-import LoggerView from "./components/LoggerView"
+import { Crosshair, Logo, Lock, Mail, Maximize, ShieldCheck, ShieldOff } from "./components/icons"
 import ModuleToggles from "./components/ModuleToggles"
 import PanicButton from "./components/PanicButton"
 import ScoreChart, { type ProtectionTier } from "./components/ScoreChart"
-import ShadowAudit from "./components/ShadowAudit"
 import StatCards from "./components/StatCards"
 import type {
-  LogEntry,
   ModuleId,
   ModuleToggleState,
   RuntimeMessage
 } from "./components/types"
-import {
-  DEFAULT_AI_DEEP_DIVE_CONFIG,
-  STORAGE_KEY_AI_DEEP_DIVE_CONFIG,
-  normalizeAiDeepDiveConfig,
-  type AiDeepDiveRuntimeConfig
-} from "./shared/aiDeepDive/config"
 import { generateAlias } from "./shared/emailAlias"
 import type { PrivacyState } from "./types"
 
@@ -43,8 +33,6 @@ import "./style.css"
 
 const STORAGE_KEY_TOGGLES = "cnd:toggles"
 const STORAGE_KEY_STATE = "cnd:state"
-const MAX_LOG_ENTRIES = 30
-const LOG_COLLAPSE_WINDOW_MS = 8000
 
 const DEFAULT_TOGGLES: ModuleToggleState = {
   dataGhost: true,
@@ -94,12 +82,6 @@ function deriveTier(armed: boolean, score: number): ProtectionTier {
   return "exposed"
 }
 
-let logCounter = 0
-function makeLogId(): string {
-  logCounter += 1
-  return `${Date.now()}-${logCounter}`
-}
-
 // ─── Tab navigation ──────────────────────────────────────────────────────────
 
 type Tab = "status" | "radar"
@@ -112,38 +94,9 @@ const TAB_LABELS: Record<Tab, string> = {
 export default function Popup() {
   const [toggles, setToggles] = useState<ModuleToggleState>(DEFAULT_TOGGLES)
   const [state, setState] = useState<PrivacyState>(DEFAULT_STATE)
-  const [aiDeepDiveConfig, setAiDeepDiveConfig] =
-    useState<AiDeepDiveRuntimeConfig>(DEFAULT_AI_DEEP_DIVE_CONFIG)
-  const [logs, setLogs] = useState<LogEntry[]>([])
   const [hydrated, setHydrated] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>("status")
   const [honeypotEvents, setHoneypotEvents] = useState<HoneypotEvent[]>([])
-
-  const addLog = useCallback((entry: Omit<LogEntry, "id">) => {
-    setLogs((prev) => {
-      const latest = prev[0]
-      if (
-        latest &&
-        latest.source === entry.source &&
-        latest.message === entry.message &&
-        Math.abs(entry.timestamp - latest.timestamp) <= LOG_COLLAPSE_WINDOW_MS
-      ) {
-        return [
-          {
-            ...latest,
-            timestamp: entry.timestamp,
-            count: (latest.count ?? 1) + (entry.count ?? 1)
-          },
-          ...prev.slice(1)
-        ]
-      }
-
-      return [
-        { ...entry, id: makeLogId(), count: entry.count ?? 1 },
-        ...prev
-      ].slice(0, MAX_LOG_ENTRIES)
-    })
-  }, [])
 
   // --- Inicjalizacja: wczytanie zapisanego stanu + nasłuch wiadomości ---
   useEffect(() => {
@@ -153,7 +106,7 @@ export default function Popup() {
     }
 
     ext.storage.local.get(
-      [STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE, STORAGE_KEY_AI_DEEP_DIVE_CONFIG],
+      [STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE],
       (result) => {
         if (result?.[STORAGE_KEY_TOGGLES]) {
           setToggles({ ...DEFAULT_TOGGLES, ...result[STORAGE_KEY_TOGGLES] })
@@ -161,9 +114,6 @@ export default function Popup() {
         if (result?.[STORAGE_KEY_STATE]) {
           setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
         }
-        setAiDeepDiveConfig(
-          normalizeAiDeepDiveConfig(result?.[STORAGE_KEY_AI_DEEP_DIVE_CONFIG])
-        )
         setHydrated(true)
       }
     )
@@ -174,9 +124,6 @@ export default function Popup() {
 
     const handler = (message: RuntimeMessage) => {
       switch (message?.type) {
-        case "LOG_EVENT":
-          addLog(message.entry)
-          break
         case "STATE_UPDATE":
           setState((prev) => ({ ...prev, ...message.state }))
           // MaxCamo: gdy AI Deep-Dive wykryje wysokie ryzyko, zazbrój wektory.
@@ -202,11 +149,6 @@ export default function Popup() {
               timestamp: message.payload.timestamp
             }
           ])
-          addLog({
-            timestamp: message.payload.timestamp,
-            source: "honeypot",
-            message: `Zatruty tracker: ${message.payload.trackerName}`
-          })
           break
       }
     }
@@ -215,7 +157,7 @@ export default function Popup() {
     ext.runtime.sendMessage({ type: "REQUEST_STATE" } as RuntimeMessage)
 
     return () => ext.runtime.onMessage.removeListener(handler)
-  }, [addLog])
+  }, [])
 
   const score = useMemo(
     () => computePrivacyScore(toggles, state),
@@ -228,28 +170,19 @@ export default function Popup() {
   }, [hydrated, score, state])
 
   // --- Akcje użytkownika ---
-  const handleToggle = useCallback(
-    (module: ModuleId, enabled: boolean) => {
-      setToggles((prev) => {
-        const next = { ...prev, [module]: enabled }
-        ext?.storage?.local?.set({ [STORAGE_KEY_TOGGLES]: next })
-        return next
-      })
+  const handleToggle = useCallback((module: ModuleId, enabled: boolean) => {
+    setToggles((prev) => {
+      const next = { ...prev, [module]: enabled }
+      ext?.storage?.local?.set({ [STORAGE_KEY_TOGGLES]: next })
+      return next
+    })
 
-      ext?.runtime?.sendMessage({
-        type: "TOGGLE_MODULE",
-        module,
-        enabled
-      } as RuntimeMessage)
-
-      addLog({
-        timestamp: Date.now(),
-        source: "system",
-        message: `${enabled ? "Włączono" : "Wyłączono"} moduł: ${module}`
-      })
-    },
-    [addLog]
-  )
+    ext?.runtime?.sendMessage({
+      type: "TOGGLE_MODULE",
+      module,
+      enabled
+    } as RuntimeMessage)
+  }, [])
 
   const handleGenerateAlias = useCallback(async () => {
     // Module D (Identity Masking) — offline path needs no API token. The alias
@@ -258,62 +191,24 @@ export default function Popup() {
     try {
       const alias = await generateAlias()
       setState((prev) => ({ ...prev, activeAliasEmail: alias.alias }))
-      addLog({
-        timestamp: Date.now(),
-        source: "system",
-        message: `Wygenerowano alias e-mail: ${alias.alias}`
-      })
     } catch {
-      addLog({
-        timestamp: Date.now(),
-        source: "system",
-        message: "Nie udało się wygenerować aliasu e-mail"
-      })
+      // Best-effort — błąd generowania nie wywraca UI.
     }
-  }, [addLog])
+  }, [])
 
-  const handleToggleAiDeepDiveMode = useCallback(
-    (enabled: boolean) => {
-      const next = { ...aiDeepDiveConfig, aiModeEnabled: enabled }
-      setAiDeepDiveConfig(next)
-      ext?.storage?.local?.set({ [STORAGE_KEY_AI_DEEP_DIVE_CONFIG]: next })
-      addLog({
-        timestamp: Date.now(),
-        source: "aiDeepDive",
-        message: enabled
-          ? "AI Deep-Dive: lokalny HF/NLI wlaczony"
-          : "AI Deep-Dive: lokalny HF/NLI wylaczony"
-      })
-    },
-    [addLog, aiDeepDiveConfig]
-  )
-
-  // Demo: ręcznie wystrzel wabik do trackera, by jury zobaczyło pełny przepływ
+  // Demo: ręcznie wystrzel wabik do trackera, by zobaczyć pełny przepływ
   // przechwycenie → zatrucie → log. Realny log "TRAP" przyjdzie z backgroundu.
   const handleHoneypotTest = useCallback(() => {
     ext?.runtime?.sendMessage({
       type: "TRIGGER_HONEYPOT_TEST"
     } as RuntimeMessage)
-
-    addLog({
-      timestamp: Date.now(),
-      source: "honeypot",
-      message: "Wysłano wabik do Google Analytics — czekam na zatrucie…"
-    })
-  }, [addLog])
+  }, [])
 
   const handlePanic = useCallback(() => {
     ext?.runtime?.sendMessage({ type: "PANIC_BUTTON" } as RuntimeMessage)
-
-    setLogs([])
     setState(DEFAULT_STATE)
     setHoneypotEvents([])
-    addLog({
-      timestamp: Date.now(),
-      source: "system",
-      message: "PANIC: wyczyszczono sesje śledzące i dane lokalne"
-    })
-  }, [addLog])
+  }, [])
 
   const handleOpenFullscreen = useCallback(() => {
     const url = ext?.runtime?.getURL("tabs/dashboard.html")
@@ -365,15 +260,7 @@ export default function Popup() {
               title="Otwórz dashboard na pełnym ekranie"
               className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-2 text-fg-low transition-colors hover:text-fg-hi"
               style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                <path
-                  d="M1 4.5V1.5H4M9 1.5H12V4.5M12 8.5V11.5H9M4 11.5H1V8.5"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <Maximize size={13} />
             </button>
 
             <span
@@ -440,18 +327,8 @@ export default function Popup() {
               <StatCards state={state} />
             </div>
 
-            {/* AI Deep-Dive Risk */}
-            <div style={v(4)}>
-              <AiDeepDiveCard
-                risk={state.aiDeepDiveRisk}
-                maxCamoActive={state.maxCamoActive}
-                aiModeEnabled={aiDeepDiveConfig.aiModeEnabled}
-                onToggleAiMode={handleToggleAiDeepDiveMode}
-              />
-            </div>
-
             {/* Przełączniki modułów + demo Honeypota */}
-            <div style={v(5)} className="flex flex-col gap-2">
+            <div style={v(4)} className="flex flex-col gap-2">
               <ModuleToggles toggles={toggles} onToggle={handleToggle} />
 
               {toggles.honeypot && (
@@ -466,23 +343,23 @@ export default function Popup() {
               )}
             </div>
 
-            {/* Telemetria na żywo */}
-            <div style={v(6)}>
-              <LoggerView entries={logs} />
-            </div>
-
-            {/* Audyt cienia cyfrowego — pasywny pomiar własnego fingerprintu */}
-            <div style={v(7)}>
-              <ShadowAudit />
-            </div>
+            {/* Skrót do widoków szczegółowych — Telemetria, AI, Cień cyfrowy */}
+            <button
+              type="button"
+              style={v(5)}
+              onClick={handleOpenFullscreen}
+              className="flex items-center justify-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2.5 text-[11px] font-medium text-fg-mid ring-1 ring-inset ring-line-strong transition-colors hover:text-fg-hi hover:ring-line-hover">
+              <Maximize size={13} />
+              Telemetria na żywo · AI Deep-Dive · Cień cyfrowy
+            </button>
 
             {/* Panic — hold-to-wipe */}
-            <div style={v(8)}>
+            <div style={v(6)}>
               <PanicButton onPanic={handlePanic} />
             </div>
 
             {/* Stopka — tożsamość jednorazowa + sygnał zaufania */}
-            <div style={v(9)} className="flex flex-col items-center gap-1.5 pt-0.5">
+            <div style={v(7)} className="flex flex-col items-center gap-1.5 pt-0.5">
               {state.activeAliasEmail ? (
                 <p className="text-[10px] text-fg-low">
                   Alias:{" "}
