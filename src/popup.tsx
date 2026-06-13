@@ -16,6 +16,7 @@ import {
   type CSSProperties
 } from "react"
 
+import CyberRadar from "./components/CyberRadar"
 import { Logo, Lock, ShieldCheck, ShieldOff } from "./components/icons"
 import LoggerView from "./components/LoggerView"
 import ModuleToggles from "./components/ModuleToggles"
@@ -282,28 +283,38 @@ export default function Popup() {
           />
         </div>
 
+        {/* Cyber Radar — wizualizacja zagrożeń w czasie rzeczywistym */}
+        <div style={v(2)} className="flex justify-center">
+          <CyberRadar
+            armed={anyEnabled}
+            trackerCount={state.trackersBlockedCount}
+            noiseCount={state.noiseGeneratedCount}
+            size={260}
+          />
+        </div>
+
         {/* Statystyki */}
-        <div style={v(2)}>
+        <div style={v(3)}>
           <StatCards state={state} />
         </div>
 
         {/* Przełączniki modułów */}
-        <div style={v(3)}>
+        <div style={v(4)}>
           <ModuleToggles toggles={toggles} onToggle={handleToggle} />
         </div>
 
         {/* Telemetria na żywo */}
-        <div style={v(4)}>
+        <div style={v(5)}>
           <LoggerView entries={logs} />
         </div>
 
         {/* Panic — hold-to-wipe */}
-        <div style={v(5)}>
+        <div style={v(6)}>
           <PanicButton onPanic={handlePanic} />
         </div>
 
         {/* Stopka — sygnał zaufania */}
-        <div style={v(6)} className="flex flex-col items-center gap-1 pt-0.5">
+        <div style={v(7)} className="flex flex-col items-center gap-1 pt-0.5">
           {state.activeAliasEmail && (
             <p className="text-[10px] text-fg-low">
               Alias:{" "}
