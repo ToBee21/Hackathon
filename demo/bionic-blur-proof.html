@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bionic Blur Proof</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background: #020617;
+        color: #e2e8f0;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          linear-gradient(180deg, rgba(14, 165, 233, 0.08), transparent 32rem),
+          #020617;
+      }
+
+      main {
+        box-sizing: border-box;
+        display: grid;
+        gap: 16px;
+        grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 24px;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #94a3b8;
+      }
+
+      .panel {
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.82);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+        padding: 16px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 12px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .metric {
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 8px;
+        background: rgba(2, 6, 23, 0.5);
+        padding: 12px;
+      }
+
+      .metric strong {
+        display: block;
+        font-size: 22px;
+        line-height: 1.1;
+        color: #67e8f9;
+      }
+
+      .metric span {
+        display: block;
+        margin-top: 4px;
+        font-size: 11px;
+        color: #94a3b8;
+      }
+
+      #pointer-zone {
+        position: relative;
+        height: 260px;
+        overflow: hidden;
+        border: 1px solid rgba(34, 211, 238, 0.28);
+        border-radius: 8px;
+        background:
+          linear-gradient(rgba(34, 211, 238, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(34, 211, 238, 0.08) 1px, transparent 1px),
+          rgba(8, 47, 73, 0.22);
+        background-size: 28px 28px;
+      }
+
+      #dot {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        margin: -6px 0 0 -6px;
+        border-radius: 999px;
+        background: #22d3ee;
+        box-shadow: 0 0 18px #22d3ee;
+        pointer-events: none;
+      }
+
+      input,
+      textarea,
+      [contenteditable] {
+        box-sizing: border-box;
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 8px;
+        background: rgba(2, 6, 23, 0.7);
+        color: #e2e8f0;
+        padding: 10px 12px;
+        font: inherit;
+        outline: none;
+      }
+
+      textarea,
+      [contenteditable] {
+        min-height: 72px;
+        resize: vertical;
+      }
+
+      button {
+        border: 0;
+        border-radius: 8px;
+        background: #0ea5e9;
+        color: #f8fafc;
+        cursor: pointer;
+        font-weight: 700;
+        padding: 10px 14px;
+      }
+
+      pre {
+        min-height: 320px;
+        max-height: 560px;
+        overflow: auto;
+        margin: 0;
+        border-radius: 8px;
+        background: #020617;
+        color: #cbd5e1;
+        font-size: 12px;
+        line-height: 1.45;
+        padding: 12px;
+        white-space: pre-wrap;
+      }
+
+      .pass {
+        color: #34d399;
+      }
+
+      .fail {
+        color: #f87171;
+      }
+
+      .partial {
+        color: #fbbf24;
+      }
+
+      @media (max-width: 860px) {
+        main {
+          grid-template-columns: 1fr;
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="stack">
+        <div class="panel stack">
+          <div>
+            <h1>Bionic Blur Proof</h1>
+            <p id="status" class="partial">Waiting for extension telemetry.</p>
+          </div>
+
+          <div class="grid">
+            <div class="metric">
+              <strong id="mouse-count">0</strong>
+              <span>mouse debug samples</span>
+            </div>
+            <div class="metric">
+              <strong id="key-count">0</strong>
+              <span>keyboard debug samples</span>
+            </div>
+            <div class="metric">
+              <strong id="score">0</strong>
+              <span>proof score</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel stack">
+          <h2>Pointer Probe</h2>
+          <div id="pointer-zone">
+            <div id="dot"></div>
+          </div>
+        </div>
+
+        <div class="panel stack">
+          <h2>Input Probe</h2>
+          <input id="proof-input" placeholder="Type here" />
+          <textarea id="proof-textarea" placeholder="Textarea check"></textarea>
+          <div id="proof-editable" contenteditable="true">contenteditable check</div>
+          <button id="run-probes" type="button">Run API probes</button>
+        </div>
+      </section>
+
+      <aside class="panel stack">
+        <h2>Evidence Log</h2>
+        <pre id="log"></pre>
+      </aside>
+    </main>
+
+    <script>
+      const state = {
+        mouse: [],
+        keys: [],
+        api: {},
+        inputOk: false
+      }
+
+      const logEl = document.getElementById("log")
+      const statusEl = document.getElementById("status")
+      const dot = document.getElementById("dot")
+      const zone = document.getElementById("pointer-zone")
+      const input = document.getElementById("proof-input")
+      const textarea = document.getElementById("proof-textarea")
+      const editable = document.getElementById("proof-editable")
+
+      function log(message, data) {
+        const line = `[${new Date().toLocaleTimeString()}] ${message}${
+          data ? " " + JSON.stringify(data) : ""
+        }`
+        logEl.textContent = `${line}\n${logEl.textContent}`.slice(0, 12000)
+      }
+
+      function avg(values) {
+        if (!values.length) return 0
+        return values.reduce((sum, value) => sum + value, 0) / values.length
+      }
+
+      function updateScore() {
+        const mouseDelta = state.mouse.map((sample) =>
+          Math.hypot(
+            sample.blurred.clientX - sample.raw.clientX,
+            sample.blurred.clientY - sample.raw.clientY
+          )
+        )
+        const keyDelta = state.keys.map((sample) =>
+          Math.abs(sample.timestamp - sample.rawTimeStamp)
+        )
+        const mousePass = state.mouse.length >= 3 && avg(mouseDelta) > 0.1
+        const keyPass = state.keys.length >= 3 && avg(keyDelta) > 0.1
+        const apiPass =
+          state.api.canvasChanged ||
+          state.api.webglVendor ||
+          state.api.audioTouched
+        state.inputOk =
+          input.value.length > 0 &&
+          textarea.value.length > 0 &&
+          editable.textContent.length > 0
+
+        const score =
+          (mousePass ? 35 : 0) +
+          (keyPass ? 25 : 0) +
+          (apiPass ? 25 : 0) +
+          (state.inputOk ? 15 : 0)
+
+        document.getElementById("mouse-count").textContent = String(
+          state.mouse.length
+        )
+        document.getElementById("key-count").textContent = String(
+          state.keys.length
+        )
+        document.getElementById("score").textContent = String(score)
+
+        statusEl.className = score >= 75 ? "pass" : score > 0 ? "partial" : "fail"
+        statusEl.textContent =
+          score >= 75
+            ? "BIONIC_BLUR_PROOF PASS"
+            : score > 0
+              ? "BIONIC_BLUR_PROOF PARTIAL"
+              : "BIONIC_BLUR_PROOF WAITING"
+      }
+
+      window.addEventListener("cloak-dagger-bionic-debug", (event) => {
+        const detail = event.detail
+        if (detail.surface === "mouse") {
+          state.mouse.push(detail)
+          state.mouse = state.mouse.slice(-120)
+        }
+        if (detail.surface === "keyboard") {
+          state.keys.push(detail)
+          state.keys = state.keys.slice(-120)
+        }
+        log(`debug:${detail.surface}`, detail)
+        updateScore()
+      })
+
+      zone.addEventListener("mousemove", (event) => {
+        const rect = zone.getBoundingClientRect()
+        dot.style.left = `${event.clientX - rect.left}px`
+        dot.style.top = `${event.clientY - rect.top}px`
+      })
+
+      for (const element of [input, textarea, editable]) {
+        element.addEventListener("input", () => updateScore())
+        element.addEventListener("keydown", () => updateScore())
+      }
+
+      document.getElementById("run-probes").addEventListener("click", async () => {
+        const canvas = document.createElement("canvas")
+        canvas.width = 64
+        canvas.height = 32
+        const ctx = canvas.getContext("2d")
+        ctx.fillStyle = "rgb(20 120 220)"
+        ctx.fillRect(0, 0, 64, 32)
+        const image = ctx.getImageData(0, 0, 64, 32)
+        state.api.canvasChanged = image.data.some((value, index) => {
+          if (index % 4 === 3) return false
+          return value !== [20, 120, 220][index % 4]
+        })
+
+        const glCanvas = document.createElement("canvas")
+        const gl = glCanvas.getContext("webgl")
+        if (gl) {
+          const debug = gl.getExtension("WEBGL_debug_renderer_info")
+          state.api.webglVendor = debug
+            ? gl.getParameter(debug.UNMASKED_VENDOR_WEBGL)
+            : "no-debug-extension"
+        }
+
+        try {
+          const audio = new AudioContext()
+          const buffer = audio.createBuffer(1, 256, 44100)
+          const data = buffer.getChannelData(0)
+          data[0] = 0.5
+          buffer.getChannelData(0)
+          state.api.audioTouched = data[0] !== 0.5
+          await audio.close()
+        } catch {
+          state.api.audioTouched = "blocked"
+        }
+
+        log("api-probes", state.api)
+        updateScore()
+      })
+
+      log("ready", {
+        url: location.href,
+        note: "Serve this page over http://127.0.0.1 so MV3 http/https content scripts can inject."
+      })
+      updateScore()
+    </script>
+  </body>
+</html>

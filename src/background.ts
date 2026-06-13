@@ -21,6 +21,8 @@ const ALARM_NAME = "dataghost-noise-cycle"
 const NOISE_INTERVAL_MINUTES = 1
 const REQUESTS_PER_CYCLE_MIN = 2
 const REQUESTS_PER_CYCLE_MAX = 5
+const BIONIC_ACCEPT_LANGUAGE_RULE_ID = 41001
+const BIONIC_MAIN_SCRIPT_ID = "srcContentsBionicBlurMain"
 
 // Diverse, neutral keyword categories — wide variety defeats interest profiling
 const KEYWORD_POOL: Record<string, string[]> = {
@@ -122,6 +124,126 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function sendRuntimeMessage(message: BackgroundOutboundMessage | Record<string, unknown>): void {
+  try {
+    const response = chrome.runtime.sendMessage(message)
+    if (response && typeof response.catch === "function") {
+      response.catch(() => undefined)
+    }
+  } catch {
+    // Popup can be closed. Runtime messages are best-effort.
+  }
+}
+
+function setChromePrivacyValue(
+  setting: { set?: (details: { value: unknown }, callback?: () => void) => void } | undefined,
+  value: unknown
+): void {
+  try {
+    setting?.set?.({ value }, () => void chrome.runtime.lastError)
+  } catch {
+    // Enterprise policies or missing permissions can block privacy writes.
+  }
+}
+
+function applyBrowserPrivacyGuards(): void {
+  const privacy = chrome.privacy as
+    | (typeof chrome.privacy & {
+        network?: typeof chrome.privacy.network & {
+          networkPredictionEnabled?: {
+            set?: (
+              details: { value: unknown },
+              callback?: () => void
+            ) => void
+          }
+        }
+      })
+    | undefined
+
+  setChromePrivacyValue(
+    privacy?.network?.webRTCIPHandlingPolicy as
+      | {
+          set?: (
+            details: { value: unknown },
+            callback?: () => void
+          ) => void
+        }
+      | undefined,
+    "disable_non_proxied_udp"
+  )
+  setChromePrivacyValue(privacy?.network?.networkPredictionEnabled, false)
+
+  try {
+    const acceptLanguageRule = {
+      id: BIONIC_ACCEPT_LANGUAGE_RULE_ID,
+      priority: 1,
+      action: {
+        type: "modifyHeaders",
+        requestHeaders: [
+          {
+            header: "Accept-Language",
+            operation: "set",
+            value: "en-US,en;q=0.9"
+          }
+        ]
+      },
+      condition: {
+        regexFilter: "^https?://",
+        resourceTypes: [
+          "main_frame",
+          "sub_frame",
+          "script",
+          "xmlhttprequest",
+          "image",
+          "stylesheet",
+          "font",
+          "media",
+          "ping",
+          "other"
+        ]
+      }
+    } as unknown as chrome.declarativeNetRequest.Rule
+
+    chrome.declarativeNetRequest?.updateDynamicRules?.(
+      {
+        removeRuleIds: [BIONIC_ACCEPT_LANGUAGE_RULE_ID],
+        addRules: [acceptLanguageRule]
+      },
+      () => void chrome.runtime.lastError
+    )
+  } catch {
+    // DNR is a guard layer, not a hard runtime dependency.
+  }
+}
+
+async function injectBionicMainIntoSender(
+  sender: chrome.runtime.MessageSender
+): Promise<boolean> {
+  const tabId = sender.tab?.id
+  if (typeof tabId !== "number") return false
+
+  try {
+    const scripts = await chrome.scripting.getRegisteredContentScripts({
+      ids: [BIONIC_MAIN_SCRIPT_ID]
+    })
+    const files = scripts[0]?.js
+    if (!files?.length) return false
+
+    await chrome.scripting.executeScript({
+      target: {
+        tabId,
+        frameIds:
+          typeof sender.frameId === "number" ? [sender.frameId] : undefined
+      },
+      files,
+      world: "MAIN"
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Keyword sourcing
 // ---------------------------------------------------------------------------
@@ -204,16 +326,16 @@ async function injectNoise(): Promise<void> {
       type: "NOISE_INJECTED",
       payload: { keyword, category, timestamp: Date.now() },
     }
-    chrome.runtime.sendMessage(msg).catch(() => {})
+    sendRuntimeMessage(msg)
 
     // Human-like delay between requests (800 ms – 2.5 s)
     await sleep(randInt(800, 2500))
   }
 
   // Persist running total
-  const { noiseGeneratedCount = 0 } = await chrome.storage.local.get(
-    "noiseGeneratedCount"
-  )
+    const { noiseGeneratedCount = 0 } = (await chrome.storage.local.get(
+      "noiseGeneratedCount"
+    )) as { noiseGeneratedCount?: number }
   await chrome.storage.local.set({
     noiseGeneratedCount: noiseGeneratedCount + batch.length,
   })
@@ -258,7 +380,7 @@ chrome.runtime.onMessage.addListener(
       case "GET_STATUS":
         chrome.storage.local
           .get({ noiseGeneratedCount: 0, isNoiseEnabled: true })
-          .then((data) => sendResponse(data as DataGhostStatus))
+          .then((data) => sendResponse(data as unknown as DataGhostStatus))
         return true
 
       case "SET_NOISE_ENABLED":
@@ -276,6 +398,46 @@ chrome.runtime.onMessage.addListener(
             sendResponse({ success: true })
           })
         return true
+
+      case "TOGGLE_MODULE":
+        if (message.module !== "dataGhost") {
+          sendResponse({ success: true })
+          return false
+        }
+        chrome.storage.local
+          .set({ isNoiseEnabled: message.enabled })
+          .then(() => {
+            if (message.enabled) {
+              chrome.alarms.create(ALARM_NAME, {
+                delayInMinutes: 0.5,
+                periodInMinutes: NOISE_INTERVAL_MINUTES,
+              })
+            } else {
+              chrome.alarms.clear(ALARM_NAME)
+            }
+            sendResponse({ success: true })
+          })
+        return true
+
+      case "REQUEST_STATE":
+        chrome.storage.local
+          .get({
+            noiseGeneratedCount: 0,
+            isNoiseEnabled: true,
+            "cnd:state": {}
+          })
+          .then((data) => sendResponse(data))
+        return true
+
+      case "INJECT_BIONIC_MAIN":
+        injectBionicMainIntoSender(_sender)
+          .then((success) => sendResponse({ success }))
+          .catch(() => sendResponse({ success: false }))
+        return true
+
+      case "BIONIC_BLUR_TELEMETRY":
+        sendResponse({ success: true })
+        return false
     }
   }
 )
@@ -286,12 +448,14 @@ chrome.runtime.onMessage.addListener(
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({ noiseGeneratedCount: 0, isNoiseEnabled: true })
+  applyBrowserPrivacyGuards()
   // Kick off the first injection shortly after install
   injectNoise()
 })
 
 // Re-register alarm on service-worker wake-up (MV3 workers can be killed)
 chrome.runtime.onStartup.addListener(() => {
+  applyBrowserPrivacyGuards()
   chrome.alarms.get(ALARM_NAME, (existing) => {
     if (!existing) {
       chrome.alarms.create(ALARM_NAME, {

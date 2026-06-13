@@ -31,6 +31,10 @@ yarn-error.log*
 # TypeScript cache
 *.tsbuildinfo
 
+# Test output
+coverage/
+test-results/
+
 # Tailwind
 .cache/
 
