@@ -11,10 +11,14 @@ const LEVEL_META = {
 
 export default function AiDeepDiveCard({
   risk,
-  maxCamoActive
+  maxCamoActive,
+  aiModeEnabled,
+  onToggleAiMode
 }: {
   risk: AiDeepDiveRiskResult | null | undefined
   maxCamoActive?: boolean
+  aiModeEnabled: boolean
+  onToggleAiMode: (enabled: boolean) => void
 }) {
   const active = risk && risk.level !== "low"
   const meta = risk ? LEVEL_META[risk.level] : LEVEL_META.low
@@ -76,7 +80,36 @@ export default function AiDeepDiveCard({
           Max camo aktywny: mysz, klawiatura, fingerprint, DataGhost.
         </p>
       )}
+
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-2.5">
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium text-fg-mid">Local HF/NLI</p>
+          <p className="truncate text-[9px] text-fg-low">
+            Xenova/nli-deberta-v3-small · feature flag
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={aiModeEnabled}
+          aria-label="Przełącz lokalny klasyfikator HF NLI"
+          onClick={() => onToggleAiMode(!aiModeEnabled)}
+          className="relative h-[22px] w-10 shrink-0 rounded-full transition-colors duration-base ease-standard"
+          style={{
+            backgroundColor: aiModeEnabled ? meta.color : "#2C2F39",
+            boxShadow: aiModeEnabled
+              ? `inset 0 0 0 1px ${meta.color}, 0 0 0 3px ${meta.color}1f`
+              : "inset 0 0 0 1px rgba(255,255,255,0.10)"
+          }}>
+          <span
+            className="absolute left-[3px] top-[3px] h-4 w-4 rounded-full bg-fg-hi shadow"
+            style={{
+              transform: aiModeEnabled ? "translateX(18px)" : "translateX(0)",
+              transition: "transform 220ms cubic-bezier(0.34,1.56,0.64,1)"
+            }}
+          />
+        </button>
+      </div>
     </div>
   )
 }
-

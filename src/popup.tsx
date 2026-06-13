@@ -31,6 +31,12 @@ import type {
   ModuleToggleState,
   RuntimeMessage
 } from "./components/types"
+import {
+  DEFAULT_AI_DEEP_DIVE_CONFIG,
+  STORAGE_KEY_AI_DEEP_DIVE_CONFIG,
+  normalizeAiDeepDiveConfig,
+  type AiDeepDiveRuntimeConfig
+} from "./shared/aiDeepDive/config"
 import { generateAlias } from "./shared/emailAlias"
 import type { PrivacyState } from "./types"
 
@@ -97,6 +103,8 @@ function makeLogId(): string {
 export default function Popup() {
   const [toggles, setToggles] = useState<ModuleToggleState>(DEFAULT_TOGGLES)
   const [state, setState] = useState<PrivacyState>(DEFAULT_STATE)
+  const [aiDeepDiveConfig, setAiDeepDiveConfig] =
+    useState<AiDeepDiveRuntimeConfig>(DEFAULT_AI_DEEP_DIVE_CONFIG)
   const [logs, setLogs] = useState<LogEntry[]>([])
   // Becomes true once the stored state is loaded. Guards the write-back effect
   // so we never persist DEFAULT_STATE over DataGhost's accumulated counters
@@ -137,7 +145,7 @@ export default function Popup() {
     }
 
     ext.storage.local.get(
-      [STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE],
+      [STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE, STORAGE_KEY_AI_DEEP_DIVE_CONFIG],
       (result) => {
         if (result?.[STORAGE_KEY_TOGGLES]) {
           setToggles({ ...DEFAULT_TOGGLES, ...result[STORAGE_KEY_TOGGLES] })
@@ -145,6 +153,9 @@ export default function Popup() {
         if (result?.[STORAGE_KEY_STATE]) {
           setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
         }
+        setAiDeepDiveConfig(
+          normalizeAiDeepDiveConfig(result?.[STORAGE_KEY_AI_DEEP_DIVE_CONFIG])
+        )
         setHydrated(true)
       }
     )
@@ -230,6 +241,25 @@ export default function Popup() {
       })
     }
   }, [addLog])
+
+  const handleToggleAiDeepDiveMode = useCallback(
+    (enabled: boolean) => {
+      const next = {
+        ...aiDeepDiveConfig,
+        aiModeEnabled: enabled
+      }
+      setAiDeepDiveConfig(next)
+      ext?.storage?.local?.set({ [STORAGE_KEY_AI_DEEP_DIVE_CONFIG]: next })
+      addLog({
+        timestamp: Date.now(),
+        source: "aiDeepDive",
+        message: enabled
+          ? "AI Deep-Dive: lokalny HF/NLI wlaczony"
+          : "AI Deep-Dive: lokalny HF/NLI wylaczony"
+      })
+    },
+    [addLog, aiDeepDiveConfig]
+  )
 
   const handlePanic = useCallback(() => {
     // Logika głębokiego czyszczenia należy do Modułu D — wywołujemy ją
@@ -333,6 +363,8 @@ export default function Popup() {
           <AiDeepDiveCard
             risk={state.aiDeepDiveRisk}
             maxCamoActive={state.maxCamoActive}
+            aiModeEnabled={aiDeepDiveConfig.aiModeEnabled}
+            onToggleAiMode={handleToggleAiDeepDiveMode}
           />
         </div>
 
