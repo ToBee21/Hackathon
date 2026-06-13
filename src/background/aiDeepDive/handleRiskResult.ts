@@ -1,3 +1,4 @@
+import { shouldLogAiDeepDiveReport } from "../../shared/aiDeepDive/reportPolicy"
 import type { AiDeepDiveRiskResult } from "../../shared/aiDeepDive/types"
 import { deriveMaxCamoPatch } from "./maxCamoPolicy"
 import { createRateLimiter } from "./rateLimit"
@@ -110,6 +111,8 @@ function maybeLogDetection(
   maxCamo: boolean,
   sendRuntimeMessage: HandlerDeps["sendRuntimeMessage"]
 ): void {
+  if (!shouldLogAiDeepDiveReport(result)) return
+
   const key = `${result.origin}:${result.urlHash}:${result.level}`
   if (!allowLog(key)) return
 
@@ -146,4 +149,3 @@ function clampNumber(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min
   return Math.max(min, Math.min(max, value))
 }
-

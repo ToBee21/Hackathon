@@ -21,12 +21,20 @@ export default function AiDeepDiveCard({
   onToggleAiMode: (enabled: boolean) => void
 }) {
   const active = risk && risk.level !== "low"
+  const serious = risk?.level === "high" || risk?.level === "critical"
   const meta = risk ? LEVEL_META[risk.level] : LEVEL_META.low
   const categories =
     risk?.categories
       .slice(0, 3)
       .map((entry) => AI_DEEP_DIVE_CATEGORY_LABELS[entry.category])
-      .join(", ") || "brak aktywnego ryzyka"
+      .join(", ") || (risk ? "brak wrażliwych kategorii" : "brak raportu")
+  const statusText = !risk
+    ? "Czekam na raport tej strony"
+    : serious
+      ? "Ta treść jest wysoko profilowalna przez AI/trackerów"
+      : risk.level === "medium"
+        ? "Raport strony: umiarkowane sygnały profilowania AI"
+        : "Raport strony: niskie ryzyko profilowania AI"
 
   return (
     <div
@@ -46,9 +54,7 @@ export default function AiDeepDiveCard({
           <div className="min-w-0">
             <p className="text-micro uppercase text-fg-low">AI Deep-Dive Risk</p>
             <p className="mt-1 text-[12px] font-semibold leading-snug text-fg-hi">
-              {active
-                ? "Ta treść jest wysoko profilowalna przez AI/trackerów"
-                : "Brak wysokiego ryzyka profilowania AI"}
+              {statusText}
             </p>
           </div>
         </div>

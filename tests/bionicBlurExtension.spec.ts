@@ -35,7 +35,27 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
   await stat(PROOF_PAGE)
 
   const html = await readFile(PROOF_PAGE)
+  const benignHtml = Buffer.from(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="description" content="Balcony gardening notes about tomatoes, soil, watering, and sunlight." />
+    <title>Balcony Garden Notes</title>
+  </head>
+  <body>
+    <main>
+      <h1>Balcony Garden Notes</h1>
+      <p>Article about urban gardening, tomatoes, balcony soil, watering schedule, and sunlight.</p>
+      <textarea id="benign-input"></textarea>
+    </main>
+  </body>
+</html>`)
   const server = createServer((req, res) => {
+    if (req.url === "/benign.html") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
+      res.end(benignHtml)
+      return
+    }
     if (req.url === "/" || req.url === "/bionic-blur-proof.html") {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
       res.end(html)
@@ -66,6 +86,23 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
   })
 
   try {
+    const benignPage = await context.newPage()
+    await benignPage.goto(`http://127.0.0.1:${address.port}/benign.html`)
+    await expect
+      .poll(async () => (await readAiDeepDiveRiskLevel(context)) ?? "missing", {
+        timeout: 12000
+      })
+      .toBe("low")
+    await expect
+      .poll(async () => await readAiDeepDiveRawTextFlag(context), {
+        timeout: 12000
+      })
+      .toBe(false)
+    await expect(benignPage.locator("#cloak-dagger-ai-deep-dive-alert")).toHaveCount(0)
+    await benignPage.locator("#benign-input").fill("typing still works")
+    await expect(benignPage.locator("#benign-input")).toHaveValue("typing still works")
+    await benignPage.close()
+
     const page = await context.newPage()
     const runtimeErrors: string[] = []
     page.on("pageerror", (error) => {

@@ -8,12 +8,15 @@ import {
   classifyWithLocalNli,
   shouldRunLocalNli
 } from "../../shared/aiDeepDive/localNli"
+import {
+  shouldSendAiDeepDiveReport,
+  shouldShowAiDeepDiveNotification
+} from "../../shared/aiDeepDive/reportPolicy"
 import type { AiDeepDiveRiskResult } from "../../shared/aiDeepDive/types"
 import { extractVisibleTextFromPage } from "./extractVisibleText"
 import { showAiDeepDiveToast } from "./pageAlert"
 import { startAiDeepDiveScanScheduler } from "./scanScheduler"
 
-const MIN_SEND_SCORE = 25
 const DETECTION_COOLDOWN_MS = 30_000
 
 let lastSignature = ""
@@ -41,11 +44,13 @@ async function runAiDeepDiveScan(
         ? await classifyWithLocalNli(input, heuristic, config).catch(() => heuristic)
         : heuristic
 
-    if (result.score < MIN_SEND_SCORE) return
+    if (!shouldSendAiDeepDiveReport(result)) return
     if (!shouldEmit(result)) return
 
     sendRuntimeMessage(result)
-    showAiDeepDiveToast(result)
+    if (shouldShowAiDeepDiveNotification(result)) {
+      showAiDeepDiveToast(result)
+    }
   } catch {
     // The scanner must never break the page or the Bionic bridge.
   }
