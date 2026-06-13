@@ -17,6 +17,7 @@ export interface LogEntry {
   timestamp: number
   source: LogSource
   message: string
+  count?: number
 }
 
 /** Stan przełączników poszczególnych funkcji ochronnych. */

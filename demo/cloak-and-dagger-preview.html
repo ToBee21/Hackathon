@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cloak &amp; Dagger — Popup Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet" />
+    <style>
+      /* =====================================================================
+         Cloak & Dagger — standalone preview of the reworked extension popup.
+         Faithful, self-contained mirror of src/popup.tsx + components.
+         Design language: "Stealth Intelligence Console".
+         ===================================================================== */
+      :root {
+        --void: #0a0b0e;
+        --surface-1: #15171f;
+        --surface-2: #1b1e27;
+        --surface-3: #23262f;
+        --input: #2c2f39;
+        --accent: #2bd4c4;
+        --accent-strong: #1fb6a6;
+        --accent-dim: rgba(43, 212, 196, 0.12);
+        --accent-glow: rgba(43, 212, 196, 0.45);
+        --warn: #f5a623;
+        --danger: #e5484d;
+        --danger-strong: #d03439;
+        --ghost: #9a8cff;
+        --mouse: #5e8bff;
+        --keys: #46e6a8;
+        --core: #a3a8b4;
+        --fg-hi: #ecedef;
+        --fg-mid: #a3a8b4;
+        --fg-low: #6e7480;
+        --line: rgba(255, 255, 255, 0.06);
+        --line-strong: rgba(255, 255, 255, 0.1);
+        --orb: rgba(43, 212, 196, 0.24);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+      body {
+        font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+        color: var(--fg-hi);
+        background:
+          radial-gradient(60% 50% at 50% 0%, #14161e 0%, transparent 60%),
+          radial-gradient(40% 40% at 85% 100%, #11131a 0%, transparent 60%),
+          #060709;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+        padding: 56px 20px 72px;
+        -webkit-font-smoothing: antialiased;
+        font-feature-settings: "ss02" 1, "cv11" 1, "cv05" 1;
+      }
+      .mono {
+        font-family: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+      }
+      .tnum {
+        font-variant-numeric: tabular-nums slashed-zero;
+      }
+
+      /* ---------- popup shell / signature background ---------- */
+      .popup {
+        position: relative;
+        width: 360px;
+        background: var(--void);
+        border-radius: 16px;
+        overflow: hidden;
+        isolation: isolate;
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.05) inset,
+          0 40px 80px -32px rgba(0, 0, 0, 0.85),
+          0 0 0 1px rgba(255, 255, 255, 0.04);
+      }
+      .popup::before {
+        content: "";
+        position: absolute;
+        top: -36%;
+        left: 50%;
+        width: 132%;
+        height: 78%;
+        transform: translateX(-50%);
+        background: radial-gradient(50% 50% at 50% 50%, var(--orb), transparent 70%);
+        filter: blur(72px);
+        mix-blend-mode: screen;
+        pointer-events: none;
+        z-index: -2;
+        transition: background 600ms cubic-bezier(0.2, 0, 0, 1);
+      }
+      .popup::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: -1;
+        background: radial-gradient(125% 80% at 50% -5%, transparent 46%, rgba(0, 0, 0, 0.55) 100%);
+      }
+      .console-grid {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: -1;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+        background-size: 22px 22px;
+        -webkit-mask-image: radial-gradient(ellipse 85% 48% at 50% 20%, #000 28%, transparent 100%);
+        mask-image: radial-gradient(ellipse 85% 48% at 50% 20%, #000 28%, transparent 100%);
+      }
+      .grain-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 50;
+        pointer-events: none;
+        opacity: 0.045;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+      }
+
+      /* ---------- entrance choreography ---------- */
+      @media (prefers-reduced-motion: no-preference) {
+        .stagger > * {
+          animation: rise 420ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards;
+        }
+        .stagger > *:nth-child(1) { animation-delay: 0ms; }
+        .stagger > *:nth-child(2) { animation-delay: 60ms; }
+        .stagger > *:nth-child(3) { animation-delay: 120ms; }
+        .stagger > *:nth-child(4) { animation-delay: 180ms; }
+        .stagger > *:nth-child(5) { animation-delay: 240ms; }
+        .stagger > *:nth-child(6) { animation-delay: 300ms; }
+        .stagger > *:nth-child(7) { animation-delay: 360ms; }
+      }
+      @keyframes rise {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: none; }
+      }
+
+      /* ---------- header ---------- */
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .mark {
+        position: relative;
+        display: flex;
+        height: 36px;
+        width: 36px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: var(--surface-2);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.05),
+          0 1px 2px rgba(0, 0, 0, 0.45),
+          0 8px 24px -8px rgba(0, 0, 0, 0.5);
+      }
+      .mark::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        padding: 1px;
+        pointer-events: none;
+        background: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.24),
+          rgba(255, 255, 255, 0.04) 52%,
+          rgba(43, 212, 196, 0.14)
+        );
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+      }
+      .wordmark h1 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--fg-hi);
+      }
+      .wordmark h1 span { color: var(--fg-low); }
+      .wordmark p {
+        margin: 2px 0 0;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--fg-low);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        box-shadow: inset 0 0 0 1px var(--line-strong);
+      }
+      .chip.armed {
+        color: var(--accent);
+        background: var(--accent-dim);
+        box-shadow: inset 0 0 0 1px rgba(43, 212, 196, 0.25);
+      }
+      .chip .pulse {
+        position: relative;
+        display: flex;
+        height: 6px;
+        width: 6px;
+      }
+      .chip .pulse i {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: var(--accent);
+        animation: ping 2s cubic-bezier(0.2, 0, 0, 1) infinite;
+      }
+      .chip .pulse b {
+        position: relative;
+        height: 6px;
+        width: 6px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+      .chip.standby { color: var(--fg-low); background: rgba(255, 255, 255, 0.03); }
+      .chip.standby .pulse b { background: var(--fg-low); }
+      @keyframes ping {
+        0% { transform: scale(0.92); opacity: 0.5; }
+        70%, 100% { transform: scale(2.3); opacity: 0; }
+      }
+
+      /* ---------- hero ---------- */
+      .hero {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 4px;
+      }
+      .ring-wrap {
+        position: relative;
+        width: 152px;
+        height: 152px;
+      }
+      .ring-wrap svg { transform: rotate(-90deg); }
+      .ring-value {
+        transition: stroke-dashoffset 800ms cubic-bezier(0.05, 0.7, 0.1, 1), stroke 400ms ease;
+      }
+      .ring-value.armed { animation: heroPulse 2.4s ease-in-out infinite; }
+      @keyframes heroPulse {
+        0%, 100% { filter: drop-shadow(0 0 8px rgba(43, 212, 196, 0.4)); }
+        50% { filter: drop-shadow(0 0 22px rgba(43, 212, 196, 0.72)); }
+      }
+      .center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .score-num {
+        font-size: 40px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        color: var(--fg-hi);
+      }
+      .score-cap {
+        margin-top: 3px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--fg-low);
+      }
+      .jitter {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .jitter span {
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        border-radius: 999px;
+        background: var(--accent);
+        box-shadow: 0 0 6px var(--accent-glow);
+        opacity: 0.5;
+        animation: drift 3.4s ease-in-out infinite;
+      }
+      @keyframes drift {
+        0%, 100% { transform: translate(0, 0); opacity: 0.45; }
+        33% { transform: translate(3px, -4px); opacity: 0.7; }
+        66% { transform: translate(-2px, 3px); opacity: 0.3; }
+      }
+      .tier {
+        margin-top: -4px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+      }
+      .tier.protected { color: var(--accent); background: var(--accent-dim); box-shadow: inset 0 0 0 1px rgba(43, 212, 196, 0.25); }
+      .tier.guarded, .tier.exposed { color: var(--warn); background: rgba(245, 166, 35, 0.1); box-shadow: inset 0 0 0 1px rgba(245, 166, 35, 0.25); }
+      .tier.standby { color: var(--fg-low); background: rgba(255, 255, 255, 0.03); box-shadow: inset 0 0 0 1px var(--line-strong); }
+      .proof {
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--fg-low);
+      }
+      .proof b { color: var(--fg-mid); font-weight: 500; }
+      .proof i { padding: 0 6px; opacity: 0.5; font-style: normal; }
+
+      /* ---------- stat cards ---------- */
+      .stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .card {
+        border-radius: 12px;
+        background: var(--surface-2);
+        padding: 12px;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.05),
+          0 1px 2px rgba(0, 0, 0, 0.45),
+          0 8px 24px -8px rgba(0, 0, 0, 0.5);
+        transition: transform 220ms cubic-bezier(0.2, 0, 0, 1), box-shadow 220ms;
+      }
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.06),
+          0 2px 4px rgba(0, 0, 0, 0.5),
+          0 16px 40px -12px rgba(0, 0, 0, 0.6);
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .card-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--fg-low);
+      }
+      .card-icon {
+        display: flex;
+        height: 24px;
+        width: 24px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+      }
+      .card-num {
+        font-size: 26px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: -0.02em;
+        color: var(--fg-hi);
+      }
+      .card-unit {
+        margin-top: 6px;
+        font-size: 11px;
+        color: var(--fg-low);
+      }
+
+      /* ---------- panels (toggles + logger) ---------- */
+      .panel {
+        border-radius: 12px;
+        background: var(--surface-1);
+        overflow: hidden;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.05),
+          0 1px 2px rgba(0, 0, 0, 0.45),
+          0 8px 24px -8px rgba(0, 0, 0, 0.5);
+      }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px 6px;
+      }
+      .eyebrow {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--fg-low);
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 28px 1fr auto;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-top: 1px solid var(--line);
+      }
+      .row-icon {
+        display: flex;
+        height: 28px;
+        width: 28px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--fg-low);
+        transition: background 220ms, color 220ms;
+      }
+      .row-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--fg-hi);
+        letter-spacing: -0.005em;
+      }
+      .row-desc {
+        font-size: 11px;
+        color: var(--fg-low);
+        margin-top: 1px;
+      }
+      .switch {
+        position: relative;
+        height: 22px;
+        width: 40px;
+        border-radius: 999px;
+        background: var(--input);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+        transition: background 220ms cubic-bezier(0.2, 0, 0, 1), box-shadow 220ms;
+        flex-shrink: 0;
+      }
+      .switch b {
+        position: absolute;
+        left: 3px;
+        top: 3px;
+        height: 16px;
+        width: 16px;
+        border-radius: 999px;
+        background: var(--fg-hi);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      .switch.on b { transform: translateX(18px); }
+
+      /* ---------- logger ---------- */
+      .log-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .live {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .live .pulse { position: relative; display: flex; height: 6px; width: 6px; }
+      .live .pulse i { position: absolute; inset: 0; border-radius: 999px; background: var(--accent); animation: ping 2s cubic-bezier(0.2, 0, 0, 1) infinite; }
+      .live .pulse b { position: relative; height: 6px; width: 6px; border-radius: 999px; background: var(--accent); }
+      .log-body {
+        height: 176px;
+        overflow-y: auto;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+      }
+      .log-body::-webkit-scrollbar { width: 6px; }
+      .log-body::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 999px; }
+      .log-row {
+        display: grid;
+        grid-template-columns: 74px 1fr;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 6px;
+        border-radius: 6px;
+        animation: rowIn 250ms cubic-bezier(0.05, 0.7, 0.1, 1) backwards;
+      }
+      @keyframes rowIn {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: none; }
+      }
+      .log-time { font-size: 10px; color: var(--fg-low); }
+      .log-meta { display: flex; align-items: center; gap: 6px; min-width: 0; }
+      .log-meta .dot { height: 6px; width: 6px; border-radius: 999px; flex-shrink: 0; }
+      .log-src { font-size: 10px; font-weight: 500; letter-spacing: 0.04em; flex-shrink: 0; }
+      .log-msg { font-size: 11.5px; color: var(--fg-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+      .xn { flex-shrink: 0; border-radius: 4px; background: rgba(255, 255, 255, 0.1); padding: 0 4px; font-size: 9px; color: var(--fg-mid); }
+
+      /* ---------- panic ---------- */
+      .danger {
+        border-radius: 12px;
+        background: var(--surface-2);
+        padding: 12px;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.05),
+          0 1px 2px rgba(0, 0, 0, 0.45),
+          0 8px 24px -8px rgba(0, 0, 0, 0.5),
+          inset 0 0 0 1px rgba(229, 72, 77, 0.25);
+      }
+      .danger-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+      .danger-ic {
+        display: flex; height: 24px; width: 24px; align-items: center; justify-content: center;
+        border-radius: 6px; background: rgba(229, 72, 77, 0.15); color: var(--danger);
+      }
+      .danger-head p { margin: 0; }
+      .danger-head .t { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--danger); }
+      .danger-head .s { font-size: 10px; color: var(--fg-low); margin-top: 1px; }
+      .hold {
+        position: relative;
+        width: 100%;
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 0;
+        background: rgba(229, 72, 77, 0.12);
+        box-shadow: inset 0 0 0 1px rgba(229, 72, 77, 0.4);
+        cursor: pointer;
+        overflow: hidden;
+        user-select: none;
+        touch-action: none;
+      }
+      .hold .fill {
+        position: absolute;
+        inset: 0;
+        transform-origin: left;
+        transform: scaleX(0);
+        background: var(--danger);
+        opacity: 0.55;
+      }
+      .hold .lbl {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--danger);
+      }
+      .hold.fired { background: var(--danger-strong); }
+      .hold.fired .fill { transform: scaleX(1); opacity: 1; }
+      .hold.fired .lbl { color: #fff; }
+
+      /* ---------- footer ---------- */
+      .footer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding-top: 2px;
+      }
+      .footer p {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--fg-low);
+        opacity: 0.75;
+      }
+
+      .caption {
+        max-width: 360px;
+        text-align: center;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #5a6070;
+      }
+      .caption b { color: #aeb4c0; font-weight: 500; }
+      svg { display: block; }
+    </style>
+  </head>
+  <body>
+    <div class="popup">
+      <div class="console-grid"></div>
+      <div class="content stagger">
+        <!-- HEADER -->
+        <header>
+          <div class="brand">
+            <span class="mark">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2.6l7 2.7v5.2c0 4.6-3 8.2-7 9.5-4-1.3-7-4.9-7-9.5V5.3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.85" />
+                <circle cx="12" cy="10.6" r="2.5" stroke="var(--accent)" stroke-width="1.5" />
+                <path d="M8.4 14.6l7.2-7.2" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" />
+              </svg>
+            </span>
+            <div class="wordmark">
+              <h1>Cloak <span>&amp;</span> Dagger</h1>
+              <p>Active Privacy Defense</p>
+            </div>
+          </div>
+          <span class="chip armed" id="chip">
+            <span class="pulse"><i></i><b></b></span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l7 2.7v5.1c0 4.5-3 8-7 9.2-4-1.2-7-4.7-7-9.2V5.7z" />
+              <path d="M9 11.8l2.1 2.1L15 9.9" />
+            </svg>
+            <span id="chip-label">ARMED</span>
+          </span>
+        </header>
+
+        <!-- HERO -->
+        <div class="hero">
+          <div class="ring-wrap">
+            <div class="jitter" id="jitter"></div>
+            <svg width="152" height="152" viewBox="0 0 152 152">
+              <defs>
+                <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="152" y2="152">
+                  <stop offset="0%" stop-color="#2BD4C4" />
+                  <stop offset="100%" stop-color="#1FB6A6" />
+                </linearGradient>
+              </defs>
+              <circle cx="76" cy="76" r="65.5" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="9" />
+              <circle id="ring" class="ring-value armed" cx="76" cy="76" r="65.5" fill="none" stroke="url(#g)" stroke-width="9" stroke-linecap="round" stroke-dasharray="411.55" stroke-dashoffset="411.55" />
+            </svg>
+            <div class="center">
+              <span class="score-num tnum" id="score">0</span>
+              <span class="score-cap">Privacy Score</span>
+            </div>
+          </div>
+          <span class="tier protected" id="tier">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l7 2.7v5.1c0 4.5-3 8-7 9.2-4-1.2-7-4.7-7-9.2V5.7z" /><path d="M9 11.8l2.1 2.1L15 9.9" />
+            </svg>
+            <span id="tier-label">PROTECTED</span>
+          </span>
+          <div class="proof mono tnum">
+            <b id="noise">128</b> szum<i>·</i><b id="trackers">37</b> trackery
+          </div>
+        </div>
+
+        <!-- STATS -->
+        <div class="stats">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-label">Szum wstrzyknięty</span>
+              <span class="card-icon" style="background: rgba(154, 140, 255, 0.1); color: var(--ghost);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 20.5V11a7 7 0 0 1 14 0v9.5l-2.4-1.6-2.3 1.6L12 19.4l-2.3 1.6-2.3-1.6z" /><path d="M9.4 10.6v.02" /><path d="M14.6 10.6v.02" />
+                </svg>
+              </span>
+            </div>
+            <p class="card-num tnum">128</p>
+            <p class="card-unit">fałszywe sygnały</p>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <span class="card-label">Trackery zmylone</span>
+              <span class="card-icon" style="background: rgba(94, 139, 255, 0.1); color: var(--mouse);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="8" /><path d="M12 4l3.6 6.2M20 12l-7.2 0M15.6 17.8l-3.6-6.2M4 12h7.2M8.4 6.2l3.6 6.2" />
+                </svg>
+              </span>
+            </div>
+            <p class="card-num tnum">37</p>
+            <p class="card-unit">profile rozbite</p>
+          </div>
+        </div>
+
+        <!-- TOGGLES -->
+        <div class="panel">
+          <div class="panel-head">
+            <span class="eyebrow">Wektory ochrony</span>
+            <span class="eyebrow mono tnum" id="vcount">2/3</span>
+          </div>
+          <div class="row" data-mod="dataGhost" data-color="--ghost">
+            <span class="row-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 20.5V11a7 7 0 0 1 14 0v9.5l-2.4-1.6-2.3 1.6L12 19.4l-2.3 1.6-2.3-1.6z" /><path d="M9.4 10.6v.02" /><path d="M14.6 10.6v.02" />
+              </svg>
+            </span>
+            <div>
+              <div class="row-title">DataGhost</div>
+              <div class="row-desc">Wstrzykuje fałszywy szum do profilu reklamowego</div>
+            </div>
+            <button class="switch on" aria-label="DataGhost"><b></b></button>
+          </div>
+          <div class="row" data-mod="mouseJitter" data-color="--mouse">
+            <span class="row-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5.5 4.2l8.7 4.1-3.6 1.1-1.1 3.6z" /><path d="M13.4 13.4l4.1 4.1" />
+              </svg>
+            </span>
+            <div>
+              <div class="row-title">Bionic Blur · Mysz</div>
+              <div class="row-desc">Zaszumia trajektorię kursora szumem Perlina</div>
+            </div>
+            <button class="switch on" aria-label="Mysz"><b></b></button>
+          </div>
+          <div class="row" data-mod="keystroke" data-color="--keys">
+            <span class="row-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="6.5" width="18" height="11" rx="2.2" /><path d="M7 10v.02M11 10v.02M15 10v.02M17 10v.02M7 13.4h10" />
+              </svg>
+            </span>
+            <div>
+              <div class="row-title">Bionic Blur · Klawiatura</div>
+              <div class="row-desc">Maskuje rytm pisania mikro-opóźnieniami</div>
+            </div>
+            <button class="switch" aria-label="Klawiatura"><b></b></button>
+          </div>
+        </div>
+
+        <!-- LOGGER -->
+        <div class="panel">
+          <div class="log-head">
+            <span class="live">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12h3.5l2-6 3.5 12 2.2-6H21" />
+              </svg>
+              <span class="eyebrow" style="color: var(--fg-mid);">Telemetria na żywo</span>
+            </span>
+            <span class="live">
+              <span class="pulse"><i></i><b></b></span>
+              <span class="mono tnum" style="font-size: 10px; color: var(--fg-low);">7</span>
+            </span>
+          </div>
+          <div class="log-body" id="log"></div>
+        </div>
+
+        <!-- PANIC -->
+        <div class="danger">
+          <div class="danger-head">
+            <span class="danger-ic">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v8.5" /><path d="M7.4 6.6a7 7 0 1 0 9.2 0" />
+              </svg>
+            </span>
+            <p>
+              <span class="t">Strefa awaryjna</span><br />
+              <span class="s">Czyści ciasteczka, storage i cache</span>
+            </p>
+          </div>
+          <button class="hold" id="hold">
+            <span class="fill" id="fill"></span>
+            <span class="lbl" id="hold-lbl">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v8.5" /><path d="M7.4 6.6a7 7 0 1 0 9.2 0" />
+              </svg>
+              <span id="hold-text">Przytrzymaj, aby wyczyścić</span>
+            </span>
+          </button>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+          <p>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="10.5" width="14" height="9.5" rx="2.2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /><path d="M12 14.4v2.2" />
+            </svg>
+            Privacy-by-Design · dane lokalne
+          </p>
+        </div>
+      </div>
+      <div class="grain-layer"></div>
+    </div>
+
+    <p class="caption">
+      <b>Cloak &amp; Dagger</b> — reworked extension popup.<br />
+      Kliknij przełączniki, by zobaczyć przeliczanie Privacy Score. Przytrzymaj
+      „Strefę awaryjną", aby uruchomić hold-to-wipe.
+    </p>
+
+    <script>
+      const C = 411.55
+      const NOISE = 128
+      const TRACKERS = 37
+      const state = { dataGhost: true, mouseJitter: true, keystroke: false }
+
+      const SOURCE = {
+        GHOST: "var(--ghost)",
+        MOUSE: "var(--mouse)",
+        KEYS: "var(--keys)",
+        CORE: "var(--core)"
+      }
+      const LOGS = [
+        { t: "14:09:53.812", s: "CORE", c: "var(--core)", m: "Uzbrojono wektor: DataGhost" },
+        { t: "14:09:52.140", s: "GHOST", c: "var(--ghost)", m: "Szum: Gotowanie premium", n: 3 },
+        { t: "14:09:50.067", s: "MOUSE", c: "var(--mouse)", m: "Zniekształcono sygnaturę kursora" },
+        { t: "14:09:48.913", s: "KEYS", c: "var(--keys)", m: "Sfałszowano rytm pisania (+22ms)" },
+        { t: "14:09:47.305", s: "GHOST", c: "var(--ghost)", m: "Szum: Górskie wędrówki" },
+        { t: "14:09:45.880", s: "MOUSE", c: "var(--mouse)", m: "Perlin jitter zastosowany", n: 7 },
+        { t: "14:09:44.012", s: "CORE", c: "var(--core)", m: "Sesja zsynchronizowana" }
+      ]
+
+      // --- jitter particles ---
+      const J = [
+        [26, 34, 0], [80, 16, 0.5], [126, 36, 1], [16, 80, 1.4], [136, 84, 0.2],
+        [30, 122, 0.8], [80, 136, 1.2], [124, 122, 1.6], [56, 24, 0.6], [104, 132, 0.35]
+      ]
+      const jitter = document.getElementById("jitter")
+      J.forEach(([x, y, d]) => {
+        const s = document.createElement("span")
+        s.style.left = x + "px"
+        s.style.top = y + "px"
+        s.style.animationDelay = d + "s"
+        jitter.appendChild(s)
+      })
+
+      // --- logger ---
+      const log = document.getElementById("log")
+      LOGS.forEach((e) => {
+        const row = document.createElement("div")
+        row.className = "log-row"
+        row.innerHTML =
+          '<span class="log-time mono tnum">' + e.t + "</span>" +
+          '<div class="log-meta">' +
+            '<span class="dot" style="background:' + e.c + ';box-shadow:0 0 6px ' + e.c + '"></span>' +
+            '<span class="log-src mono" style="color:' + e.c + '">' + e.s + "</span>" +
+            '<span class="log-msg">' + e.m + "</span>" +
+            (e.n ? '<span class="xn mono tnum">×' + e.n + "</span>" : "") +
+          "</div>"
+        log.appendChild(row)
+      })
+
+      // --- score model (mirrors computePrivacyScore) ---
+      function compute() {
+        let s = 0
+        if (state.dataGhost) s += 20
+        if (state.mouseJitter) s += 15
+        if (state.keystroke) s += 15
+        s += Math.min(50, NOISE * 2 + TRACKERS * 3)
+        return Math.max(0, Math.min(100, s))
+      }
+      function tierOf(armed, s) {
+        if (!armed) return "standby"
+        if (s >= 70) return "protected"
+        if (s >= 40) return "guarded"
+        return "exposed"
+      }
+
+      const ring = document.getElementById("ring")
+      const scoreEl = document.getElementById("score")
+      const tierEl = document.getElementById("tier")
+      const tierLabel = document.getElementById("tier-label")
+      const chip = document.getElementById("chip")
+      const chipLabel = document.getElementById("chip-label")
+      const vcount = document.getElementById("vcount")
+      const popup = document.querySelector(".popup")
+      const TIER_TEXT = { protected: "PROTECTED", guarded: "GUARDED", exposed: "EXPOSED", standby: "STANDBY" }
+
+      let shown = 0
+      function rollTo(target) {
+        const start = shown
+        const t0 = performance.now()
+        function tick(now) {
+          const p = Math.min(1, (now - t0) / 800)
+          const e = 1 - Math.pow(1 - p, 3)
+          shown = Math.round(start + (target - start) * e)
+          scoreEl.textContent = shown
+          if (p < 1) requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      }
+
+      function render(animateNumber) {
+        const armed = state.dataGhost || state.mouseJitter || state.keystroke
+        const s = compute()
+        const tier = tierOf(armed, s)
+        ring.style.strokeDashoffset = C * (1 - s / 100)
+        ring.setAttribute("stroke", armed ? "url(#g)" : "#363B47")
+        ring.classList.toggle("armed", armed)
+        if (animateNumber) rollTo(s)
+        else { shown = s; scoreEl.textContent = s }
+        tierEl.className = "tier " + tier
+        tierLabel.textContent = TIER_TEXT[tier]
+        chip.className = "chip " + (armed ? "armed" : "standby")
+        chipLabel.textContent = armed ? "ARMED" : "STANDBY"
+        const n = [state.dataGhost, state.mouseJitter, state.keystroke].filter(Boolean).length
+        vcount.textContent = n + "/3"
+        popup.style.setProperty("--orb", armed ? "rgba(43,212,196,0.24)" : "rgba(110,116,128,0.16)")
+        jitter.style.display = armed ? "block" : "none"
+      }
+
+      // --- toggle wiring ---
+      document.querySelectorAll(".row").forEach((row) => {
+        const mod = row.dataset.mod
+        const color = row.dataset.color
+        const sw = row.querySelector(".switch")
+        const icon = row.querySelector(".row-icon")
+        function paint() {
+          const on = state[mod]
+          sw.classList.toggle("on", on)
+          const c = "var(" + color + ")"
+          sw.style.background = on ? c : "var(--input)"
+          sw.style.boxShadow = on
+            ? "inset 0 0 0 1px " + c + ", 0 0 0 3px color-mix(in srgb, " + c + " 14%, transparent)"
+            : "inset 0 0 0 1px rgba(255,255,255,0.1)"
+          icon.style.background = on ? "color-mix(in srgb, " + c + " 14%, transparent)" : "rgba(255,255,255,0.04)"
+          icon.style.color = on ? c : "var(--fg-low)"
+        }
+        sw.addEventListener("click", () => {
+          state[mod] = !state[mod]
+          paint()
+          render(true)
+        })
+        paint()
+      })
+
+      // --- panic hold-to-wipe ---
+      const hold = document.getElementById("hold")
+      const fill = document.getElementById("fill")
+      const holdText = document.getElementById("hold-text")
+      const HOLD_MS = 850
+      let raf = 0, startT = 0, active = false, fired = false
+      function fire() {
+        cancelAnimationFrame(raf); active = false; fired = true
+        fill.style.transition = "none"; fill.style.transform = "scaleX(1)"
+        hold.classList.add("fired"); holdText.textContent = "Sesje śledzące wyczyszczone"
+        setTimeout(() => {
+          fired = false; hold.classList.remove("fired")
+          fill.style.transition = "transform 260ms cubic-bezier(0.3,0,0.8,0.15)"
+          fill.style.transform = "scaleX(0)"; holdText.textContent = "Przytrzymaj, aby wyczyścić"
+        }, 1500)
+      }
+      function tick(now) {
+        const p = Math.min(1, (now - startT) / HOLD_MS)
+        fill.style.transform = "scaleX(" + p + ")"
+        if (p >= 1) return fire()
+        raf = requestAnimationFrame(tick)
+      }
+      function begin(ev) {
+        ev.preventDefault(); if (fired) return
+        active = true; startT = performance.now(); holdText.textContent = "Trzymaj, aby zerwać sesje…"
+        fill.style.transition = "none"; cancelAnimationFrame(raf); raf = requestAnimationFrame(tick)
+      }
+      function end() {
+        if (fired || !active) return
+        active = false; cancelAnimationFrame(raf)
+        fill.style.transition = "transform 260ms cubic-bezier(0.3,0,0.8,0.15)"
+        fill.style.transform = "scaleX(0)"; holdText.textContent = "Przytrzymaj, aby wyczyścić"
+      }
+      hold.addEventListener("pointerdown", begin)
+      hold.addEventListener("pointerup", end)
+      hold.addEventListener("pointerleave", end)
+      hold.addEventListener("pointercancel", end)
+
+      render(true)
+    </script>
+  </body>
+</html>

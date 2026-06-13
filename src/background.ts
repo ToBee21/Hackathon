@@ -326,26 +326,30 @@ async function injectNoise(): Promise<void> {
       // Individual request failures are expected and harmless.
     }
 
-    // Notify popup (Module C) — best-effort, it may not be open.
-    // NOISE_INJECTED preserves the original Module A contract; LOG_EVENT feeds
-    // the dashboard's shared real-time logger so each injection shows up live.
+    // NOISE_INJECTED preserves the original Module A contract. The UI log is
+    // emitted once per batch below, otherwise the dashboard becomes noise.
     const timestamp = Date.now()
     sendRuntimeMessage({
       type: "NOISE_INJECTED",
       payload: { keyword, category, timestamp },
     } as BackgroundOutboundMessage)
-    sendRuntimeMessage({
-      type: "LOG_EVENT",
-      entry: {
-        timestamp,
-        source: "dataGhost",
-        message: `Wstrzyknięto fałszywy ruch: ${keyword} (${category})`,
-      },
-    })
 
     // Human-like delay between requests (800 ms – 2.5 s)
     await sleep(randInt(800, 2500))
   }
+
+  const categories = Array.from(new Set(batch.map((item) => item.category)))
+    .slice(0, 3)
+    .join(", ")
+  sendRuntimeMessage({
+    type: "LOG_EVENT",
+    entry: {
+      timestamp: Date.now(),
+      source: "dataGhost",
+      message: `DataGhost: batch ${batch.length} zapytan (${categories})`,
+      count: batch.length
+    },
+  })
 
   // Persist the running total and mirror it onto the shared dashboard state so
   // Module C's Privacy Score and "Wstrzyknięty szum" counter update live.

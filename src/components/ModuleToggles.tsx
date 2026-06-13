@@ -1,6 +1,9 @@
 // src/components/ModuleToggles.tsx
-// Przełączniki ON/OFF dla poszczególnych funkcji ochronnych.
+// Defense-vector switches. Each active toggle lights to its own signal colour
+// (a deliberate legend, matched to the logger), with an overshoot knob and a
+// soft outer glow. Optical alignment across rows; full-bleed hairline dividers.
 
+import { SIGNAL } from "./signals"
 import type { ModuleId, ModuleToggleState } from "./types"
 
 interface ModuleTogglesProps {
@@ -8,82 +11,102 @@ interface ModuleTogglesProps {
   onToggle: (module: ModuleId, enabled: boolean) => void
 }
 
-interface ToggleMeta {
-  id: ModuleId
-  icon: string
-  title: string
-  description: string
-  accent: string
-}
-
-const MODULES: ToggleMeta[] = [
+const MODULES: { id: ModuleId; title: string; desc: string }[] = [
   {
     id: "dataGhost",
-    icon: "👻",
     title: "DataGhost",
-    description: "Wstrzykuje fałszywy szum do profilu reklamowego",
-    accent: "#a78bfa" // violet-400
+    desc: "Wstrzykuje fałszywy szum do profilu reklamowego"
   },
   {
     id: "mouseJitter",
-    icon: "🌀",
-    title: "Bionic Blur — Mysz",
-    description: "Zaszumia trajektorię kursora (Perlin Noise)",
-    accent: "#22d3ee" // cyan-400
+    title: "Bionic Blur · Mysz",
+    desc: "Zaszumia trajektorię kursora szumem Perlina"
   },
   {
     id: "keystroke",
-    icon: "⌨️",
-    title: "Bionic Blur — Klawiatura",
-    description: "Fałszuje rytm pisania mikro-opóźnieniami",
-    accent: "#34d399" // emerald-400
+    title: "Bionic Blur · Klawiatura",
+    desc: "Maskuje rytm pisania mikro-opóźnieniami"
   }
 ]
 
-export default function ModuleToggles({ toggles, onToggle }: ModuleTogglesProps) {
+function Switch({
+  enabled,
+  color,
+  label,
+  onClick
+}: {
+  enabled: boolean
+  color: string
+  label: string
+  onClick: () => void
+}) {
   return (
-    <div className="flex flex-col gap-2">
-      {MODULES.map((m) => {
-        const enabled = toggles[m.id]
-        return (
-          <div
-            key={m.id}
-            className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5 transition-colors hover:bg-white/[0.06]">
-            <span
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base"
-              style={{
-                backgroundColor: enabled ? `${m.accent}1f` : "rgba(255,255,255,0.04)"
-              }}>
-              {m.icon}
-            </span>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      aria-label={`Przełącz ${label}`}
+      onClick={onClick}
+      className="relative h-[22px] w-10 shrink-0 rounded-full transition-colors duration-base ease-standard"
+      style={{
+        backgroundColor: enabled ? color : "#2C2F39",
+        boxShadow: enabled
+          ? `inset 0 0 0 1px ${color}, 0 0 0 3px ${color}1f`
+          : "inset 0 0 0 1px rgba(255,255,255,0.10)"
+      }}>
+      <span
+        className="absolute left-[3px] top-[3px] h-4 w-4 rounded-full bg-fg-hi shadow"
+        style={{
+          transform: enabled ? "translateX(18px)" : "translateX(0)",
+          transition: "transform 220ms cubic-bezier(0.34,1.56,0.64,1)"
+        }}
+      />
+    </button>
+  )
+}
 
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-slate-100">
-                {m.title}
-              </p>
-              <p className="truncate text-[10px] leading-tight text-slate-400">
-                {m.description}
-              </p>
-            </div>
+export default function ModuleToggles({ toggles, onToggle }: ModuleTogglesProps) {
+  const activeCount = MODULES.filter((m) => toggles[m.id]).length
 
-            <button
-              type="button"
-              role="switch"
-              aria-checked={enabled}
-              aria-label={`Przełącz ${m.title}`}
-              onClick={() => onToggle(m.id, !enabled)}
-              className="relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200"
-              style={{
-                backgroundColor: enabled ? m.accent : "rgba(255,255,255,0.15)"
-              }}>
+  return (
+    <div className="overflow-hidden rounded-xl bg-surface-1 shadow-card">
+      <div className="flex items-center justify-between px-3 pb-1.5 pt-2.5">
+        <span className="text-micro uppercase text-fg-low">Wektory ochrony</span>
+        <span className="font-mono text-[10px] tnum text-fg-low">{activeCount}/3</span>
+      </div>
+
+      <div className="divide-y divide-line">
+        {MODULES.map((m) => {
+          const enabled = toggles[m.id]
+          const { color, Icon } = SIGNAL[m.id]
+          return (
+            <div
+              key={m.id}
+              className="grid grid-cols-[28px_1fr_auto] items-center gap-3 px-3 py-2.5">
               <span
-                className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200"
-                style={{ transform: enabled ? "translateX(18px)" : "translateX(2px)" }}
+                className="flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-base"
+                style={{
+                  backgroundColor: enabled ? `${color}22` : "rgba(255,255,255,0.04)",
+                  color: enabled ? color : "#6E7480"
+                }}>
+                <Icon size={16} />
+              </span>
+
+              <div className="min-w-0">
+                <p className="truncate text-ui font-medium text-fg-hi">{m.title}</p>
+                <p className="truncate text-[11px] leading-tight text-fg-low">{m.desc}</p>
+              </div>
+
+              <Switch
+                enabled={enabled}
+                color={color}
+                label={m.title}
+                onClick={() => onToggle(m.id, !enabled)}
               />
-            </button>
-          </div>
-        )
-      })}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

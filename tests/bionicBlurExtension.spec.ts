@@ -133,6 +133,17 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
           { timeout: 7000 }
         )
         .toBeGreaterThanOrEqual(3)
+      const logHealth = await page.locator("#log").evaluate((node) => {
+        const lines = (node.textContent ?? "")
+          .split("\n")
+          .filter((line) => line.trim().length > 0)
+        return {
+          lines: lines.length,
+          rawDebugLines: lines.filter((line) => line.includes("debug:")).length
+        }
+      })
+      expect(logHealth.lines).toBeLessThanOrEqual(8)
+      expect(logHealth.rawDebugLines).toBe(0)
       await mkdir(path.dirname(PROOF_SCREENSHOT), { recursive: true })
       await page.screenshot({ path: PROOF_SCREENSHOT, fullPage: true })
       if (runtimeErrors.length > 0) {
@@ -146,6 +157,7 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
         cycle: document.querySelector("#cycle-label")?.textContent,
         mouse: document.querySelector("#mouse-count")?.textContent,
         keys: document.querySelector("#key-count")?.textContent,
+        logLines: document.querySelector("#log")?.textContent?.split("\n").length,
         log: document.querySelector("#log")?.textContent?.slice(0, 2000)
       }))
       throw new Error(

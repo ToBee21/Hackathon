@@ -275,7 +275,12 @@
         apiRuns: 0,
         cycle: 0,
         lastSignal: "boot",
-        keyboardProbeAttached: false
+        keyboardProbeAttached: false,
+        pointerProbeAttached: false,
+        debugTotals: {
+          mouse: 0,
+          keyboard: 0
+        }
       }
 
       const logEl = document.getElementById("log")
@@ -291,7 +296,7 @@
         const line = `[${new Date().toLocaleTimeString()}] ${message}${
           data ? " " + JSON.stringify(data) : ""
         }`
-        logEl.textContent = `${line}\n${logEl.textContent}`.slice(0, 12000)
+        logEl.textContent = `${line}\n${logEl.textContent}`.slice(0, 8000)
       }
 
       function avg(values) {
@@ -352,12 +357,14 @@
         if (detail.surface === "mouse") {
           state.mouse.push(detail)
           state.mouse = state.mouse.slice(-120)
+          state.debugTotals.mouse += 1
         }
         if (detail.surface === "keyboard") {
           state.keys.push(detail)
           state.keys = state.keys.slice(-120)
+          state.debugTotals.keyboard += 1
         }
-        log(`debug:${detail.surface}`, detail)
+        state.lastSignal = `debug:${detail.surface}`
         updateScore()
       })
 
@@ -389,6 +396,21 @@
           target.addEventListener("input", () => updateScore(), true)
         }
         log("keyboard-proof-listeners-attached")
+      }
+
+      function attachPointerProofListeners() {
+        if (state.pointerProbeAttached) return
+        if (!window.__cloakDaggerBionicBlurInstalled) return
+        state.pointerProbeAttached = true
+        zone.addEventListener(
+          "mousemove",
+          (event) => {
+            window.__lastProofMouseEvent = event
+            updateScore()
+          },
+          true
+        )
+        log("pointer-proof-listeners-attached")
       }
 
       async function runApiProbes(source = "manual") {
@@ -426,7 +448,7 @@
           state.api.audioTouched = "blocked"
         }
 
-        log("api-probes", { source, run: state.apiRuns, ...state.api })
+        state.lastSignal = `api-probes:${source}`
         updateScore()
       }
 
@@ -447,6 +469,7 @@
 
       async function runLiveProofCycle() {
         attachKeyboardProofListeners()
+        attachPointerProofListeners()
         state.cycle += 1
         document.body.dataset.proofPulse = "on"
         input.value = `alias-${state.cycle}@cloak.test`
@@ -470,6 +493,8 @@
         await runApiProbes("auto-loop")
         log("proof-cycle", {
           cycle: state.cycle,
+          totals: state.debugTotals,
+          apiRuns: state.apiRuns,
           nativeMouseFields,
           nativeKeyboardFields,
           status: statusEl.textContent,
