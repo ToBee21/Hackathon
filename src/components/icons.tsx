@@ -146,6 +146,29 @@ export function Aperture(props: IconProps) {
   )
 }
 
+/** Identity masking — disposable e-mail alias (envelope). */
+export function Mail(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="5.5" width="18" height="13" rx="2.2" />
+      <path d="M4 7l8 5.5L20 7" />
+    </Svg>
+  )
+}
+
+/** Digital-shadow audit — a fingerprint whorl. */
+export function Fingerprint(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3.6a8.4 8.4 0 0 0-8 6" />
+      <path d="M5.4 18.6A10 10 0 0 0 6.5 11a5.5 5.5 0 0 1 11 0v1.5" />
+      <path d="M9 11a3 3 0 0 1 6 0c0 3 .2 5.4-.9 7.8" />
+      <path d="M12 11v2.5c0 2.6-.5 4.4-1.6 6.1" />
+      <path d="M17.4 15.2a16 16 0 0 1-.7 4.6" />
+    </Svg>
+  )
+}
+
 /** Honeypot Trap — a crosshair/target, the active data-poisoning trap. */
 export function Crosshair(props: IconProps) {
   return (
@@ -153,6 +176,46 @@ export function Crosshair(props: IconProps) {
       <circle cx="12" cy="12" r="7.5" />
       <path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" />
       <circle cx="12" cy="12" r="1.6" />
+    </Svg>
+  )
+}
+
+/** Targeting Shield — a funnel/filter that strips and blocks targeting. */
+export function Filter(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 5h18l-7 8v6l-4-2v-4z" />
+    </Svg>
+  )
+}
+
+/** Chevron — collapse/expand indicator (rotate for open state). */
+export function ChevronDown(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 9l6 6 6-6" />
+    </Svg>
+  )
+}
+
+/** Fullscreen — expand to four corners. */
+export function Maximize(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+      <path d="M21 16v3a2 2 0 0 1-2 2h-3" />
+      <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+    </Svg>
+  )
+}
+
+/** Cookie Shredder — a cookie with crumbs (tracking cookie being mangled). */
+export function Cookie(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3a9 9 0 1 0 9 9 3.6 3.6 0 0 1-4-4 3.6 3.6 0 0 1-5-5z" />
+      <path d="M9 10v.02M14 9v.02M15 14v.02M10 15v.02" />
     </Svg>
   )
 }

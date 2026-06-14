@@ -8,16 +8,31 @@
 //   "https://www.google.com/*"
 
 import { initHoneypotTrap } from "./shared/honeypot"
+import { initCookieShredder } from "./shared/cookieShredder"
+import { initTargetingShield } from "./shared/targetingShield"
+import { buildKeywordBatchCore, sanitizeTopics } from "./shared/dataGhost/keywordBatch"
 import { generateAlias, saveApiToken } from "./shared/emailAlias"
 import type {
   BackgroundInboundMessage,
   BackgroundOutboundMessage,
   DataGhostStatus,
 } from "./types"
+import { extractVisibleTextWithDebugger } from "./background/aiDeepDive/debuggerTextExtraction"
+import { handleAiDeepDiveRiskResult } from "./background/aiDeepDive/handleRiskResult"
+import { registerAiDeepDiveTabCoverage } from "./background/aiDeepDive/tabCoverage"
+import { classifyHeuristic } from "./shared/aiDeepDive/score"
+import type { AiDeepDiveRiskResult } from "./shared/aiDeepDive/types"
 
 // Moduł D+: "The Honeypot Trap" — przechwytuje i zatruwa żądania trackerów.
 // Rejestruje własne reguły DNR oraz listenery wiadomości (idempotentnie).
 void initHoneypotTrap()
+
+// Moduł: "Cookie Shredder" — rotuje/zatruwa ciasteczka trackingowe.
+void initCookieShredder()
+
+// Moduł: "Targeting Shield" — strip atrybucji (gclid/fbclid/utm) + per-origin
+// blackout trackerów na wrażliwych stronach (eskalacja z AI Deep-Dive).
+void initTargetingShield()
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -35,80 +50,14 @@ const BIONIC_MAIN_SCRIPT_ID = "srcContentsBionicBlurMain"
 // noise total here so Modules A and C stay in sync.
 const STORAGE_KEY_STATE = "cnd:state"
 
-// Diverse, neutral keyword categories — wide variety defeats interest profiling
-const KEYWORD_POOL: Record<string, string[]> = {
-  cooking: [
-    "pasta carbonara recipe",
-    "vegan dinner ideas",
-    "sourdough bread baking",
-    "homemade soup recipes",
-    "meal prep for the week",
-    "easy stir fry vegetables",
-  ],
-  travel: [
-    "best beaches in europe",
-    "budget backpacking tips",
-    "hiking trails national parks",
-    "solo travel safety guide",
-    "packing light for trips",
-  ],
-  technology: [
-    "open source projects 2024",
-    "linux command line tips",
-    "smart home diy automation",
-    "raspberry pi projects",
-    "programming best practices",
-  ],
-  fitness: [
-    "morning workout routine beginners",
-    "yoga poses for flexibility",
-    "running plan for 5k",
-    "bodyweight exercise guide",
-    "stretching after workout",
-  ],
-  gardening: [
-    "indoor houseplant care guide",
-    "vegetable garden beginners",
-    "composting at home tips",
-    "balcony container gardening",
-    "herb garden kitchen windowsill",
-  ],
-  science: [
-    "space exploration news",
-    "climate change facts overview",
-    "biology cell types explained",
-    "astronomy beginner telescope",
-    "physics everyday life examples",
-  ],
-  culture: [
-    "classic films to watch",
-    "music theory basics guitar",
-    "modern art movements history",
-    "book recommendations fiction",
-    "documentary films nature",
-  ],
-  finance: [
-    "personal budgeting tips",
-    "saving money grocery shopping",
-    "beginner investing guide",
-    "frugal living ideas",
-    "emergency fund how to start",
-  ],
-  health: [
-    "sleep hygiene improvement tips",
-    "stress management techniques",
-    "nutrition balanced diet basics",
-    "mental wellness daily habits",
-    "hydration health benefits",
-  ],
-  hobbies: [
-    "watercolor painting tutorial",
-    "landscape photography tips",
-    "chess opening strategies",
-    "knitting patterns beginners",
-    "woodworking projects simple",
-  ],
-}
+// Tematy szumu wybrane w studiu Wirtualnej Tożsamości (dashboard → onApply).
+// Gdy ustawione, DataGhost przechyla dobór kategorii w stronę tych zainteresowań.
+const STORAGE_KEY_NOISE_TOPICS = "cnd:dataghost:topics"
+
+// Pula fraz szumu (kategorie + słowa kluczowe) jest wydzielona i znacznie
+// rozszerzona w shared/dataGhost/keywordPool.ts — większa entropia utrudnia
+// odfiltrowanie sztucznego ruchu po powtarzalnym wzorcu. Dobór per cykl (z
+// uwzględnieniem wybranych zainteresowań) żyje w shared/dataGhost/keywordBatch.ts.
 
 // Search/content endpoints — each generates real network traffic
 const QUERY_BUILDERS: Array<(q: string) => string> = [
@@ -227,6 +176,85 @@ function applyBrowserPrivacyGuards(): void {
   }
 }
 
+/**
+ * PANIC — głębokie czyszczenie danych śledzących. Wywoływane przez Moduł C
+ * (Popup) wiadomością PANIC_BUTTON. Wymaga uprawnień "browsingData" oraz
+ * host_permissions <all_urls> (oba są w manifeście). Czyści dane przeglądania
+ * dla WSZYSTKICH witryn i zeruje współdzielony stan dashboardu — przełączniki
+ * ochrony pozostają włączone, by obrona działała dalej po wyczyszczeniu.
+ */
+async function performPanicWipe(): Promise<{
+  success: boolean
+  clearedBrowsingData: boolean
+  clearedState: boolean
+  timestamp: number
+}> {
+  let clearedBrowsingData = false
+  let clearedState = false
+
+  try {
+    await chrome.browsingData.remove(
+      { since: 0 },
+      {
+        cookies: true,
+        cache: true,
+        indexedDB: true,
+        localStorage: true,
+        serviceWorkers: true
+      }
+    )
+    clearedBrowsingData = true
+  } catch {
+    // browsingData może być zablokowane politykami przedsiębiorstwa.
+  }
+
+  try {
+    await chrome.storage.local.set({
+      noiseGeneratedCount: 0,
+      cookiesRotatedCount: 0,
+      paramsStrippedCount: 0,
+      targetingBlockedCount: 0,
+      [STORAGE_KEY_STATE]: {
+        privacyScore: 0,
+        trackersBlockedCount: 0,
+        noiseGeneratedCount: 0,
+        activeAliasEmail: null,
+        aiDeepDiveRisk: null,
+        aiDeepDiveDetectionCount: 0,
+        maxCamoActive: false,
+        cookiesRotatedCount: 0,
+        paramsStrippedCount: 0,
+        targetingBlockedCount: 0
+      }
+    })
+    clearedState = true
+    sendRuntimeMessage({
+      type: "STATE_UPDATE",
+      state: {
+        privacyScore: 0,
+        trackersBlockedCount: 0,
+        noiseGeneratedCount: 0,
+        activeAliasEmail: null,
+        aiDeepDiveRisk: null,
+        aiDeepDiveDetectionCount: 0,
+        maxCamoActive: false,
+        cookiesRotatedCount: 0,
+        paramsStrippedCount: 0,
+        targetingBlockedCount: 0
+      }
+    })
+  } catch {
+    // Zapis stanu jest best-effort.
+  }
+
+  return {
+    success: clearedBrowsingData || clearedState,
+    clearedBrowsingData,
+    clearedState,
+    timestamp: Date.now()
+  }
+}
+
 async function injectBionicMainIntoSender(
   sender: chrome.runtime.MessageSender
 ): Promise<boolean> {
@@ -278,26 +306,33 @@ async function fetchWikipediaRandomTitle(): Promise<string | null> {
   }
 }
 
+/** Odczytuje wybrane tematy szumu (zainteresowania) ze storage, odsiane do znanych kategorii. */
+async function getSelectedNoiseTopics(): Promise<string[]> {
+  try {
+    const stored = await chrome.storage.local.get({ [STORAGE_KEY_NOISE_TOPICS]: [] })
+    return sanitizeTopics(stored[STORAGE_KEY_NOISE_TOPICS] as unknown as string[])
+  } catch {
+    return []
+  }
+}
+
 /**
  * Build the keyword list for one noise cycle.
- * Mixes local pool entries with a live Wikipedia topic when available.
+ *
+ * Gdy użytkownik aktywował Wirtualną Tożsamość, `selectedTopics` przechylają
+ * dobór kategorii w stronę wybranych zainteresowań (budowa fałszywego profilu);
+ * przy braku wyboru działa jak neutralny, szerokopasmowy szum. Ostatni slot,
+ * gdy się uda, zastępujemy żywym tytułem z Wikipedii (dodatkowa entropia).
  */
-async function buildKeywordBatch(count: number): Promise<Array<{ keyword: string; category: string }>> {
-  const categories = Object.keys(KEYWORD_POOL)
-  const batch: Array<{ keyword: string; category: string }> = []
-
-  // Shuffle categories so every cycle uses different ones
-  const shuffled = [...categories].sort(() => Math.random() - 0.5)
-
-  for (let i = 0; i < count; i++) {
-    const category = shuffled[i % shuffled.length]
-    const keyword = pickRandom(KEYWORD_POOL[category])
-    batch.push({ keyword, category })
-  }
+async function buildKeywordBatch(
+  count: number,
+  selectedTopics: readonly string[] = []
+): Promise<Array<{ keyword: string; category: string }>> {
+  const batch = buildKeywordBatchCore(count, selectedTopics)
 
   // Replace the last slot with a live Wikipedia title when possible
   const wikiTitle = await fetchWikipediaRandomTitle()
-  if (wikiTitle) {
+  if (wikiTitle && batch.length > 0) {
     batch[batch.length - 1] = { keyword: wikiTitle, category: "wikipedia" }
   }
 
@@ -308,12 +343,16 @@ async function buildKeywordBatch(count: number): Promise<Array<{ keyword: string
 // Noise injection
 // ---------------------------------------------------------------------------
 
-async function injectNoise(): Promise<void> {
+async function injectNoise(forcedCount?: number): Promise<void> {
   const stored = await chrome.storage.local.get({ isNoiseEnabled: true })
   if (!stored.isNoiseEnabled) return
 
-  const count = randInt(REQUESTS_PER_CYCLE_MIN, REQUESTS_PER_CYCLE_MAX)
-  const batch = await buildKeywordBatch(count)
+  const count =
+    typeof forcedCount === "number"
+      ? Math.max(1, Math.min(8, Math.floor(forcedCount)))
+      : randInt(REQUESTS_PER_CYCLE_MIN, REQUESTS_PER_CYCLE_MAX)
+  const selectedTopics = await getSelectedNoiseTopics()
+  const batch = await buildKeywordBatch(count, selectedTopics)
 
   for (const { keyword, category } of batch) {
     const urlBuilder = pickRandom(QUERY_BUILDERS)
@@ -321,7 +360,11 @@ async function injectNoise(): Promise<void> {
 
     try {
       // no-cors: generate network traffic without reading the response.
-      // credentials: omit — we never want to send cookies to these targets.
+      // credentials: omit — we never send the user's cookies to these targets.
+      // HONESTY NOTE: because no cookies/credentials are attached, this is
+      // anonymous COVER/DECOY traffic that adds noise at the network/ISP level.
+      // It does NOT write into the user's cookie-based ad profile and is not a
+      // guaranteed "profile wipe" — see readme.md for the accurate description.
       await fetch(url, {
         method: "GET",
         mode: "no-cors",
@@ -409,6 +452,36 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 })
 
+registerAiDeepDiveTabCoverage({
+  tabs: chrome.tabs,
+  extractRestrictedPageRisk,
+  recordResult: (result) =>
+    handleAiDeepDiveRiskResult(result, {
+      storage: chrome.storage.local,
+      sendRuntimeMessage,
+      injectNoise
+    })
+})
+
+async function extractRestrictedPageRisk(
+  tabId: number,
+  tabUrl: string | undefined
+): Promise<AiDeepDiveRiskResult | null> {
+  const input = await extractVisibleTextWithDebugger(tabId, tabUrl)
+  if (!input) return null
+
+  const result = classifyHeuristic(input)
+
+  return {
+    ...result,
+    evidenceTags: Array.from(
+      new Set(["debugger_dom_text", ...result.evidenceTags])
+    ).slice(0, 8),
+    model: { mode: "heuristic", id: "debugger-dom", localOnly: true },
+    rawTextRetained: false
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Message API — used by Popup (Module C) and future modules
 // ---------------------------------------------------------------------------
@@ -484,9 +557,25 @@ chrome.runtime.onMessage.addListener(
           .catch(() => sendResponse({ success: false }))
         return true
 
+      case "PANIC_BUTTON":
+        performPanicWipe()
+          .then((result) => sendResponse(result))
+          .catch(() => sendResponse({ success: false }))
+        return true // async response
+
       case "BIONIC_BLUR_TELEMETRY":
         sendResponse({ success: true })
         return false
+
+      case "AI_DEEP_DIVE_RESULT":
+        handleAiDeepDiveRiskResult(message, {
+          storage: chrome.storage.local,
+          sendRuntimeMessage,
+          injectNoise
+        })
+          .then((result) => sendResponse(result))
+          .catch(() => sendResponse({ success: false, maxCamo: false }))
+        return true
 
       case "GENERATE_ALIAS":
         generateAlias()
@@ -506,16 +595,351 @@ chrome.runtime.onMessage.addListener(
 // Initialisation on install / browser startup
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Contextual floating layer: side panel + context menu wiring
+// ---------------------------------------------------------------------------
+
+const STORAGE_KEY_LAST_ANALYSIS = "cnd:last-analysis"
+const STORAGE_KEY_OFFSCREEN_LOGS = "cnd:offscreen-logs"
+const MAX_OFFSCREEN_LOGS = 200
+const activeDeepScanTabs = new Map<string, number>()
+const MINUTE_MS = 60 * 1000
+
+function setupContextualSurfaces(): void {
+  try {
+    // We keep the popup as the action target; the side panel opens via context
+    // menu (a real user gesture) and via explicit messages from popup/floating.
+    chrome.sidePanel
+      ?.setOptions?.({ path: "sidepanel.html", enabled: true })
+      ?.catch?.(() => undefined)
+  } catch {
+    // sidePanel API unavailable (older/other browser) — degrade gracefully.
+  }
+  try {
+    chrome.contextMenus?.removeAll?.(() => {
+      chrome.contextMenus?.create?.({
+        id: "cnd-open-side-panel",
+        title: "PrivacyMyst: otwórz Side Panel",
+        contexts: ["all"]
+      })
+    })
+  } catch {
+    // contextMenus unavailable — non-fatal.
+  }
+}
+
+chrome.contextMenus?.onClicked?.addListener((info, tab) => {
+  if (info.menuItemId !== "cnd-open-side-panel") return
+  openSidePanel(tab?.id, tab?.windowId)
+})
+
+function openSidePanel(tabId?: number, windowId?: number): void {
+  // chrome.sidePanel.open() must run in response to a user gesture. The context
+  // menu click and popup button click both qualify; the in-page bubble may not
+  // in all browsers — that limitation is documented, not faked.
+  try {
+    const opener = chrome.sidePanel?.open as
+      | ((opts: { tabId?: number; windowId?: number }) => Promise<void>)
+      | undefined
+    if (!opener) return
+    if (typeof tabId === "number") {
+      opener({ tabId }).catch(() => {
+        if (typeof windowId === "number") opener({ windowId }).catch(() => undefined)
+      })
+    } else if (typeof windowId === "number") {
+      opener({ windowId }).catch(() => undefined)
+    }
+  } catch {
+    // Open failed (no gesture / unsupported) — caller surface stays usable.
+  }
+}
+
+// Ensure the single offscreen inference document exists. Heavy model work runs
+// in a raw static extension page, outside Parcel's dynamic import shim. Parcel
+// cannot load onnxruntime-web's runtime WASM module URLs reliably.
+let offscreenSetup: Promise<boolean> | null = null
+const OFFSCREEN_DOCUMENT_PATH = "assets/offscreen/offscreen.html"
+const OFFSCREEN_INFERENCE_TIMEOUTS_MS: Record<string, number> = {
+  "nli-deberta-small": 4 * MINUTE_MS,
+  "granite-350m": 15 * MINUTE_MS,
+  "gemma-4-e2b": 45 * MINUTE_MS
+}
+
+async function ensureOffscreen(): Promise<boolean> {
+  const offscreen = chrome.offscreen as
+    | {
+        hasDocument?: () => Promise<boolean>
+        closeDocument?: () => Promise<void>
+        createDocument?: (opts: {
+          url: string
+          reasons: string[]
+          justification: string
+        }) => Promise<void>
+      }
+    | undefined
+  if (!offscreen?.createDocument) return false
+  try {
+    if (await hasCurrentOffscreenDocument(offscreen)) return true
+    if (!offscreenSetup) {
+      offscreenSetup = offscreen
+        .createDocument({
+          url: OFFSCREEN_DOCUMENT_PATH,
+          reasons: ["WORKERS"],
+          justification:
+            "Local AI risk classification (Transformers.js) off the page and service worker."
+        })
+        .then(() => true)
+        .catch(() => false)
+        .finally(() => {
+          offscreenSetup = null
+        })
+    }
+    return await offscreenSetup
+  } catch {
+    return false
+  }
+}
+
+async function hasCurrentOffscreenDocument(offscreen: {
+  hasDocument?: () => Promise<boolean>
+  closeDocument?: () => Promise<void>
+}): Promise<boolean> {
+  if (!(await offscreen.hasDocument?.())) return false
+
+  const runtimeWithContexts = chrome.runtime as typeof chrome.runtime & {
+    getContexts?: (query: {
+      contextTypes?: string[]
+    }) => Promise<Array<{ contextType?: string; documentUrl?: string }>>
+  }
+  const expectedUrl = chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH)
+
+  try {
+    const contexts = await runtimeWithContexts.getContexts?.({
+      contextTypes: ["OFFSCREEN_DOCUMENT"]
+    })
+    const documentUrl = contexts?.find(
+      (context) => context.contextType === "OFFSCREEN_DOCUMENT"
+    )?.documentUrl
+    if (!documentUrl || documentUrl === expectedUrl) return true
+
+    await offscreen.closeDocument?.()
+    return false
+  } catch {
+    // Older Chrome builds may not expose getContexts. In that case, the bool is
+    // the best signal available and avoids repeatedly recreating the document.
+    return true
+  }
+}
+
+// Send the inference request to the offscreen document, retrying while its
+// message listener is still registering. createDocument() resolves before the
+// offscreen page's bundle finishes loading, so the first send can hit "no
+// receiver" ("message port closed before a response") — that's a readiness race,
+// not a real failure. Once a real inference starts, the await simply waits for it.
+async function inferInOffscreen(
+  input: unknown,
+  config: unknown,
+  requestId: string
+): Promise<{ ok: boolean; result?: unknown; error?: string }> {
+  const attempts = 8
+  const inferenceTimeoutMs = getOffscreenInferenceTimeoutMs(config)
+  let lastErr = "offscreen did not respond"
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await sendOffscreenInferWithTimeout(
+        input,
+        config,
+        requestId,
+        inferenceTimeoutMs
+      )
+      if (res) return res
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err)
+      // Offscreen listener not ready yet — wait and retry.
+    }
+    await new Promise((r) => setTimeout(r, 700))
+  }
+  return { ok: false, error: lastErr }
+}
+
+function sendOffscreenInferWithTimeout(
+  input: unknown,
+  config: unknown,
+  requestId: string,
+  timeoutMs: number
+): Promise<{ ok: boolean; result?: unknown; error?: string } | undefined> {
+  return Promise.race([
+    chrome.runtime.sendMessage({
+      type: "CND_OFFSCREEN_INFER",
+      requestId,
+      input,
+      config
+    }) as Promise<{ ok: boolean; result?: unknown; error?: string } | undefined>,
+    new Promise<{ ok: false; error: string }>((resolve) => {
+      setTimeout(
+        () =>
+          resolve({
+            ok: false,
+            error: `model inference timed out after ${Math.round(timeoutMs / 1000)}s`
+          }),
+        timeoutMs
+      )
+    })
+  ])
+}
+
+function getOffscreenInferenceTimeoutMs(config: unknown): number {
+  const selectedModelId =
+    typeof config === "object" && config !== null
+      ? (config as { selectedModelId?: unknown }).selectedModelId
+      : undefined
+  if (
+    typeof selectedModelId === "string" &&
+    selectedModelId in OFFSCREEN_INFERENCE_TIMEOUTS_MS
+  ) {
+    return OFFSCREEN_INFERENCE_TIMEOUTS_MS[selectedModelId]
+  }
+  return OFFSCREEN_INFERENCE_TIMEOUTS_MS["nli-deberta-small"]
+}
+
+async function recordOffscreenLog(entry: unknown): Promise<void> {
+  const normalized = normalizeOffscreenLog(entry)
+  const stored = await chrome.storage.local.get({ [STORAGE_KEY_OFFSCREEN_LOGS]: [] })
+  const logs = Array.isArray(stored[STORAGE_KEY_OFFSCREEN_LOGS])
+    ? (stored[STORAGE_KEY_OFFSCREEN_LOGS] as unknown[])
+    : []
+  logs.push(normalized)
+  await chrome.storage.local.set({
+    [STORAGE_KEY_OFFSCREEN_LOGS]: logs.slice(-MAX_OFFSCREEN_LOGS)
+  })
+  broadcastDeepScanStatus(normalized)
+}
+
+function normalizeOffscreenLog(entry: unknown): Record<string, unknown> {
+  const record =
+    typeof entry === "object" && entry !== null
+      ? (entry as Record<string, unknown>)
+      : { message: String(entry) }
+  return {
+    ts: typeof record.ts === "number" ? record.ts : Date.now(),
+    level: typeof record.level === "string" ? record.level : "info",
+    stage: typeof record.stage === "string" ? record.stage : "unknown",
+    elapsedMs: typeof record.elapsedMs === "number" ? record.elapsedMs : 0,
+    ...record
+  }
+}
+
+function broadcastDeepScanStatus(entry: Record<string, unknown>): void {
+  const requestId =
+    typeof entry.requestId === "string" ? entry.requestId : undefined
+  if (!requestId) return
+  const tabId = activeDeepScanTabs.get(requestId)
+  if (typeof tabId !== "number") return
+  try {
+    const sent = chrome.tabs.sendMessage(tabId, {
+      type: "CND_DEEP_SCAN_STATUS",
+      status: entry
+    })
+    sent?.catch?.(() => undefined)
+  } catch {
+    // Content script may be gone; status is still stored for diagnostics.
+  }
+}
+
+// Dedicated listener for the CND_* contextual-layer protocol. Kept separate from
+// the typed switch above so it doesn't widen that message union.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  const type = (message as { type?: string })?.type
+  if (typeof type !== "string" || !type.startsWith("CND_")) return
+
+  if (type === "CND_OPEN_SIDE_PANEL") {
+    openSidePanel(sender.tab?.id, sender.tab?.windowId)
+    sendResponse({ ok: true })
+    return
+  }
+
+  if (type === "CND_DEEP_SCAN") {
+    void (async () => {
+      const requestId =
+        typeof (message as { requestId?: unknown }).requestId === "string"
+          ? ((message as { requestId: string }).requestId)
+          : crypto.randomUUID()
+      if (typeof sender.tab?.id === "number") {
+        activeDeepScanTabs.set(requestId, sender.tab.id)
+      }
+      const ready = await ensureOffscreen()
+      if (!ready) {
+        const error = "offscreen document unavailable"
+        await recordOffscreenLog({
+          requestId,
+          level: "error",
+          stage: "failed",
+          error,
+          elapsedMs: 0
+        })
+        sendResponse({ ok: false, error: "offscreen document unavailable" })
+        activeDeepScanTabs.delete(requestId)
+        return
+      }
+      const response = await inferInOffscreen(
+        (message as { input?: unknown }).input,
+        (message as { config?: unknown }).config,
+        requestId
+      )
+      if (!response.ok) {
+        await recordOffscreenLog({
+          requestId,
+          level: "error",
+          stage: "failed",
+          error: response.error ?? "unknown model failure",
+          elapsedMs: 0
+        })
+      }
+      sendResponse({ ...response, requestId })
+      activeDeepScanTabs.delete(requestId)
+    })()
+    return true // async response
+  }
+
+  if (type === "CND_OFFSCREEN_LOG") {
+    void recordOffscreenLog((message as { entry?: unknown }).entry).then(() =>
+      sendResponse({ ok: true })
+    )
+    return true // async response
+  }
+
+  if (type === "CND_ANALYSIS_UPDATED") {
+    const tabId = sender.tab?.id
+    if (typeof tabId !== "number") {
+      sendResponse({ ok: false })
+      return
+    }
+    chrome.storage.local.get({ [STORAGE_KEY_LAST_ANALYSIS]: {} }).then((res) => {
+      const all = (res[STORAGE_KEY_LAST_ANALYSIS] ?? {}) as Record<string, unknown>
+      all[String(tabId)] = (message as { analysis?: unknown }).analysis
+      chrome.storage.local.set({ [STORAGE_KEY_LAST_ANALYSIS]: all })
+      sendResponse({ ok: true })
+    })
+    return true // async response
+  }
+})
+
 chrome.runtime.onInstalled.addListener(async () => {
+  setupContextualSurfaces()
   // Seed both the internal counter and the shared dashboard state so Module C
   // reads a consistent value from the first open.
   const stored = await chrome.storage.local.get({ [STORAGE_KEY_STATE]: {} })
   await chrome.storage.local.set({
     noiseGeneratedCount: 0,
     isNoiseEnabled: true,
+    isCookieShredderEnabled: true,
+    isTargetingShieldEnabled: true,
     [STORAGE_KEY_STATE]: {
       ...(stored[STORAGE_KEY_STATE] as Record<string, unknown>),
       noiseGeneratedCount: 0,
+      cookiesRotatedCount: 0,
+      paramsStrippedCount: 0,
+      targetingBlockedCount: 0,
     },
   })
   applyBrowserPrivacyGuards()
@@ -527,6 +951,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 // Re-register alarm on service-worker wake-up (MV3 workers can be killed)
 chrome.runtime.onStartup.addListener(() => {
   applyBrowserPrivacyGuards()
+  setupContextualSurfaces()
   chrome.alarms.get(ALARM_NAME, (existing) => {
     if (!existing) {
       chrome.alarms.create(ALARM_NAME, {

@@ -9,6 +9,7 @@ const ROOT = path.resolve(__dirname, "..")
 const EXTENSION_PATH = path.join(ROOT, "build", "chrome-mv3-prod")
 const PROOF_PAGE = path.join(ROOT, "demo", "bionic-blur-proof.html")
 const PROOF_SCREENSHOT = path.join(ROOT, "test-results", "bionic-blur-proof.png")
+const HUMAN_KEY_DELAY_MS = 18
 const BROWSER_CANDIDATES = [
   process.env.PLAYWRIGHT_CHROME_PATH,
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -34,7 +35,27 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
   await stat(PROOF_PAGE)
 
   const html = await readFile(PROOF_PAGE)
+  const benignHtml = Buffer.from(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="description" content="Balcony gardening notes about tomatoes, soil, watering, and sunlight." />
+    <title>Balcony Garden Notes</title>
+  </head>
+  <body>
+    <main>
+      <h1>Balcony Garden Notes</h1>
+      <p>Article about urban gardening, tomatoes, balcony soil, watering schedule, and sunlight.</p>
+      <textarea id="benign-input"></textarea>
+    </main>
+  </body>
+</html>`)
   const server = createServer((req, res) => {
+    if (req.url === "/benign.html") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
+      res.end(benignHtml)
+      return
+    }
     if (req.url === "/" || req.url === "/bionic-blur-proof.html") {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
       res.end(html)
@@ -65,6 +86,23 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
   })
 
   try {
+    const benignPage = await context.newPage()
+    await benignPage.goto(`http://127.0.0.1:${address.port}/benign.html`)
+    await expect
+      .poll(async () => (await readAiDeepDiveRiskLevel(context)) ?? "missing", {
+        timeout: 12000
+      })
+      .toBe("low")
+    await expect
+      .poll(async () => await readAiDeepDiveRawTextFlag(context), {
+        timeout: 12000
+      })
+      .toBe(false)
+    await expect(benignPage.locator("#cloak-dagger-ai-deep-dive-alert")).toHaveCount(0)
+    await benignPage.locator("#benign-input").fill("typing still works")
+    await expect(benignPage.locator("#benign-input")).toHaveValue("typing still works")
+    await benignPage.close()
+
     const page = await context.newPage()
     const runtimeErrors: string[] = []
     page.on("pageerror", (error) => {
@@ -97,15 +135,19 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
 
       await page.locator("#proof-input").focus()
       await page.keyboard.press(selectAll)
-      await page.keyboard.type(`privacytest-${cycle}`)
+      await page.keyboard.type(`privacytest-${cycle}`, { delay: HUMAN_KEY_DELAY_MS })
       await expect(page.locator("#proof-input")).toHaveValue(`privacytest-${cycle}`)
       await page.locator("#proof-textarea").focus()
       await page.keyboard.press(selectAll)
-      await page.keyboard.type(`textarea proof ${cycle}`)
+      await page.keyboard.type(`textarea proof ${cycle}`, {
+        delay: HUMAN_KEY_DELAY_MS
+      })
       await expect(page.locator("#proof-textarea")).toHaveValue(`textarea proof ${cycle}`)
       await page.locator("#proof-editable").focus()
       await page.keyboard.press(selectAll)
-      await page.keyboard.type(`editable proof ${cycle}`)
+      await page.keyboard.type(`editable proof ${cycle}`, {
+        delay: HUMAN_KEY_DELAY_MS
+      })
       await expect(page.locator("#proof-editable")).toHaveText(`editable proof ${cycle}`)
       await page.locator("#run-probes").click()
       await page.waitForTimeout(1800)
@@ -144,6 +186,28 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
       })
       expect(logHealth.lines).toBeLessThanOrEqual(8)
       expect(logHealth.rawDebugLines).toBe(0)
+
+      await page.locator("#inject-sensitive-demo").click()
+      await expect(page.locator("#ai-deep-dive-output")).toContainText(
+        "Urgent support for depression symptoms"
+      )
+      await expect
+        .poll(
+          async () => page.locator("#cloak-dagger-ai-deep-dive-alert").count(),
+          { timeout: 12000 }
+        )
+        .toBe(1)
+      await expect
+        .poll(async () => (await readAiDeepDiveRiskLevel(context)) ?? "missing", {
+          timeout: 12000
+        })
+        .toMatch(/^(high|critical)$/)
+      await expect
+        .poll(async () => await readAiDeepDiveRawTextFlag(context), {
+          timeout: 12000
+        })
+        .toBe(false)
+
       await mkdir(path.dirname(PROOF_SCREENSHOT), { recursive: true })
       await page.screenshot({ path: PROOF_SCREENSHOT, fullPage: true })
       if (runtimeErrors.length > 0) {
@@ -174,3 +238,40 @@ test("Bionic Blur patches main-world signals on the proof page", async () => {
     await rm(userDataDir, { recursive: true, force: true })
   }
 })
+
+async function readAiDeepDiveRiskLevel(
+  context: Awaited<ReturnType<typeof chromium.launchPersistentContext>>
+): Promise<string | null> {
+  const risk = await readAiDeepDiveRisk(context)
+  return typeof risk?.level === "string" ? risk.level : null
+}
+
+async function readAiDeepDiveRawTextFlag(
+  context: Awaited<ReturnType<typeof chromium.launchPersistentContext>>
+): Promise<unknown> {
+  const risk = await readAiDeepDiveRisk(context)
+  return risk?.rawTextRetained
+}
+
+async function readAiDeepDiveRisk(
+  context: Awaited<ReturnType<typeof chromium.launchPersistentContext>>
+): Promise<Record<string, unknown> | null> {
+  const worker =
+    context.serviceWorkers()[0] ??
+    (await context.waitForEvent("serviceworker", { timeout: 2000 }).catch(() => null))
+  if (!worker) return null
+
+  const stored = await worker.evaluate(
+    () =>
+      new Promise<Record<string, unknown>>((resolve) => {
+        chrome.storage.local.get({ "cnd:state": {} }, (items) => {
+          resolve(items as Record<string, unknown>)
+        })
+      })
+  )
+  const state = stored["cnd:state"] as
+    | { aiDeepDiveRisk?: Record<string, unknown> }
+    | undefined
+
+  return state?.aiDeepDiveRisk ?? null
+}

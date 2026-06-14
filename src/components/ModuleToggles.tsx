@@ -15,7 +15,7 @@ const MODULES: { id: ModuleId; title: string; desc: string }[] = [
   {
     id: "dataGhost",
     title: "DataGhost",
-    desc: "Wstrzykuje fałszywy szum do profilu reklamowego"
+    desc: "Generuje anonimowy ruch-wabik utrudniający profilowanie"
   },
   {
     id: "mouseJitter",
@@ -31,6 +31,16 @@ const MODULES: { id: ModuleId; title: string; desc: string }[] = [
     id: "honeypot",
     title: "Honeypot Trap",
     desc: "Zatruwa żądania trackerów sprzecznym profilem w locie"
+  },
+  {
+    id: "cookieShredder",
+    title: "Cookie Shredder",
+    desc: "Rotuje ID ciasteczek trackerów — co cykl wyglądasz jak nowy użytkownik"
+  },
+  {
+    id: "targetingShield",
+    title: "Targeting Shield",
+    desc: "Zrywa atrybucję (gclid/fbclid/utm) i odcina trackery na wrażliwych stronach"
   }
 ]
 

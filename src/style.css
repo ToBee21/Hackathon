@@ -241,6 +241,15 @@
     opacity: 0.3;
   }
 }
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
 @keyframes shimmer {
   from {
     background-position: 200% 0;
@@ -276,6 +285,9 @@
   }
   .anim-dot {
     animation: dotPulse 1.8s ease-in-out infinite;
+  }
+  .anim-floaty {
+    animation: floaty 5s ease-in-out infinite;
   }
   .jitter-field .jitter-dot {
     animation: drift 3.4s ease-in-out infinite;

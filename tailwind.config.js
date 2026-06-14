@@ -1,5 +1,5 @@
 /**
- * tailwind.config.js — Design tokens for "Cloak & Dagger" (Moduł C).
+ * tailwind.config.js — Design tokens for "PrivacyMyst" (Moduł C).
  *
  * Design language: "Stealth Intelligence Console" — a cold counter-surveillance
  * instrument over a near-black void, with a single rationed teal "tracer" accent.

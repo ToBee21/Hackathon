@@ -1,5 +1,11 @@
 // src/popup.tsx
-// Moduł C — Privacy Dashboard. Punkt wejścia interfejsu (Plasmo popup).
+// Moduł C — Privacy Dashboard (popup). Lekki panel szybkiej kontroli.
+//
+// Popup celowo minimalny: Privacy Score + statystyki, przełączniki modułów,
+// Panic Button, generator aliasu e-mail, Radar. Ikona pełnego ekranu w nagłówku
+// otwiera dashboard. Funkcje rozbudowane — Wirtualna Tożsamość, testy Honeypota
+// i Targeting Shield, Telemetria na żywo, AI Deep-Dive, Cień cyfrowy — żyją
+// wyłącznie w pełnoekranowym dashboardzie (tabs/dashboard).
 
 import {
   useCallback,
@@ -9,40 +15,47 @@ import {
   type CSSProperties
 } from "react"
 
+import wordmark from "url:../assets/wordmark.png"
+
 import CyberRadar, { type HoneypotEvent } from "./components/CyberRadar"
-import { Crosshair, Logo, Lock, ShieldCheck, ShieldOff } from "./components/icons"
-import LoggerView from "./components/LoggerView"
+import { Lock, Mail, Maximize, ShieldCheck, ShieldOff } from "./components/icons"
 import ModuleToggles from "./components/ModuleToggles"
 import PanicButton from "./components/PanicButton"
 import ScoreChart, { type ProtectionTier } from "./components/ScoreChart"
 import StatCards from "./components/StatCards"
 import type {
-  LogEntry,
   ModuleId,
   ModuleToggleState,
   RuntimeMessage
 } from "./components/types"
+import { generateAlias } from "./shared/emailAlias"
 import type { PrivacyState } from "./types"
 
 import "./style.css"
 
 const STORAGE_KEY_TOGGLES = "cnd:toggles"
 const STORAGE_KEY_STATE = "cnd:state"
-const MAX_LOG_ENTRIES = 30
-const LOG_COLLAPSE_WINDOW_MS = 8000
 
 const DEFAULT_TOGGLES: ModuleToggleState = {
   dataGhost: true,
   mouseJitter: true,
   keystroke: true,
-  honeypot: true
+  honeypot: true,
+  cookieShredder: true,
+  targetingShield: true
 }
 
 const DEFAULT_STATE: PrivacyState = {
   privacyScore: 0,
   trackersBlockedCount: 0,
   noiseGeneratedCount: 0,
-  activeAliasEmail: null
+  activeAliasEmail: null,
+  aiDeepDiveRisk: null,
+  aiDeepDiveDetectionCount: 0,
+  maxCamoActive: false,
+  cookiesRotatedCount: 0,
+  paramsStrippedCount: 0,
+  targetingBlockedCount: 0
 }
 
 const ext: typeof chrome | undefined = (globalThis as any).chrome
@@ -52,13 +65,18 @@ function computePrivacyScore(
   state: PrivacyState
 ): number {
   let score = 0
-  if (toggles.dataGhost) score += 15
-  if (toggles.honeypot) score += 15
-  if (toggles.mouseJitter) score += 10
-  if (toggles.keystroke) score += 10
+  if (toggles.dataGhost) score += 9
+  if (toggles.honeypot) score += 9
+  if (toggles.cookieShredder) score += 9
+  if (toggles.targetingShield) score += 9
+  if (toggles.mouseJitter) score += 7
+  if (toggles.keystroke) score += 7
 
   const activity =
-    state.noiseGeneratedCount * 2 + state.trackersBlockedCount * 3
+    state.noiseGeneratedCount * 2 +
+    state.trackersBlockedCount * 3 +
+    (state.cookiesRotatedCount ?? 0) * 2 +
+    (state.targetingBlockedCount ?? 0) * 1
   score += Math.min(50, activity)
 
   return Math.max(0, Math.min(100, score))
@@ -71,73 +89,38 @@ function deriveTier(armed: boolean, score: number): ProtectionTier {
   return "exposed"
 }
 
-let logCounter = 0
-function makeLogId(): string {
-  logCounter += 1
-  return `${Date.now()}-${logCounter}`
-}
-
 // ─── Tab navigation ──────────────────────────────────────────────────────────
 
 type Tab = "status" | "radar"
 
 const TAB_LABELS: Record<Tab, string> = {
   status: "Status",
-  radar: "Radar",
+  radar: "Radar"
 }
 
 export default function Popup() {
   const [toggles, setToggles] = useState<ModuleToggleState>(DEFAULT_TOGGLES)
   const [state, setState] = useState<PrivacyState>(DEFAULT_STATE)
-  const [logs, setLogs] = useState<LogEntry[]>([])
   const [hydrated, setHydrated] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>("status")
   const [honeypotEvents, setHoneypotEvents] = useState<HoneypotEvent[]>([])
 
-  const addLog = useCallback((entry: Omit<LogEntry, "id">) => {
-    setLogs((prev) => {
-      const latest = prev[0]
-      if (
-        latest &&
-        latest.source === entry.source &&
-        latest.message === entry.message &&
-        Math.abs(entry.timestamp - latest.timestamp) <= LOG_COLLAPSE_WINDOW_MS
-      ) {
-        return [
-          {
-            ...latest,
-            timestamp: entry.timestamp,
-            count: (latest.count ?? 1) + (entry.count ?? 1)
-          },
-          ...prev.slice(1)
-        ]
-      }
-
-      return [
-        { ...entry, id: makeLogId(), count: entry.count ?? 1 },
-        ...prev
-      ].slice(0, MAX_LOG_ENTRIES)
-    })
-  }, [])
-
+  // --- Inicjalizacja: wczytanie zapisanego stanu + nasłuch wiadomości ---
   useEffect(() => {
     if (!ext?.storage?.local) {
       setHydrated(true)
       return
     }
 
-    ext.storage.local.get(
-      [STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE],
-      (result) => {
-        if (result?.[STORAGE_KEY_TOGGLES]) {
-          setToggles({ ...DEFAULT_TOGGLES, ...result[STORAGE_KEY_TOGGLES] })
-        }
-        if (result?.[STORAGE_KEY_STATE]) {
-          setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
-        }
-        setHydrated(true)
+    ext.storage.local.get([STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE], (result) => {
+      if (result?.[STORAGE_KEY_TOGGLES]) {
+        setToggles({ ...DEFAULT_TOGGLES, ...result[STORAGE_KEY_TOGGLES] })
       }
-    )
+      if (result?.[STORAGE_KEY_STATE]) {
+        setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
+      }
+      setHydrated(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -145,30 +128,31 @@ export default function Popup() {
 
     const handler = (message: RuntimeMessage) => {
       switch (message?.type) {
-        case "LOG_EVENT":
-          addLog(message.entry)
-          break
         case "STATE_UPDATE":
           setState((prev) => ({ ...prev, ...message.state }))
+          // MaxCamo: gdy AI Deep-Dive wykryje wysokie ryzyko, zazbrój wektory.
+          if (message.state.maxCamoActive) {
+            setToggles((prev) => ({
+              ...prev,
+              dataGhost: true,
+              mouseJitter: true,
+              keystroke: true
+            }))
+          }
           break
         case "HONEYPOT_ATTACK":
           setState((prev) => ({
             ...prev,
-            trackersBlockedCount: prev.trackersBlockedCount + 1,
+            trackersBlockedCount: prev.trackersBlockedCount + 1
           }))
           setHoneypotEvents((prev) => [
             ...prev.slice(-50),
             {
               id: Date.now(),
               trackerName: message.payload.trackerName,
-              timestamp: message.payload.timestamp,
-            },
+              timestamp: message.payload.timestamp
+            }
           ])
-          addLog({
-            timestamp: message.payload.timestamp,
-            source: "honeypot",
-            message: `Zatruty tracker: ${message.payload.trackerName}`,
-          })
           break
       }
     }
@@ -177,7 +161,7 @@ export default function Popup() {
     ext.runtime.sendMessage({ type: "REQUEST_STATE" } as RuntimeMessage)
 
     return () => ext.runtime.onMessage.removeListener(handler)
-  }, [addLog])
+  }, [])
 
   const score = useMemo(
     () => computePrivacyScore(toggles, state),
@@ -189,53 +173,38 @@ export default function Popup() {
     ext.storage.local.set({ [STORAGE_KEY_STATE]: { ...state, privacyScore: score } })
   }, [hydrated, score, state])
 
-  const handleToggle = useCallback(
-    (module: ModuleId, enabled: boolean) => {
-      setToggles((prev) => {
-        const next = { ...prev, [module]: enabled }
-        ext?.storage?.local?.set({ [STORAGE_KEY_TOGGLES]: next })
-        return next
-      })
-
-      ext?.runtime?.sendMessage({
-        type: "TOGGLE_MODULE",
-        module,
-        enabled
-      } as RuntimeMessage)
-
-      addLog({
-        timestamp: Date.now(),
-        source: "system",
-        message: `${enabled ? "Włączono" : "Wyłączono"} moduł: ${module}`
-      })
-    },
-    [addLog]
-  )
-
-  const handleHoneypotTest = useCallback(() => {
-    ext?.runtime?.sendMessage({
-      type: "TRIGGER_HONEYPOT_TEST"
-    } as RuntimeMessage)
-
-    addLog({
-      timestamp: Date.now(),
-      source: "honeypot",
-      message: "Wysłano wabik do Google Analytics — czekam na zatrucie…"
+  // --- Akcje użytkownika ---
+  const handleToggle = useCallback((module: ModuleId, enabled: boolean) => {
+    setToggles((prev) => {
+      const next = { ...prev, [module]: enabled }
+      ext?.storage?.local?.set({ [STORAGE_KEY_TOGGLES]: next })
+      return next
     })
-  }, [addLog])
+
+    ext?.runtime?.sendMessage({
+      type: "TOGGLE_MODULE",
+      module,
+      enabled
+    } as RuntimeMessage)
+  }, [])
+
+  const handleGenerateAlias = useCallback(async () => {
+    // Module D (Identity Masking) — offline path needs no API token. The alias
+    // is persisted by generateAlias(); mirror it into shared state so the footer
+    // reflects it and it survives a popup reopen.
+    try {
+      const alias = await generateAlias()
+      setState((prev) => ({ ...prev, activeAliasEmail: alias.alias }))
+    } catch {
+      // Best-effort — błąd generowania nie wywraca UI.
+    }
+  }, [])
 
   const handlePanic = useCallback(() => {
     ext?.runtime?.sendMessage({ type: "PANIC_BUTTON" } as RuntimeMessage)
-
-    setLogs([])
     setState(DEFAULT_STATE)
     setHoneypotEvents([])
-    addLog({
-      timestamp: Date.now(),
-      source: "system",
-      message: "PANIC: wyczyszczono sesje śledzące i dane lokalne"
-    })
-  }, [addLog])
+  }, [])
 
   const handleOpenFullscreen = useCallback(() => {
     const url = ext?.runtime?.getURL("tabs/dashboard.html")
@@ -246,7 +215,9 @@ export default function Popup() {
     toggles.dataGhost ||
     toggles.mouseJitter ||
     toggles.keystroke ||
-    toggles.honeypot
+    toggles.honeypot ||
+    toggles.cookieShredder ||
+    toggles.targetingShield
   const tier = deriveTier(anyEnabled, score)
 
   const rootStyle = {
@@ -262,34 +233,26 @@ export default function Popup() {
       <div className="console-grid" />
 
       <div className="stagger relative z-[1] flex flex-col gap-3 p-4">
-        {/* Header */}
+        {/* Header — tożsamość + pełny ekran + stan systemu */}
         <header style={v(0)} className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="edge-lit flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-fg-hi shadow-card">
-              <Logo size={20} />
-            </span>
             <div className="leading-tight">
-              <h1 className="text-[13px] font-semibold tracking-tight text-fg-hi">
-                Cloak <span className="text-fg-low">&amp;</span> Dagger
-              </h1>
-              <p className="text-[9px] uppercase tracking-[0.16em] text-fg-low">
+              <img src={wordmark} alt="PrivacyMyst" className="h-6 w-auto" />
+              <p className="mt-1 text-[9px] uppercase tracking-[0.16em] text-fg-low">
                 Active Privacy Defense
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Full-screen button */}
+            {/* Pełny ekran — otwiera dashboard w nowej karcie */}
             <button
               type="button"
               onClick={handleOpenFullscreen}
               title="Otwórz dashboard na pełnym ekranie"
               className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-2 text-fg-low transition-colors hover:text-fg-hi"
-              style={{ border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                <path d="M1 4.5V1.5H4M9 1.5H12V4.5M12 8.5V11.5H9M4 11.5H1V8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+              <Maximize size={13} />
             </button>
 
             <span
@@ -318,8 +281,7 @@ export default function Popup() {
         {/* Tab navigation */}
         <div
           style={{ ...v(1), border: "1px solid rgba(255,255,255,0.06)" }}
-          className="flex overflow-hidden rounded-lg"
-        >
+          className="flex overflow-hidden rounded-lg">
           {(Object.keys(TAB_LABELS) as Tab[]).map((tab) => (
             <button
               key={tab}
@@ -327,11 +289,12 @@ export default function Popup() {
               onClick={() => setActiveTab(tab)}
               className="flex-1 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors duration-150"
               style={{
-                background: activeTab === tab ? "rgba(43,212,196,0.08)" : "transparent",
+                background:
+                  activeTab === tab ? "rgba(43,212,196,0.08)" : "transparent",
                 color: activeTab === tab ? "#2BD4C4" : "#6E7480",
-                borderBottom: activeTab === tab ? "2px solid #2BD4C4" : "2px solid transparent",
-              }}
-            >
+                borderBottom:
+                  activeTab === tab ? "2px solid #2BD4C4" : "2px solid transparent"
+              }}>
               {TAB_LABELS[tab]}
             </button>
           ))}
@@ -340,6 +303,7 @@ export default function Popup() {
         {/* ── STATUS TAB ── */}
         {activeTab === "status" && (
           <>
+            {/* Privacy Score — hero */}
             <div style={v(2)} className="pt-1">
               <ScoreChart
                 score={score}
@@ -350,39 +314,43 @@ export default function Popup() {
               />
             </div>
 
+            {/* Statystyki */}
             <div style={v(3)}>
               <StatCards state={state} />
             </div>
 
-            <div style={v(4)} className="flex flex-col gap-2">
+            {/* Przełączniki modułów */}
+            <div style={v(4)}>
               <ModuleToggles toggles={toggles} onToggle={handleToggle} />
-
-              {toggles.honeypot && (
-                <button
-                  type="button"
-                  onClick={handleHoneypotTest}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2 text-[11px] font-medium transition-colors duration-base hover:bg-white/[0.03]"
-                  style={{ borderColor: "#FF5C7A55", color: "#FF5C7A" }}>
-                  <Crosshair size={13} />
-                  Testuj Honeypot · wyślij wabik do trackera
-                </button>
-              )}
             </div>
 
-            <div style={v(5)}>
-              <LoggerView entries={logs} />
-            </div>
-
+            {/* Panic — hold-to-wipe */}
             <div style={v(6)}>
               <PanicButton onPanic={handlePanic} />
             </div>
 
-            <div style={v(7)} className="flex flex-col items-center gap-1 pt-0.5">
-              {state.activeAliasEmail && (
+            {/* Stopka — tożsamość jednorazowa + sygnał zaufania */}
+            <div style={v(7)} className="flex flex-col items-center gap-1.5 pt-0.5">
+              {state.activeAliasEmail ? (
                 <p className="text-[10px] text-fg-low">
                   Alias:{" "}
-                  <span className="font-mono text-fg-mid">{state.activeAliasEmail}</span>
+                  <span className="font-mono text-fg-mid">
+                    {state.activeAliasEmail}
+                  </span>{" "}
+                  <button
+                    type="button"
+                    onClick={handleGenerateAlias}
+                    className="text-accent/80 transition-colors hover:text-accent">
+                    nowy
+                  </button>
                 </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGenerateAlias}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] px-2.5 py-1 text-[10px] text-fg-mid ring-1 ring-inset ring-line-strong transition-colors hover:text-fg-hi hover:ring-line-hover">
+                  <Mail size={11} /> Generuj alias e-mail
+                </button>
               )}
               <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-fg-low/70">
                 <Lock size={10} /> Privacy-by-Design · dane lokalne
@@ -395,9 +363,12 @@ export default function Popup() {
         {activeTab === "radar" && (
           <div style={v(2)} className="flex flex-col items-center gap-3">
             {honeypotEvents.length === 0 && (
-              <p className="text-center text-[10px] text-fg-low pt-1" style={{ maxWidth: 220 }}>
+              <p
+                className="pt-1 text-center text-[10px] text-fg-low"
+                style={{ maxWidth: 220 }}>
                 Radar czeka na rzeczywiste zdarzenia. Wejdź na stronę z trackerami
-                lub użyj przycisku "Testuj Honeypot" w zakładce Status.
+                lub użyj testów (Honeypot / Targeting Shield) w pełnoekranowym
+                dashboardzie.
               </p>
             )}
             <CyberRadar
@@ -408,10 +379,12 @@ export default function Popup() {
             />
             <div className="flex gap-4 text-[10px] text-fg-low">
               <span>
-                <span style={{ color: "#E5484D" }}>●</span> {state.trackersBlockedCount} zatrutych trackerów
+                <span style={{ color: "#E5484D" }}>●</span>{" "}
+                {state.trackersBlockedCount} zatrutych trackerów
               </span>
               <span>
-                <span style={{ color: "#9A8CFF" }}>●</span> {state.noiseGeneratedCount} wstrzyknięć szumu
+                <span style={{ color: "#9A8CFF" }}>●</span>{" "}
+                {state.noiseGeneratedCount} wstrzyknięć szumu
               </span>
             </div>
           </div>

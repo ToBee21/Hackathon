@@ -12,7 +12,9 @@ import type {
   BionicBlurConfig,
   FingerprintSurface,
   PointerLikeFields,
-  PrivacyProfile
+  PrivacyProfile,
+  ProfileBucket,
+  ProfileId
 } from "../types"
 
 export const config: PlasmoCSConfig = {
@@ -47,6 +49,8 @@ interface BridgeConfigMessage {
   payload: {
     config: BionicBlurConfig
     profileSeed: string
+    profileId?: ProfileId
+    customBucket?: ProfileBucket | null
   }
 }
 
@@ -111,7 +115,10 @@ function installBionicBlur(): void {
       ...DEFAULT_BIONIC_BLUR_CONFIG,
       ...message.payload.config
     }
-    profile = buildPrivacyProfile(location.href, message.payload.profileSeed)
+    profile = buildPrivacyProfile(location.href, message.payload.profileSeed, {
+      profileId: message.payload.profileId,
+      customBucket: message.payload.customBucket
+    })
     emitTelemetry("event-listener", "configured", 1)
   }
 
@@ -472,6 +479,36 @@ function defineGetter(
   }
 }
 
+/** OS token for a User-Agent string, derived from the spoofed platform. */
+function osTokenForPlatform(platform: string): string {
+  if (platform.includes("Mac")) return "Macintosh; Intel Mac OS X 10_15_7"
+  if (platform.includes("Linux")) return "X11; Linux x86_64"
+  return "Windows NT 10.0; Win64; x64"
+}
+
+/** UA-Client-Hints `platform` value matching the spoofed platform. */
+function uaPlatformForProfile(platform: string): string {
+  if (platform.includes("Mac")) return "macOS"
+  if (platform.includes("Linux")) return "Linux"
+  return "Windows"
+}
+
+/**
+ * Build a User-Agent that is CONSISTENT with the spoofed profile's OS. We keep
+ * the browser's REAL Chrome version (so we never invent a browser that doesn't
+ * exist) and only swap the OS token, so navigator.userAgent, navigator.platform
+ * and the WebGL renderer all agree. An inconsistent UA — e.g. an Apple GPU under
+ * a Windows UA — is itself a high-entropy "spoofing detected" signal that
+ * fingerprinters use to flag and even reverse spoofing, so internal consistency
+ * matters more than the specific values we present.
+ */
+function buildConsistentUserAgent(realUserAgent: string, platform: string): string {
+  const chromeToken = realUserAgent.match(/Chrome\/[\d.]+/)?.[0] ?? "Chrome/120.0.0.0"
+  return `Mozilla/5.0 (${osTokenForPlatform(
+    platform
+  )}) AppleWebKit/537.36 (KHTML, like Gecko) ${chromeToken} Safari/537.36`
+}
+
 function patchNavigator(
   getProfile: () => PrivacyProfile,
   shouldPatch: () => boolean,
@@ -482,30 +519,75 @@ function patchNavigator(
   ) => void
 ): void {
   const proto = Navigator.prototype as Navigator & Record<string, unknown>
+
+  // Capture the REAL values BEFORE redefining the getters. The disabled-path
+  // fallback must return these captured primitives — reading navigator.* inside
+  // the getter would re-enter the same accessor and recurse infinitely.
+  const real = {
+    platform: navigator.platform,
+    language: navigator.language,
+    languages: navigator.languages,
+    hardwareConcurrency: navigator.hardwareConcurrency,
+    deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+    maxTouchPoints: navigator.maxTouchPoints,
+    userAgent: navigator.userAgent,
+    appVersion: navigator.appVersion
+  }
+
   defineGetter(proto, "platform", () =>
-    shouldPatch() ? getProfile().platform : navigator.platform
+    shouldPatch() ? getProfile().platform : real.platform
   )
   defineGetter(proto, "language", () =>
-    shouldPatch() ? getProfile().locale : navigator.language
+    shouldPatch() ? getProfile().locale : real.language
   )
   defineGetter(proto, "languages", () =>
-    shouldPatch() ? [getProfile().locale, "en-US", "en"] : navigator.languages
+    shouldPatch() ? [getProfile().locale, "en-US", "en"] : real.languages
   )
   defineGetter(proto, "hardwareConcurrency", () =>
-    shouldPatch() ? getProfile().hardwareConcurrency : navigator.hardwareConcurrency
+    shouldPatch() ? getProfile().hardwareConcurrency : real.hardwareConcurrency
   )
   defineGetter(proto, "deviceMemory", () =>
-    shouldPatch()
-      ? getProfile().deviceMemory
-      : (navigator as Navigator & { deviceMemory?: number }).deviceMemory
+    shouldPatch() ? getProfile().deviceMemory : real.deviceMemory
   )
   defineGetter(proto, "maxTouchPoints", () =>
-    shouldPatch() ? getProfile().maxTouchPoints : navigator.maxTouchPoints
+    shouldPatch() ? getProfile().maxTouchPoints : real.maxTouchPoints
+  )
+  // Keep the User-Agent + appVersion consistent with the spoofed OS so we stop
+  // manufacturing the OS/UA mismatch that defeats the whole point of spoofing.
+  defineGetter(proto, "userAgent", () =>
+    shouldPatch()
+      ? buildConsistentUserAgent(real.userAgent, getProfile().platform)
+      : real.userAgent
+  )
+  defineGetter(proto, "appVersion", () =>
+    shouldPatch()
+      ? buildConsistentUserAgent(real.userAgent, getProfile().platform).replace(
+          /^Mozilla\//,
+          ""
+        )
+      : real.appVersion
   )
 
   const uaData = (navigator as Navigator & { userAgentData?: unknown }).userAgentData
   if (uaData && typeof uaData === "object") {
     const data = uaData as Record<string, unknown>
+
+    // Low-entropy client hint: navigator.userAgentData.platform must also agree
+    // with the spoofed OS, or it becomes another cross-attribute tell.
+    try {
+      const uaProto = Object.getPrototypeOf(data) as object
+      const platformDescriptor = Object.getOwnPropertyDescriptor(uaProto, "platform")
+      if (platformDescriptor?.get) {
+        defineGetter(uaProto, "platform", () =>
+          shouldPatch()
+            ? uaPlatformForProfile(getProfile().platform)
+            : platformDescriptor.get?.call(data)
+        )
+      }
+    } catch {
+      // Some engines lock NavigatorUAData internals. Best effort only.
+    }
+
     const originalHighEntropy = data.getHighEntropyValues
     if (typeof originalHighEntropy === "function") {
       data.getHighEntropyValues = async function patchedHighEntropy(
@@ -515,11 +597,7 @@ function patchNavigator(
         if (!shouldPatch()) return result
         return {
           ...result,
-          platform: getProfile().platform.includes("Mac")
-            ? "macOS"
-            : getProfile().platform.includes("Linux")
-              ? "Linux"
-              : "Windows",
+          platform: uaPlatformForProfile(getProfile().platform),
           architecture: "x86",
           bitness: "64",
           mobile: false
@@ -566,25 +644,38 @@ function patchScreen(
   ) => void
 ): void {
   const proto = Screen.prototype
+  // Capture real values first to avoid recursing through the patched getters
+  // when protection is disabled (see patchNavigator note).
+  const real = {
+    width: screen.width,
+    height: screen.height,
+    availWidth: screen.availWidth,
+    availHeight: screen.availHeight,
+    colorDepth: screen.colorDepth,
+    pixelDepth: screen.pixelDepth,
+    devicePixelRatio: window.devicePixelRatio
+  }
   defineGetter(proto, "width", () =>
-    shouldPatch() ? getProfile().screen.width : screen.width
+    shouldPatch() ? getProfile().screen.width : real.width
   )
   defineGetter(proto, "height", () =>
-    shouldPatch() ? getProfile().screen.height : screen.height
+    shouldPatch() ? getProfile().screen.height : real.height
   )
   defineGetter(proto, "availWidth", () =>
-    shouldPatch() ? getProfile().screen.width : screen.availWidth
+    shouldPatch() ? getProfile().screen.width : real.availWidth
   )
   defineGetter(proto, "availHeight", () =>
-    shouldPatch() ? getProfile().screen.height - 40 : screen.availHeight
+    shouldPatch() ? getProfile().screen.height - 40 : real.availHeight
   )
   defineGetter(proto, "colorDepth", () =>
-    shouldPatch() ? getProfile().screen.colorDepth : screen.colorDepth
+    shouldPatch() ? getProfile().screen.colorDepth : real.colorDepth
   )
   defineGetter(proto, "pixelDepth", () =>
-    shouldPatch() ? getProfile().screen.colorDepth : screen.pixelDepth
+    shouldPatch() ? getProfile().screen.colorDepth : real.pixelDepth
   )
-  defineGetter(window, "devicePixelRatio", () => (shouldPatch() ? 1 : devicePixelRatio))
+  defineGetter(window, "devicePixelRatio", () =>
+    shouldPatch() ? 1 : real.devicePixelRatio
+  )
 
   emitTelemetry("screen", "patched", 1)
 }
@@ -648,8 +739,13 @@ function patchWebGL(
       return originalGetParameter.call(this, parameter)
     }
 
-    const originalGetExtension = proto.getExtension
-    proto.getExtension = function patchedGetExtension(name) {
+    const originalGetExtension = proto.getExtension as (
+      name: string
+    ) => unknown
+    proto.getExtension = function patchedGetExtension(
+      this: WebGLRenderingContext,
+      name: string
+    ) {
       if (shouldPatch() && name === "WEBGL_debug_renderer_info") {
         return {
           UNMASKED_VENDOR_WEBGL: debugVendor,
@@ -657,7 +753,7 @@ function patchWebGL(
         } as WEBGL_debug_renderer_info
       }
       return originalGetExtension.call(this, name)
-    }
+    } as typeof proto.getExtension
 
     const originalReadPixels = proto.readPixels
     proto.readPixels = function patchedReadPixels(...args: Parameters<WebGLRenderingContext["readPixels"]>) {
@@ -808,9 +904,11 @@ function patchNetworkInfo(
     count?: number
   ) => void
 ): void {
+  const realConnection = (navigator as Navigator & { connection?: unknown })
+    .connection
   defineGetter(Navigator.prototype, "connection", () => {
     if (!shouldPatch()) {
-      return (navigator as Navigator & { connection?: unknown }).connection
+      return realConnection
     }
     return {
       effectiveType: "4g",
