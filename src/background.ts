@@ -10,6 +10,7 @@
 import { initHoneypotTrap } from "./shared/honeypot"
 import { initCookieShredder } from "./shared/cookieShredder"
 import { initTargetingShield } from "./shared/targetingShield"
+import { buildKeywordBatchCore, sanitizeTopics } from "./shared/dataGhost/keywordBatch"
 import { generateAlias, saveApiToken } from "./shared/emailAlias"
 import type {
   BackgroundInboundMessage,
@@ -49,80 +50,14 @@ const BIONIC_MAIN_SCRIPT_ID = "srcContentsBionicBlurMain"
 // noise total here so Modules A and C stay in sync.
 const STORAGE_KEY_STATE = "cnd:state"
 
-// Diverse, neutral keyword categories — wide variety defeats interest profiling
-const KEYWORD_POOL: Record<string, string[]> = {
-  cooking: [
-    "pasta carbonara recipe",
-    "vegan dinner ideas",
-    "sourdough bread baking",
-    "homemade soup recipes",
-    "meal prep for the week",
-    "easy stir fry vegetables",
-  ],
-  travel: [
-    "best beaches in europe",
-    "budget backpacking tips",
-    "hiking trails national parks",
-    "solo travel safety guide",
-    "packing light for trips",
-  ],
-  technology: [
-    "open source projects 2024",
-    "linux command line tips",
-    "smart home diy automation",
-    "raspberry pi projects",
-    "programming best practices",
-  ],
-  fitness: [
-    "morning workout routine beginners",
-    "yoga poses for flexibility",
-    "running plan for 5k",
-    "bodyweight exercise guide",
-    "stretching after workout",
-  ],
-  gardening: [
-    "indoor houseplant care guide",
-    "vegetable garden beginners",
-    "composting at home tips",
-    "balcony container gardening",
-    "herb garden kitchen windowsill",
-  ],
-  science: [
-    "space exploration news",
-    "climate change facts overview",
-    "biology cell types explained",
-    "astronomy beginner telescope",
-    "physics everyday life examples",
-  ],
-  culture: [
-    "classic films to watch",
-    "music theory basics guitar",
-    "modern art movements history",
-    "book recommendations fiction",
-    "documentary films nature",
-  ],
-  finance: [
-    "personal budgeting tips",
-    "saving money grocery shopping",
-    "beginner investing guide",
-    "frugal living ideas",
-    "emergency fund how to start",
-  ],
-  health: [
-    "sleep hygiene improvement tips",
-    "stress management techniques",
-    "nutrition balanced diet basics",
-    "mental wellness daily habits",
-    "hydration health benefits",
-  ],
-  hobbies: [
-    "watercolor painting tutorial",
-    "landscape photography tips",
-    "chess opening strategies",
-    "knitting patterns beginners",
-    "woodworking projects simple",
-  ],
-}
+// Tematy szumu wybrane w studiu Wirtualnej Tożsamości (dashboard → onApply).
+// Gdy ustawione, DataGhost przechyla dobór kategorii w stronę tych zainteresowań.
+const STORAGE_KEY_NOISE_TOPICS = "cnd:dataghost:topics"
+
+// Pula fraz szumu (kategorie + słowa kluczowe) jest wydzielona i znacznie
+// rozszerzona w shared/dataGhost/keywordPool.ts — większa entropia utrudnia
+// odfiltrowanie sztucznego ruchu po powtarzalnym wzorcu. Dobór per cykl (z
+// uwzględnieniem wybranych zainteresowań) żyje w shared/dataGhost/keywordBatch.ts.
 
 // Search/content endpoints — each generates real network traffic
 const QUERY_BUILDERS: Array<(q: string) => string> = [
@@ -371,26 +306,33 @@ async function fetchWikipediaRandomTitle(): Promise<string | null> {
   }
 }
 
+/** Odczytuje wybrane tematy szumu (zainteresowania) ze storage, odsiane do znanych kategorii. */
+async function getSelectedNoiseTopics(): Promise<string[]> {
+  try {
+    const stored = await chrome.storage.local.get({ [STORAGE_KEY_NOISE_TOPICS]: [] })
+    return sanitizeTopics(stored[STORAGE_KEY_NOISE_TOPICS] as unknown as string[])
+  } catch {
+    return []
+  }
+}
+
 /**
  * Build the keyword list for one noise cycle.
- * Mixes local pool entries with a live Wikipedia topic when available.
+ *
+ * Gdy użytkownik aktywował Wirtualną Tożsamość, `selectedTopics` przechylają
+ * dobór kategorii w stronę wybranych zainteresowań (budowa fałszywego profilu);
+ * przy braku wyboru działa jak neutralny, szerokopasmowy szum. Ostatni slot,
+ * gdy się uda, zastępujemy żywym tytułem z Wikipedii (dodatkowa entropia).
  */
-async function buildKeywordBatch(count: number): Promise<Array<{ keyword: string; category: string }>> {
-  const categories = Object.keys(KEYWORD_POOL)
-  const batch: Array<{ keyword: string; category: string }> = []
-
-  // Shuffle categories so every cycle uses different ones
-  const shuffled = [...categories].sort(() => Math.random() - 0.5)
-
-  for (let i = 0; i < count; i++) {
-    const category = shuffled[i % shuffled.length]
-    const keyword = pickRandom(KEYWORD_POOL[category])
-    batch.push({ keyword, category })
-  }
+async function buildKeywordBatch(
+  count: number,
+  selectedTopics: readonly string[] = []
+): Promise<Array<{ keyword: string; category: string }>> {
+  const batch = buildKeywordBatchCore(count, selectedTopics)
 
   // Replace the last slot with a live Wikipedia title when possible
   const wikiTitle = await fetchWikipediaRandomTitle()
-  if (wikiTitle) {
+  if (wikiTitle && batch.length > 0) {
     batch[batch.length - 1] = { keyword: wikiTitle, category: "wikipedia" }
   }
 
@@ -409,7 +351,8 @@ async function injectNoise(forcedCount?: number): Promise<void> {
     typeof forcedCount === "number"
       ? Math.max(1, Math.min(8, Math.floor(forcedCount)))
       : randInt(REQUESTS_PER_CYCLE_MIN, REQUESTS_PER_CYCLE_MAX)
-  const batch = await buildKeywordBatch(count)
+  const selectedTopics = await getSelectedNoiseTopics()
+  const batch = await buildKeywordBatch(count, selectedTopics)
 
   for (const { keyword, category } of batch) {
     const urlBuilder = pickRandom(QUERY_BUILDERS)

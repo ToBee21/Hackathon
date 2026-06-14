@@ -1,11 +1,11 @@
 // src/popup.tsx
 // Moduł C — Privacy Dashboard (popup). Lekki panel szybkiej kontroli.
 //
-// Po refaktorze popup zawiera tylko sterowanie i skrót stanu:
-//  • Privacy Score + statystyki, przełączniki modułów, selektor Wirtualnej
-//    Tożsamości, test Honeypota, Panic Button, generator aliasu e-mail, Radar.
-// Widoki szczegółowe — Telemetria na żywo, Cień cyfrowy (Shadow Audit) oraz
-// AI Deep-Dive — żyją wyłącznie w pełnoekranowym dashboardzie (tabs/dashboard).
+// Popup celowo minimalny: Privacy Score + statystyki, przełączniki modułów,
+// Panic Button, generator aliasu e-mail, Radar. Ikona pełnego ekranu w nagłówku
+// otwiera dashboard. Funkcje rozbudowane — Wirtualna Tożsamość, testy Honeypota
+// i Targeting Shield, Telemetria na żywo, AI Deep-Dive, Cień cyfrowy — żyją
+// wyłącznie w pełnoekranowym dashboardzie (tabs/dashboard).
 
 import {
   useCallback,
@@ -16,34 +16,23 @@ import {
 } from "react"
 
 import CyberRadar, { type HoneypotEvent } from "./components/CyberRadar"
-import { Crosshair, Filter, Logo, Lock, Mail, Maximize, ShieldCheck, ShieldOff } from "./components/icons"
+import { Logo, Lock, Mail, Maximize, ShieldCheck, ShieldOff } from "./components/icons"
 import ModuleToggles from "./components/ModuleToggles"
 import PanicButton from "./components/PanicButton"
 import ScoreChart, { type ProtectionTier } from "./components/ScoreChart"
 import StatCards from "./components/StatCards"
-import VirtualIdentity from "./components/VirtualIdentity"
 import type {
   ModuleId,
   ModuleToggleState,
   RuntimeMessage
 } from "./components/types"
-import {
-  buildCustomBucket,
-  configToExtremity,
-  DEFAULT_BIONIC_BLUR_CONFIG,
-  DEFAULT_CUSTOM_OS,
-  extremityToConfig
-} from "./shared/bionicBlurCore"
 import { generateAlias } from "./shared/emailAlias"
-import type { PrivacyState, ProfileBucket, ProfileId } from "./types"
+import type { PrivacyState } from "./types"
 
 import "./style.css"
 
 const STORAGE_KEY_TOGGLES = "cnd:toggles"
 const STORAGE_KEY_STATE = "cnd:state"
-const STORAGE_KEY_PROFILE_ID = "cnd:bionic-blur:profile-id"
-const STORAGE_KEY_CUSTOM_PROFILE = "cnd:bionic-blur:custom-profile"
-const STORAGE_KEY_BIONIC_CONFIG = "cnd:bionic-blur:config"
 
 const DEFAULT_TOGGLES: ModuleToggleState = {
   dataGhost: true,
@@ -113,11 +102,6 @@ export default function Popup() {
   const [hydrated, setHydrated] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>("status")
   const [honeypotEvents, setHoneypotEvents] = useState<HoneypotEvent[]>([])
-  const [profileId, setProfileId] = useState<ProfileId>("auto")
-  const [customBucket, setCustomBucket] = useState<ProfileBucket | null>(null)
-  const [extremity, setExtremity] = useState<number>(
-    configToExtremity(DEFAULT_BIONIC_BLUR_CONFIG)
-  )
 
   // --- Inicjalizacja: wczytanie zapisanego stanu + nasłuch wiadomości ---
   useEffect(() => {
@@ -126,40 +110,15 @@ export default function Popup() {
       return
     }
 
-    ext.storage.local.get(
-      [
-        STORAGE_KEY_TOGGLES,
-        STORAGE_KEY_STATE,
-        STORAGE_KEY_PROFILE_ID,
-        STORAGE_KEY_CUSTOM_PROFILE,
-        STORAGE_KEY_BIONIC_CONFIG
-      ],
-      (result) => {
-        if (result?.[STORAGE_KEY_TOGGLES]) {
-          setToggles({ ...DEFAULT_TOGGLES, ...result[STORAGE_KEY_TOGGLES] })
-        }
-        if (result?.[STORAGE_KEY_STATE]) {
-          setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
-        }
-
-        const storedProfileId = result?.[STORAGE_KEY_PROFILE_ID]
-        if (typeof storedProfileId === "string") {
-          setProfileId(storedProfileId as ProfileId)
-        }
-        const storedCustom = result?.[STORAGE_KEY_CUSTOM_PROFILE]
-        if (storedCustom && typeof storedCustom === "object") {
-          setCustomBucket(storedCustom as ProfileBucket)
-        }
-        const storedConfig = result?.[STORAGE_KEY_BIONIC_CONFIG] as
-          | { mouseIntensity?: number }
-          | undefined
-        if (typeof storedConfig?.mouseIntensity === "number") {
-          setExtremity(configToExtremity({ mouseIntensity: storedConfig.mouseIntensity }))
-        }
-
-        setHydrated(true)
+    ext.storage.local.get([STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE], (result) => {
+      if (result?.[STORAGE_KEY_TOGGLES]) {
+        setToggles({ ...DEFAULT_TOGGLES, ...result[STORAGE_KEY_TOGGLES] })
       }
-    )
+      if (result?.[STORAGE_KEY_STATE]) {
+        setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
+      }
+      setHydrated(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -227,39 +186,6 @@ export default function Popup() {
     } as RuntimeMessage)
   }, [])
 
-  // --- Virtual Identity: wybór persony + intensywność maski ---
-  const handleSelectProfile = useCallback((id: ProfileId) => {
-    setProfileId(id)
-    ext?.storage?.local?.set({ [STORAGE_KEY_PROFILE_ID]: id })
-
-    // Custom bez zapisanego profilu → ustaw domyślny spójny bucket.
-    if (id === "custom") {
-      setCustomBucket((prev) => {
-        if (prev) return prev
-        const fresh = buildCustomBucket(DEFAULT_CUSTOM_OS)
-        ext?.storage?.local?.set({ [STORAGE_KEY_CUSTOM_PROFILE]: fresh })
-        return fresh
-      })
-    }
-  }, [])
-
-  const handleChangeCustom = useCallback((bucket: ProfileBucket) => {
-    setCustomBucket(bucket)
-    ext?.storage?.local?.set({ [STORAGE_KEY_CUSTOM_PROFILE]: bucket })
-  }, [])
-
-  const handleChangeExtremity = useCallback((value: number) => {
-    setExtremity(value)
-    const patch = extremityToConfig(value)
-    // Scal z istniejącym configiem, by nie nadpisać pozostałych pól maski.
-    ext?.storage?.local?.get(STORAGE_KEY_BIONIC_CONFIG, (res) => {
-      const prev = (res?.[STORAGE_KEY_BIONIC_CONFIG] ?? {}) as Record<string, unknown>
-      ext?.storage?.local?.set({
-        [STORAGE_KEY_BIONIC_CONFIG]: { ...prev, ...patch }
-      })
-    })
-  }, [])
-
   const handleGenerateAlias = useCallback(async () => {
     // Module D (Identity Masking) — offline path needs no API token. The alias
     // is persisted by generateAlias(); mirror it into shared state so the footer
@@ -270,19 +196,6 @@ export default function Popup() {
     } catch {
       // Best-effort — błąd generowania nie wywraca UI.
     }
-  }, [])
-
-  // Demo: ręcznie wystrzel wabik do trackera, by zobaczyć pełny przepływ
-  // przechwycenie → zatrucie → log. Realny log "TRAP" przyjdzie z backgroundu.
-  const handleHoneypotTest = useCallback(() => {
-    ext?.runtime?.sendMessage({
-      type: "TRIGGER_HONEYPOT_TEST"
-    } as RuntimeMessage)
-  }, [])
-
-  // Test: wymusza blackout trackerów na aktywnej karcie (bez czekania na AI).
-  const handleTargetingTest = useCallback(() => {
-    ext?.runtime?.sendMessage({ type: "TRIGGER_TARGETING_TEST" } as unknown as RuntimeMessage)
   }, [])
 
   const handlePanic = useCallback(() => {
@@ -409,54 +322,10 @@ export default function Popup() {
               <StatCards state={state} />
             </div>
 
-            {/* Przełączniki modułów + demo Honeypota */}
-            <div style={v(4)} className="flex flex-col gap-2">
+            {/* Przełączniki modułów */}
+            <div style={v(4)}>
               <ModuleToggles toggles={toggles} onToggle={handleToggle} />
-
-              {toggles.honeypot && (
-                <button
-                  type="button"
-                  onClick={handleHoneypotTest}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2 text-[11px] font-medium transition-colors duration-base hover:bg-white/[0.03]"
-                  style={{ borderColor: "#FF5C7A55", color: "#FF5C7A" }}>
-                  <Crosshair size={13} />
-                  Testuj Honeypot · wyślij wabik do trackera
-                </button>
-              )}
-
-              {toggles.targetingShield && (
-                <button
-                  type="button"
-                  onClick={handleTargetingTest}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2 text-[11px] font-medium transition-colors duration-base hover:bg-white/[0.03]"
-                  style={{ borderColor: "#3DD4A055", color: "#3DD4A0" }}>
-                  <Filter size={13} />
-                  Testuj Targeting Shield · blackout tej strony
-                </button>
-              )}
             </div>
-
-            {/* Wirtualna tożsamość — selektor person + intensywność maski */}
-            <div style={v(5)}>
-              <VirtualIdentity
-                profileId={profileId}
-                customBucket={customBucket}
-                extremity={extremity}
-                onSelectProfile={handleSelectProfile}
-                onChangeExtremity={handleChangeExtremity}
-                onChangeCustom={handleChangeCustom}
-              />
-            </div>
-
-            {/* Skrót do widoków szczegółowych — Telemetria, AI, Cień cyfrowy */}
-            <button
-              type="button"
-              style={v(6)}
-              onClick={handleOpenFullscreen}
-              className="flex items-center justify-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2.5 text-[11px] font-medium text-fg-mid ring-1 ring-inset ring-line-strong transition-colors hover:text-fg-hi hover:ring-line-hover">
-              <Maximize size={13} />
-              Telemetria na żywo · AI Deep-Dive · Cień cyfrowy
-            </button>
 
             {/* Panic — hold-to-wipe */}
             <div style={v(6)}>
@@ -501,7 +370,8 @@ export default function Popup() {
                 className="pt-1 text-center text-[10px] text-fg-low"
                 style={{ maxWidth: 220 }}>
                 Radar czeka na rzeczywiste zdarzenia. Wejdź na stronę z trackerami
-                lub użyj przycisku „Testuj Honeypot" w zakładce Status.
+                lub użyj testów (Honeypot / Targeting Shield) w pełnoekranowym
+                dashboardzie.
               </p>
             )}
             <CyberRadar
