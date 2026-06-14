@@ -42,6 +42,10 @@ import {
   type AiDeepDiveRuntimeConfig,
 } from "../shared/aiDeepDive/config"
 import { generateAlias } from "../shared/emailAlias"
+import { collectShadowProfile } from "../shared/shadowAudit"
+import { collectDataExport } from "../shared/dataExport/collectExport"
+import { serializeDataExport } from "../shared/dataExport/buildExport"
+import { downloadJson } from "../shared/dataExport/download"
 import type { PrivacyState } from "../types"
 
 import "../style.css"
@@ -275,6 +279,26 @@ export default function Dashboard() {
     addLog({ timestamp: Date.now(), source: "system", message: "PANIC: wyczyszczono sesje śledzące i dane lokalne" })
   }, [addLog])
 
+  // „Twoje dane" — eksport CAŁEGO lokalnego stanu do JSON (suwerenność danych).
+  // Sekrety (token API, klucz crypto) są twardo redagowane w buildDataExport.
+  const handleExportData = useCallback(async () => {
+    try {
+      const shadowAudit = collectShadowProfile()
+      const appVersion = ext?.runtime?.getManifest?.().version ?? "0.1.0"
+      const bundle = await collectDataExport({ shadowAudit, appVersion })
+      const stamp = bundle.exportedAt.slice(0, 19).replace(/[:T]/g, "-")
+      downloadJson(`cloak-and-dagger-moje-dane-${stamp}.json`, serializeDataExport(bundle))
+      const n = bundle.redactedKeys.length
+      addLog({
+        timestamp: Date.now(),
+        source: "system",
+        message: `Eksport danych: pobrano JSON (${n} ${n === 1 ? "sekret zredagowany" : "sekretów zredagowanych"}).`,
+      })
+    } catch {
+      addLog({ timestamp: Date.now(), source: "system", message: "Nie udało się wyeksportować danych." })
+    }
+  }, [addLog])
+
   const anyEnabled =
     toggles.dataGhost || toggles.mouseJitter || toggles.keystroke || toggles.honeypot ||
     toggles.cookieShredder || toggles.targetingShield
@@ -416,6 +440,13 @@ export default function Dashboard() {
             <LoggerView entries={logs} />
             <ShadowAudit />
             <PanicButton onPanic={handlePanic} />
+            <button
+              type="button"
+              onClick={handleExportData}
+              title="Pobierz lokalnie wszystko, co rozszerzenie o Tobie wie — bez sekretów."
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-white/[0.03] px-3 py-2 text-[11px] font-medium text-fg-mid ring-1 ring-inset ring-line-strong transition-colors hover:text-fg-hi hover:ring-line-hover">
+              <Lock size={12} /> Eksportuj moje dane (JSON)
+            </button>
             <div className="flex flex-col items-center gap-1.5">
               {state.activeAliasEmail ? (
                 <p className="text-[10px] text-fg-low">
