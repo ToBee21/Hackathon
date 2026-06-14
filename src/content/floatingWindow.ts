@@ -62,6 +62,7 @@ interface LlmOutputState {
   device: string
   dtype: string
   elapsedMs: number | null
+  progress: number | null
   insight: LlmInsightView | null
   error: string
 }
@@ -95,6 +96,7 @@ let lastRisk: AiDeepDiveRiskResult | null = null
 let deepScanStatus: "idle" | "loading" | "done" | "disabled" | "error" = "idle"
 let deepScanMessage = ""
 let llmOutputState: LlmOutputState = emptyLlmOutputState()
+let llmCollapsed = false
 let activeDeepScanRequestId: string | null = null
 let rerenderQueued = false
 let deepScanStatusListenerInstalled = false
@@ -199,12 +201,25 @@ function buildStyle(): HTMLStyleElement {
       background: rgba(255,255,255,0.025); overflow: hidden;
     }
     .llmout.err { border-color: rgba(255,122,102,0.65); }
-    .llmcap {
-      padding: 6px 8px; border-bottom: 1px solid #1c2b36;
-      color: #9AA4B2; font-size: 9px; text-transform: uppercase;
-      overflow-wrap: anywhere;
+    .llmhead {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 6px 6px 8px; border-bottom: 1px solid #1c2b36; cursor: pointer;
     }
-    .llmout.err .llmcap { color: #FF7A66; }
+    .llmhead .ttl { font-size: 11px; font-weight: 600; color: #E6EDF3; flex: 1 1 auto; min-width: 0; }
+    .llmphase {
+      font-size: 9px; text-transform: uppercase; letter-spacing: .06em;
+      color: #9AA4B2; border: 1px solid #263746; border-radius: 999px;
+      padding: 2px 7px; white-space: nowrap; flex: none;
+    }
+    .llmphase[data-tone="load"] { color: #2BD4C4; border-color: rgba(43,212,196,0.4); }
+    .llmphase[data-tone="work"] { color: #E6B450; border-color: rgba(230,180,80,0.4); }
+    .llmphase[data-tone="done"] { color: #2BD4C4; border-color: rgba(43,212,196,0.55); }
+    .llmphase[data-tone="err"]  { color: #FF7A66; border-color: rgba(255,122,102,0.5); }
+    .llmchev {
+      width: 22px; height: 22px; border-radius: 6px; border: none; flex: none;
+      background: transparent; color: #9AA4B2; cursor: pointer; font-size: 11px; line-height: 1;
+    }
+    .llmchev:hover { background: rgba(255,255,255,0.06); color: #E6EDF3; }
     .llmbody { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
     .llminsight { display: flex; flex-direction: column; gap: 8px; }
     .llmhero { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; }
@@ -227,12 +242,15 @@ function buildStyle(): HTMLStyleElement {
     .llmrisk { display: grid; grid-template-columns: 84px 1fr 30px; gap: 6px; align-items: center; }
     .llmrisk span { color: #9AA4B2; font-size: 9px; }
     .llmfoot { color: #6b7a85; font-size: 9px; text-transform: uppercase; overflow-wrap: anywhere; }
-    .llmloading { color: #C7D2DA; font-size: 11px; line-height: 1.45; }
-    .llmsteps { display: grid; gap: 4px; }
-    .llmstep {
-      height: 6px; border-radius: 999px;
-      background: linear-gradient(90deg, rgba(43,212,196,0.22), rgba(230,180,80,0.28), rgba(255,92,119,0.22));
+    .llmloading { color: #C7D2DA; font-size: 11px; line-height: 1.45; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .llmloading .pct { font: 700 11px/1 ui-monospace, Consolas, monospace; color: #2BD4C4; flex: none; }
+    .llmprog { height: 6px; border-radius: 999px; background: #18232b; overflow: hidden; }
+    .llmprog span { display: block; height: 100%; border-radius: inherit; background: #2BD4C4; transition: width .25s ease; }
+    .llmprog.indet span {
+      width: 35%; background: linear-gradient(90deg, rgba(43,212,196,0.15), #2BD4C4, rgba(43,212,196,0.15));
+      animation: llmslide 1.15s ease-in-out infinite;
     }
+    @keyframes llmslide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
     .excluded { font-size: 11px; color: #E6B450; line-height: 1.5; }
   `
   return style
@@ -433,35 +451,67 @@ function buildLlmOutputPanel(): HTMLElement {
     box.setAttribute("data-verdict", llmOutputState.insight.verdict)
   }
 
-  const cap = document.createElement("div")
-  cap.className = "llmcap"
-  cap.textContent = llmOutputCaption()
-  box.appendChild(cap)
+  const phase = llmPhase()
+  const head = document.createElement("div")
+  head.className = "llmhead"
+  head.title = llmRuntimeTitle()
+  head.setAttribute("role", "button")
+  head.setAttribute("aria-expanded", String(!llmCollapsed))
+  head.innerHTML = `
+    <span class="ttl">Głęboka analiza AI</span>
+    <span class="llmphase" data-tone="${phase.tone}">${escapeHtml(phase.label)}</span>
+    <button class="llmchev" type="button" aria-label="${llmCollapsed ? "Rozwiń" : "Zwiń"} analizę">${llmCollapsed ? "▸" : "▾"}</button>`
+  head.addEventListener("click", () => {
+    llmCollapsed = !llmCollapsed
+    render()
+  })
+  box.appendChild(head)
 
-  const body = document.createElement("div")
-  body.className = "llmbody"
-  if (llmOutputState.error) {
-    body.appendChild(buildLlmErrorView())
-  } else if (llmOutputState.insight) {
-    body.appendChild(buildLlmInsightView(llmOutputState.insight))
-  } else {
-    body.appendChild(buildLlmLoadingView())
+  if (!llmCollapsed) {
+    const body = document.createElement("div")
+    body.className = "llmbody"
+    if (llmOutputState.error) {
+      body.appendChild(buildLlmErrorView())
+    } else if (llmOutputState.insight) {
+      body.appendChild(buildLlmInsightView(llmOutputState.insight))
+    } else {
+      body.appendChild(buildLlmLoadingView())
+    }
+    box.appendChild(body)
   }
-  box.appendChild(body)
 
   return box
 }
 
-function llmOutputCaption(): string {
-  const stage = llmOutputState.stage || "idle"
-  const model = llmOutputState.modelId || lastConfig.selectedModelId
-  const device = llmOutputState.device ? ` · ${llmOutputState.device}` : ""
-  const dtype = llmOutputState.dtype ? `/${llmOutputState.dtype}` : ""
-  const elapsed =
-    typeof llmOutputState.elapsedMs === "number"
-      ? ` · ${Math.round(llmOutputState.elapsedMs / 1000)}s`
-      : ""
-  return `Wniosek LLM · ${stage} · ${model}${device}${dtype}${elapsed}`
+// The deep-analysis region speaks in human phases, not pipeline stage names.
+// Raw model/device/dtype/elapsed stay reachable via the header tooltip only.
+function llmPhase(): { label: string; tone: "load" | "work" | "done" | "err" } {
+  if (llmOutputState.error) return { label: "Błąd", tone: "err" }
+  if (llmOutputState.insight) return { label: "Gotowe", tone: "done" }
+  switch (llmOutputState.stage) {
+    case "generating":
+    case "stream-token":
+      return { label: "Analiza treści", tone: "work" }
+    case "model-loaded":
+      return { label: "Model gotowy", tone: "work" }
+    case "loading-model":
+    case "model:progress":
+      return { label: "Pobieranie modelu", tone: "load" }
+    default:
+      return { label: "Przygotowanie", tone: "load" }
+  }
+}
+
+function llmRuntimeTitle(): string {
+  const parts = [
+    llmOutputState.modelId || lastConfig.selectedModelId,
+    llmOutputState.device,
+    llmOutputState.dtype
+  ].filter(Boolean)
+  if (typeof llmOutputState.elapsedMs === "number") {
+    parts.push(`${Math.round(llmOutputState.elapsedMs / 1000)}s`)
+  }
+  return parts.join(" · ")
 }
 
 function buildLlmInsightView(insight: LlmInsightView): HTMLElement {
@@ -540,16 +590,34 @@ function buildLlmErrorView(): HTMLElement {
 function buildLlmLoadingView(): HTMLElement {
   const wrap = document.createElement("div")
   wrap.className = "llminsight"
+
+  const isDownload =
+    llmOutputState.stage === "model:progress" ||
+    llmOutputState.stage === "loading-model"
+  const pct =
+    isDownload && typeof llmOutputState.progress === "number"
+      ? llmOutputState.progress
+      : null
+
   const msg = document.createElement("div")
   msg.className = "llmloading"
-  msg.textContent = loadingMessageForStage(llmOutputState.stage)
+  const label = document.createElement("span")
+  label.textContent = loadingMessageForStage(llmOutputState.stage)
+  msg.appendChild(label)
+  if (pct !== null) {
+    const pctEl = document.createElement("span")
+    pctEl.className = "pct"
+    pctEl.textContent = `${pct}%`
+    msg.appendChild(pctEl)
+  }
   wrap.appendChild(msg)
 
-  const steps = document.createElement("div")
-  steps.className = "llmsteps"
-  steps.appendChild(document.createElement("span")).className = "llmstep"
-  steps.appendChild(document.createElement("span")).className = "llmstep"
-  wrap.appendChild(steps)
+  const bar = document.createElement("div")
+  bar.className = "llmprog" + (pct === null ? " indet" : "")
+  const fill = document.createElement("span")
+  if (pct !== null) fill.style.width = `${pct}%`
+  bar.appendChild(fill)
+  wrap.appendChild(bar)
   return wrap
 }
 
@@ -586,12 +654,12 @@ function buildScoreBar(value: number, color: string): HTMLElement {
 }
 
 function loadingMessageForStage(stage: string): string {
-  if (stage === "stream-token") return "Model składa wniosek..."
-  if (stage === "generating") return "Model generuje wniosek..."
-  if (stage === "model-loaded") return "Model gotowy. Czekam na odpowiedź..."
-  if (stage === "loading-model") return "Ładuję lokalny model..."
-  if (stage === "probing-dtypes") return "Dobieram tryb uruchomienia modelu..."
-  return "Przygotowuję wniosek LLM..."
+  if (stage === "stream-token" || stage === "generating")
+    return "Analizuję treść strony…"
+  if (stage === "model-loaded") return "Model gotowy, analizuję stronę…"
+  if (stage === "loading-model" || stage === "model:progress")
+    return "Pobieram model (pierwsze użycie)…"
+  return "Przygotowuję lokalny model…"
 }
 
 function modelRuntimeLine(): string {
@@ -612,8 +680,7 @@ function cardSourceLabel(source: FeatureCard["source"]): string {
 
 function modelStatusLine(model: { label: string; approxDownloadMb: number; localModelId?: string }): string {
   const verdict = modelModeLabel(lastRisk?.model?.mode)
-  const placement = model.localModelId ? "w pakiecie" : "lokalny cache"
-  return `Werdykt: ${verdict} · model: ${model.label.split(" (")[0]} (~${model.approxDownloadMb} MB, ${placement})`
+  return `Werdykt: ${verdict} · model lokalny: ${model.label.split(" (")[0]}`
 }
 
 function modelModeLabel(mode: string | undefined): string {
@@ -693,8 +760,8 @@ async function deepScan(): Promise<void> {
   const model = getModelOption(lastConfig.selectedModelId)
   deepScanStatus = "loading"
   deepScanMessage = model.localModelId
-    ? `Ładowanie ${model.label.split(" (")[0]} z pakietu extension (~${model.approxDownloadMb} MB, bez HF)…`
-    : `Ładowanie ${model.label.split(" (")[0]} (pierwsze użycie pobiera ~${model.approxDownloadMb} MB)…`
+    ? "Uruchamiam głęboką analizę (model lokalny)…"
+    : `Uruchamiam głęboką analizę (pierwsze użycie pobiera ~${formatModelSize(model.approxDownloadMb)})…`
   resetLlmOutput(model.id)
   render()
 
@@ -750,7 +817,7 @@ function installDeepScanStatusListener(): void {
       if (typeof requestId === "string" && requestId !== activeDeepScanRequestId) return
       updateLlmOutput(record.status)
       const stage = String(record.status.stage ?? "unknown")
-      deepScanMessage = formatDeepScanRuntimeStatus(record.status)
+      deepScanMessage = humanDeepScanStatus(record.status)
       deepScanStatus = stage === "failed" || stage === "infer:error" ? "error" : "loading"
       render()
     })
@@ -767,6 +834,7 @@ function emptyLlmOutputState(): LlmOutputState {
     device: "",
     dtype: "",
     elapsedMs: null,
+    progress: null,
     insight: null,
     error: ""
   }
@@ -795,7 +863,15 @@ function updateLlmOutput(status: RuntimeStatusRecord): void {
     elapsedMs:
       typeof status.elapsedMs === "number"
         ? status.elapsedMs
-        : llmOutputState.elapsedMs
+        : llmOutputState.elapsedMs,
+    progress:
+      stage === "model:progress" && typeof status.progress === "number"
+        ? Math.max(0, Math.min(100, Math.round(status.progress)))
+        : stage === "model-loaded" ||
+            stage === "generating" ||
+            stage === "stream-token"
+          ? null
+          : llmOutputState.progress
   }
 
   if (stage === "failed" || stage === "infer:error") {
@@ -813,45 +889,35 @@ function shouldTrackLlmOutput(status: RuntimeStatusRecord): boolean {
   return /granite|gemma|llm/i.test(modelId)
 }
 
-function formatDeepScanRuntimeStatus(status: Record<string, unknown>): string {
+// Footer status line, in plain language. The full runtime trace (stage, dtype,
+// device, files) still lands in the offscreen logs for diagnostics  -  it just
+// doesn't get dumped at the user here.
+function humanDeepScanStatus(status: Record<string, unknown>): string {
   const stage = String(status.stage ?? "unknown")
-  const modelId = String(
-    status.selectedModelId ?? status.modelId ?? lastConfig.selectedModelId
-  )
-  const device = status.device ? ` · ${String(status.device)}` : ""
-  const dtype = status.selectedDtype ?? status.dtype
-  const dtypeText = dtype ? `/${String(dtype)}` : ""
-  const elapsedMs =
-    typeof status.elapsedMs === "number" ? status.elapsedMs : undefined
-  const elapsedText =
-    typeof elapsedMs === "number" ? ` · ${Math.round(elapsedMs / 1000)}s` : ""
-
-  if (stage === "failed") {
-    return `Błąd LLM (${modelId}${device}${dtypeText}${elapsedText}): ${runtimeErrorMessage(status)}`
+  if (stage === "failed" || stage === "infer:error") {
+    return `Błąd analizy: ${runtimeErrorMessage(status)}. Werdykt pozostaje heurystyczny.`
   }
-
-  const labelByStage: Record<string, string> = {
-    "importing-transformers": "import Transformers.js",
-    "checking-webgpu": "sprawdzanie WebGPU",
-    "probing-dtypes": "wybór dtype",
-    "dtype-fallback": "dtype padło, przełączam",
-    "loading-model": "ładowanie modelu",
-    "model-loaded": "model załadowany",
-    generating: "generowanie JSON",
-    "stream-token": "stream odpowiedzi",
-    generated: "JSON wygenerowany",
-    "model:progress": runtimeProgressLabel(status)
+  if (stage === "model:progress" || stage === "loading-model") {
+    const pct =
+      typeof status.progress === "number"
+        ? ` ${Math.round(status.progress)}%`
+        : ""
+    return `Pobieram model lokalny…${pct}`
   }
-  return `LLM ${modelId}: ${labelByStage[stage] ?? stage}${device}${dtypeText}${elapsedText}`
+  switch (stage) {
+    case "model-loaded":
+      return "Model gotowy, analizuję stronę…"
+    case "generating":
+    case "stream-token":
+    case "generated":
+      return "Analizuję treść strony…"
+    default:
+      return "Przygotowuję lokalny model…"
+  }
 }
 
-function runtimeProgressLabel(status: Record<string, unknown>): string {
-  const progress =
-    typeof status.progress === "number" ? ` ${Math.round(status.progress)}%` : ""
-  const file = typeof status.file === "string" ? ` ${status.file}` : ""
-  const rawStatus =
-    typeof status.status === "string" ? status.status : "progress"
-  return `${rawStatus}${progress}${file}`.trim()
+function formatModelSize(mb: number): string {
+  return mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb} MB`
 }
 
 function runtimeErrorMessage(status: Record<string, unknown>): string {

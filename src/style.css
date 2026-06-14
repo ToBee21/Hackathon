@@ -1,4 +1,4 @@
-/* src/style.css — base + signature "Stealth Intelligence Console" treatment (Moduł C).
+/* src/style.css  -  base + signature "Stealth Intelligence Console" treatment (Moduł C).
  * Tokens live in tailwind.config.js. Here we keep CSS custom properties (for SVG
  * filters / inline styles), the ambient background recipe, the data-grain overlay,
  * motion keyframes, and a strict prefers-reduced-motion net. */
@@ -20,7 +20,7 @@
   --danger-strong: #d03439;
   --info: #5e8bff;
   --fg-hi: #ecedef;
-  /* Ambient orb tint — re-bound per system state from React (armed / standby). */
+  /* Ambient orb tint  -  re-bound per system state from React (armed / standby). */
   --orb: rgba(43, 212, 196, 0.24);
 }
 
@@ -45,7 +45,7 @@
 }
 
 /* ============================================================
-   Signature ambient background — the one cinematic moment.
+   Signature ambient background  -  the one cinematic moment.
    Layer order: void → aurora orb → blueprint grid → vignette
    → content (z-1) → data grain (z-50).
    ============================================================ */
@@ -56,7 +56,7 @@
   isolation: isolate;
 }
 
-/* (1) Aurora orb — light leaking in from the top, state-tinted. */
+/* (1) Aurora orb  -  light leaking in from the top, state-tinted. */
 .console::before {
   content: "";
   position: absolute;
@@ -73,7 +73,7 @@
   transition: background 600ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* (3) Vignette — softens the rectangular popup edge. */
+/* (3) Vignette  -  softens the rectangular popup edge. */
 .console::after {
   content: "";
   position: absolute;
@@ -83,7 +83,7 @@
   background: radial-gradient(125% 80% at 50% -5%, transparent 46%, rgba(0, 0, 0, 0.55) 100%);
 }
 
-/* (2) Blueprint grid — radial-masked so it only whispers near the hero. */
+/* (2) Blueprint grid  -  radial-masked so it only whispers near the hero. */
 .console-grid {
   position: absolute;
   inset: 0;
@@ -97,7 +97,7 @@
   mask-image: radial-gradient(ellipse 85% 48% at 50% 20%, #000 28%, transparent 100%);
 }
 
-/* Data grain — a single forensic film layer above content (never animated). */
+/* Data grain  -  a single forensic film layer above content (never animated). */
 .grain-layer {
   position: absolute;
   inset: 0;
@@ -109,7 +109,7 @@
 }
 
 /* ============================================================
-   Lit glass edge — a 1px gradient hairline (hero surfaces only).
+   Lit glass edge  -  a 1px gradient hairline (hero surfaces only).
    ============================================================ */
 .edge-lit {
   position: relative;
@@ -133,7 +133,7 @@
 }
 
 /* ============================================================
-   Active-defense proof — faint teal jitter particles behind the ring.
+   Active-defense proof  -  faint teal jitter particles behind the ring.
    ============================================================ */
 .jitter-dot {
   position: absolute;
@@ -167,7 +167,7 @@
 }
 
 /* ============================================================
-   Motion keyframes — animate transform / opacity / filter only.
+   Motion keyframes  -  animate transform / opacity / filter only.
    ============================================================ */
 @keyframes rise {
   from {
@@ -241,6 +241,15 @@
     opacity: 0.3;
   }
 }
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
 @keyframes shimmer {
   from {
     background-position: 200% 0;
@@ -277,13 +286,16 @@
   .anim-dot {
     animation: dotPulse 1.8s ease-in-out infinite;
   }
+  .anim-floaty {
+    animation: floaty 5s ease-in-out infinite;
+  }
   .jitter-field .jitter-dot {
     animation: drift 3.4s ease-in-out infinite;
     opacity: 0.5;
   }
 }
 
-/* Global reduced-motion net — freeze ambient loops, keep state instant. */
+/* Global reduced-motion net  -  freeze ambient loops, keep state instant. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -12,13 +12,22 @@ import {
 
 import AiDeepDiveCard from "../components/AiDeepDiveCard"
 import CyberRadar, { type HoneypotEvent } from "../components/CyberRadar"
-import { Crosshair, Lock, Logo, Mail, ShieldCheck, ShieldOff } from "../components/icons"
+import { Crosshair, Filter, Lock, Logo, Mail, ShieldCheck, ShieldOff } from "../components/icons"
 import LoggerView from "../components/LoggerView"
 import ModuleToggles from "../components/ModuleToggles"
 import PanicButton from "../components/PanicButton"
 import ScoreChart, { type ProtectionTier } from "../components/ScoreChart"
 import ShadowAudit from "../components/ShadowAudit"
 import StatCards from "../components/StatCards"
+import VirtualIdentityStudio, {
+  type IdentityDerived,
+} from "../components/VirtualIdentityStudio"
+import {
+  DEFAULT_IDENTITY,
+  getArchetype,
+  normalizeVirtualIdentityConfig,
+  type VirtualIdentityConfig,
+} from "../shared/virtualIdentityStudio"
 import type {
   LogEntry,
   ModuleId,
@@ -38,6 +47,11 @@ import "../style.css"
 
 const STORAGE_KEY_TOGGLES = "cnd:toggles"
 const STORAGE_KEY_STATE = "cnd:state"
+const STORAGE_KEY_VIRTUAL_IDENTITY = "cnd:virtual-identity"
+const STORAGE_KEY_VIRTUAL_IDENTITY_ACTIVE = "cnd:virtual-identity:active"
+const STORAGE_KEY_PROFILE_ID = "cnd:bionic-blur:profile-id"
+const STORAGE_KEY_CUSTOM_PROFILE = "cnd:bionic-blur:custom-profile"
+const STORAGE_KEY_NOISE_TOPICS = "cnd:dataghost:topics"
 const MAX_LOG_ENTRIES = 50
 const LOG_COLLAPSE_WINDOW_MS = 8000
 
@@ -101,6 +115,8 @@ export default function Dashboard() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [hydrated, setHydrated] = useState(false)
   const [honeypotEvents, setHoneypotEvents] = useState<HoneypotEvent[]>([])
+  const [identity, setIdentity] = useState<VirtualIdentityConfig>(DEFAULT_IDENTITY)
+  const [activeIdentity, setActiveIdentity] = useState<VirtualIdentityConfig | null>(null)
 
   const addLog = useCallback((entry: Omit<LogEntry, "id">) => {
     setLogs((prev) => {
@@ -122,9 +138,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!ext?.storage?.local) { setHydrated(true); return }
-    ext.storage.local.get([STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE, STORAGE_KEY_AI_DEEP_DIVE_CONFIG], (result) => {
+    ext.storage.local.get([STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE, STORAGE_KEY_AI_DEEP_DIVE_CONFIG, STORAGE_KEY_VIRTUAL_IDENTITY, STORAGE_KEY_VIRTUAL_IDENTITY_ACTIVE], (result) => {
       if (result?.[STORAGE_KEY_TOGGLES]) setToggles({ ...DEFAULT_TOGGLES, ...result[STORAGE_KEY_TOGGLES] })
       if (result?.[STORAGE_KEY_STATE]) setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
+      if (result?.[STORAGE_KEY_VIRTUAL_IDENTITY]) {
+        setIdentity(normalizeVirtualIdentityConfig(result[STORAGE_KEY_VIRTUAL_IDENTITY]))
+      }
+      if (result?.[STORAGE_KEY_VIRTUAL_IDENTITY_ACTIVE]) {
+        setActiveIdentity(normalizeVirtualIdentityConfig(result[STORAGE_KEY_VIRTUAL_IDENTITY_ACTIVE]))
+      }
       setAiDeepDiveConfig(normalizeAiDeepDiveConfig(result?.[STORAGE_KEY_AI_DEEP_DIVE_CONFIG]))
       setHydrated(true)
     })
@@ -206,11 +228,49 @@ export default function Dashboard() {
     addLog({ timestamp: Date.now(), source: "honeypot", message: "Wysłano wabik do Google Analytics  -  czekam na zatrucie…" })
   }, [addLog])
 
+  // Test: wymusza blackout trackerów na aktywnej karcie (bez czekania na AI).
+  const handleTargetingTest = useCallback(() => {
+    ext?.runtime?.sendMessage({ type: "TRIGGER_TARGETING_TEST" } as unknown as RuntimeMessage)
+    addLog({ timestamp: Date.now(), source: "system", message: "Targeting Shield: wymuszono blackout trackerów na aktywnej karcie" })
+  }, [addLog])
+
+  const handleIdentityChange = useCallback((next: VirtualIdentityConfig) => {
+    setIdentity(next)
+    ext?.storage?.local?.set({ [STORAGE_KEY_VIRTUAL_IDENTITY]: next })
+  }, [])
+
+  // Aktywacja tożsamości → wymuś personę Custom w potoku fingerprintu (realny
+  // efekt na bionicBlurCore) i zapisz tematy szumu dla DataGhost.
+  const handleIdentityApply = useCallback(
+    (config: VirtualIdentityConfig, derived: IdentityDerived) => {
+      setActiveIdentity(config)
+      ext?.storage?.local?.set({
+        [STORAGE_KEY_VIRTUAL_IDENTITY]: config,
+        [STORAGE_KEY_VIRTUAL_IDENTITY_ACTIVE]: config,
+        [STORAGE_KEY_PROFILE_ID]: "custom",
+        [STORAGE_KEY_CUSTOM_PROFILE]: derived.bucket,
+        [STORAGE_KEY_NOISE_TOPICS]: derived.topics,
+      })
+      const name =
+        config.archetypeId === "custom"
+          ? "Custom"
+          : getArchetype(config.archetypeId)?.name ?? config.archetypeId
+      addLog({
+        timestamp: Date.now(),
+        source: "system",
+        message: `Aktywowano tożsamość: ${name}  -  ${derived.bucket.hardwareConcurrency} rdzeni · ${derived.bucket.locale} · ${derived.topics.length} tematów szumu`,
+      })
+    },
+    [addLog],
+  )
+
   const handlePanic = useCallback(() => {
     ext?.runtime?.sendMessage({ type: "PANIC_BUTTON" } as RuntimeMessage)
     setLogs([])
     setState(DEFAULT_STATE)
     setHoneypotEvents([])
+    setIdentity(DEFAULT_IDENTITY)
+    setActiveIdentity(null)
     addLog({ timestamp: Date.now(), source: "system", message: "PANIC: wyczyszczono sesje śledzące i dane lokalne" })
   }, [addLog])
 
@@ -302,6 +362,17 @@ export default function Dashboard() {
                 Testuj Honeypot · wyślij wabik do trackera
               </button>
             )}
+            {toggles.targetingShield && (
+              <button
+                type="button"
+                onClick={handleTargetingTest}
+                className="flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-[11px] font-medium transition-colors hover:bg-white/[0.03]"
+                style={{ borderColor: "#3DD4A055", color: "#3DD4A0" }}
+              >
+                <Filter size={13} />
+                Testuj Targeting Shield · blackout tej strony
+              </button>
+            )}
           </div>
 
           {/* Center  -  Radar */}
@@ -370,6 +441,16 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Pełnoszerokościowy kreator wirtualnej tożsamości */}
+        <div className="px-6 pb-8">
+          <VirtualIdentityStudio
+            value={identity}
+            activeConfig={activeIdentity}
+            onChange={handleIdentityChange}
+            onApply={handleIdentityApply}
+          />
         </div>
       </div>
 

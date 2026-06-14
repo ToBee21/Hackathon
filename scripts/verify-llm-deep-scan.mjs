@@ -6,7 +6,7 @@ import { createRequire } from "node:module"
 import { createServer } from "node:http"
 import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
-import { mkdtemp, mkdir, rm } from "node:fs/promises"
+import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { execFileSync } from "node:child_process"
 
@@ -17,9 +17,11 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const EXT = join(ROOT, "build", "chrome-mv3-prod")
 const MODEL = process.argv[2] || "granite-350m"
 const TIMEOUT_MS = Number(process.env.LLM_VERIFY_TIMEOUT_MS || 960000)
+const OVERLAY_TIMEOUT_MS = Number(process.env.LLM_VERIFY_OVERLAY_TIMEOUT_MS || 60000)
 const BROWSER_EXE =
   process.env.LLM_VERIFY_BROWSER_EXE ||
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+const EXTENSION_ID_OVERRIDE = process.env.LLM_VERIFY_EXTENSION_ID || ""
 const KEEP_PROFILE_ON_FAIL = process.env.LLM_VERIFY_KEEP_PROFILE === "1"
 const EXTRA_BROWSER_ARGS = (process.env.LLM_VERIFY_EXTRA_ARGS || "")
   .split(/\s+/)
@@ -55,14 +57,83 @@ function formatStatus(entry) {
   return `${entry.stage || "unknown"} model=${model}${device}${dtypeText}${fallback}${status}${progress}${file} elapsedMs=${entry.elapsedMs ?? 0}${error}`
 }
 
-async function getExtensionId(context) {
+async function getExtensionId(context, profileDir) {
+  if (EXTENSION_ID_OVERRIDE) return EXTENSION_ID_OVERRIDE
   for (let i = 0; i < 35; i++) {
     const sws = context.serviceWorkers()
     const sw = sws.find((s) => s.url().includes("/static/background/")) || sws[0]
     if (sw) return new URL(sw.url()).host
     await sleep(1000)
   }
+  return findExtensionIdInProfile(profileDir)
+}
+
+async function findExtensionIdInProfile(profileDir) {
+  const preferenceFiles = [
+    join(profileDir, "Default", "Preferences"),
+    join(profileDir, "Preferences")
+  ]
+  const extPath = EXT.toLowerCase().replaceAll("\\", "/")
+  for (const preferenceFile of preferenceFiles) {
+    try {
+      const preferences = JSON.parse(await readFile(preferenceFile, "utf8"))
+      const settings = preferences?.extensions?.settings || {}
+      for (const [id, entry] of Object.entries(settings)) {
+        const entryPath = String(entry?.path || "")
+          .toLowerCase()
+          .replaceAll("\\", "/")
+        if (entryPath && (entryPath === extPath || entryPath.includes(extPath))) {
+          return id
+        }
+      }
+    } catch {}
+  }
   return null
+}
+
+async function ensureOverlayInjected(extPage, pageUrl) {
+  return extPage.evaluate(async ({ pageUrl }) => {
+    const tabs = await chrome.tabs.query({})
+    const tab = tabs.find((candidate) => candidate.url === pageUrl)
+    if (!tab?.id) return { ok: false, error: "target tab not found", tabs }
+
+    const inspect = async () => {
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => ({
+          href: location.href,
+          readyState: document.readyState,
+          hasBody: Boolean(document.body),
+          hasOverlay: Boolean(document.getElementById("cloak-dagger-floating-root"))
+        })
+      })
+      return result?.result
+    }
+
+    const before = await inspect()
+    if (before?.hasOverlay) return { ok: true, injected: false, tabId: tab.id, before }
+
+    const contentFiles = chrome.runtime.getManifest().content_scripts?.[0]?.js ?? []
+    if (contentFiles.length === 0) {
+      return { ok: false, error: "manifest has no content script js", tabId: tab.id, before }
+    }
+
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: contentFiles
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    const after = await inspect()
+    return {
+      ok: Boolean(after?.hasOverlay),
+      injected: true,
+      tabId: tab.id,
+      contentFiles,
+      before,
+      after
+    }
+  }, { pageUrl })
 }
 
 function killProfileProcesses(profileDir) {
@@ -119,7 +190,7 @@ try {
     timeout: 60000
   })
 
-  const extId = await getExtensionId(context)
+  const extId = await getExtensionId(context, profileDir)
   console.log("EXT ID:", extId)
   if (!extId) throw new Error("extension service worker not found")
 
@@ -148,8 +219,32 @@ try {
   console.log("SELECTED MODEL:", MODEL)
 
   const page = await context.newPage()
+  page.on("console", (message) => {
+    if (message.type() === "error" || message.type() === "warning") {
+      console.log("PAGE CONSOLE:", message.type(), message.text())
+    }
+  })
+  page.on("pageerror", (error) => {
+    console.log("PAGE ERROR:", error?.stack || error?.message || String(error))
+  })
   await page.goto(url, { waitUntil: "domcontentloaded" })
-  await page.waitForSelector("#cloak-dagger-floating-root", { timeout: 15000 })
+  try {
+    await page.waitForSelector("#cloak-dagger-floating-root", {
+      state: "attached",
+      timeout: OVERLAY_TIMEOUT_MS
+    })
+  } catch (overlayError) {
+    const injectionProbe = await ensureOverlayInjected(extPage, url).catch((err) => ({
+      ok: false,
+      error: err?.stack || err?.message || String(err)
+    }))
+    console.log("CONTENT INJECTION PROBE:", JSON.stringify(injectionProbe))
+    if (!injectionProbe?.ok) throw overlayError
+    await page.waitForSelector("#cloak-dagger-floating-root", {
+      state: "attached",
+      timeout: 10000
+    })
+  }
   await page.locator('[data-cloak-dagger="bubble"]').click()
   await page.locator('[data-cloak-dagger="panel"]').waitFor({ timeout: 10000 })
   await page.getByText("Skanuj ponownie").click()
