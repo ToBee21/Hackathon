@@ -98,7 +98,7 @@ function sendRuntimeMessage(message: unknown): void {
 // Reguły DNR
 // ---------------------------------------------------------------------------
 
-/** Strip atrybucji — szeroka, GWARANTOWANIE poprawna reguła (bez regexFilter). */
+/** Strip atrybucji — main_frame/sub_frame, WYŁĄCZNIE http/https (scheme-guard). */
 function buildParamStripRule(): chrome.declarativeNetRequest.Rule {
   return {
     id: PARAM_STRIP_RULE_ID,
@@ -108,6 +108,11 @@ function buildParamStripRule(): chrome.declarativeNetRequest.Rule {
       redirect: { transform: { queryTransform: { removeParams: TRACKING_PARAMS } } },
     },
     condition: {
+      // KRYTYCZNE: ogranicz do http/https. Bez tego reguła `redirect` dopasowuje
+      // się do nawigacji chrome-extension:// / chrome:// / edge:// / about: —
+      // a że tych schematów nie wolno przekierować, Chromium ANULUJE nawigację
+      // z ERR_BLOCKED_BY_CLIENT (blokowało to nasz własny dashboard/popup).
+      regexFilter: "^https?://",
       resourceTypes: [
         "main_frame",
         "sub_frame",
