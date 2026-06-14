@@ -1,5 +1,5 @@
 // src/tabs/dashboard.tsx
-// Pełnoekranowy Dashboard — otwierany przyciskiem w popup.
+// Pełnoekranowy Dashboard  -  otwierany przyciskiem w popup.
 // Plasmo automatycznie kompiluje ten plik do tabs/dashboard.html.
 
 import {
@@ -195,7 +195,7 @@ export default function Dashboard() {
     try {
       const alias = await generateAlias()
       setState((prev) => ({ ...prev, activeAliasEmail: alias.alias }))
-      addLog({ timestamp: Date.now(), source: "system", message: `Wygenerowano alias e-mail: ${alias.alias}` })
+      addLog({ timestamp: Date.now(), source: "system", message: "Wygenerowano alias e-mail: [redacted]" })
     } catch {
       addLog({ timestamp: Date.now(), source: "system", message: "Nie udało się wygenerować aliasu e-mail" })
     }
@@ -203,7 +203,7 @@ export default function Dashboard() {
 
   const handleHoneypotTest = useCallback(() => {
     ext?.runtime?.sendMessage({ type: "TRIGGER_HONEYPOT_TEST" } as RuntimeMessage)
-    addLog({ timestamp: Date.now(), source: "honeypot", message: "Wysłano wabik do Google Analytics — czekam na zatrucie…" })
+    addLog({ timestamp: Date.now(), source: "honeypot", message: "Wysłano wabik do Google Analytics  -  czekam na zatrucie…" })
   }, [addLog])
 
   const handlePanic = useCallback(() => {
@@ -277,10 +277,10 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Main content — 3-column grid */}
+        {/* Main content  -  3-column grid */}
         <div className="grid gap-6 p-6" style={{ gridTemplateColumns: "300px 1fr 300px" }}>
 
-          {/* Left column — controls */}
+          {/* Left column  -  controls */}
           <div className="flex flex-col gap-4">
             <ScoreChart score={score} tier={tier} armed={anyEnabled} noiseCount={state.noiseGeneratedCount} trackerCount={state.trackersBlockedCount} />
             <StatCards state={state} />
@@ -304,7 +304,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Center — Radar */}
+          {/* Center  -  Radar */}
           <div className="flex flex-col items-center justify-start gap-4">
             <div className="text-center">
               <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-low">
@@ -312,7 +312,7 @@ export default function Dashboard() {
               </h2>
               <p className="text-[10px] text-fg-low/60 mt-0.5">
                 {honeypotEvents.length === 0
-                  ? "Czeka na realne zdarzenia — każda kropka to prawdziwy tracker"
+                  ? "Czeka na realne zdarzenia  -  każda kropka to prawdziwy tracker"
                   : `${honeypotEvents.length} przechwyconych trackerów w tej sesji`}
               </p>
             </div>
@@ -338,7 +338,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right column — logs + shadow audit + panic */}
+          {/* Right column  -  logs + shadow audit + panic */}
           <div className="flex flex-col gap-4">
             <LoggerView entries={logs} />
             <ShadowAudit />

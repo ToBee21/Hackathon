@@ -113,7 +113,7 @@ export default function AiDeepDiveCard({
           <p className="text-[10px] font-medium text-fg-mid">Lokalny model</p>
           <p className="truncate text-[9px] text-fg-low">
             {selectedModel.modelId} · ~{selectedModel.approxDownloadMb} MB ·{" "}
-            {selectedModel.license}
+            {selectedModel.localModelId ? "pakiet extension" : selectedModel.license}
           </p>
         </div>
         <button
@@ -152,7 +152,7 @@ export default function AiDeepDiveCard({
           style={{ colorScheme: "dark" }}>
           {AI_DEEP_DIVE_MODELS.map((model) => (
             <option key={model.id} value={model.id}>
-              {model.label} · ~{model.approxDownloadMb} MB
+              {model.label} · ~{model.approxDownloadMb} MB{model.localModelId ? " · pakiet" : ""}
             </option>
           ))}
         </select>

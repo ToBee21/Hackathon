@@ -7,7 +7,6 @@ import {
 import { shouldRunModel } from "../../shared/aiDeepDive/gate"
 import { requestDeepScan } from "../deepScanClient"
 import {
-  shouldSendAiDeepDiveReport,
   shouldShowAiDeepDiveNotification
 } from "../../shared/aiDeepDive/reportPolicy"
 import type { AiDeepDiveRiskResult } from "../../shared/aiDeepDive/types"
@@ -43,9 +42,11 @@ async function runAiDeepDiveScan(
       if (deep.result) result = deep.result
     }
 
-    if (!shouldSendAiDeepDiveReport(result)) return
     if (!shouldEmit(result)) return
 
+    // This is an internal extension message carrying only the compact verdict.
+    // `shouldSendAiDeepDiveReport` intentionally denies page/report emission by
+    // default, but it must not suppress the local dashboard + MaxCamo state path.
     sendRuntimeMessage(result)
     if (shouldShowAiDeepDiveNotification(result)) {
       showAiDeepDiveToast(result)

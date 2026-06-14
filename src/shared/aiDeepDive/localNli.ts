@@ -210,7 +210,10 @@ export function configureTransformersRuntime(transformers: TransformersModule): 
   onnxWasm.wasmPaths = getPackagedOnnxWasmDir()
   onnxWasm.numThreads = 1
   env.useWasmCache = true
-  env.allowRemoteModels = true
+  // Privacy gate: inference can run only with packaged or already-cached model
+  // assets. First-run remote downloads require an explicit consent flow; do not
+  // silently phone home from a privacy extension.
+  env.allowRemoteModels = false
 
   const errorLevel = runtime.LogLevel?.ERROR
   if (typeof errorLevel === "number") {

@@ -101,13 +101,15 @@ function sanitizeRiskResult(result: AiDeepDiveRiskResult): AiDeepDiveRiskResult 
     origin: safeOrigin(result.origin),
     urlHash: result.urlHash,
     timestamp: Number.isFinite(result.timestamp) ? result.timestamp : Date.now(),
-    model: result.model?.localOnly
+    ...(result.model?.localOnly
       ? {
-          mode: result.model.mode,
-          id: result.model.id,
-          localOnly: true
+          model: {
+            mode: result.model.mode,
+            id: result.model.id,
+            localOnly: true as const
+          }
         }
-      : { mode: "heuristic", localOnly: true },
+      : {}),
     rawTextRetained: false
   }
 }

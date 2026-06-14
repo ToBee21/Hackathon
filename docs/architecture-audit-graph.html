@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cloak &amp; Dagger  -  Architecture Audit · NOW vs TARGET</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root{
+    --bg:#0A0A0B; --panel:#0e0f13; --panel2:#111218; --line:rgba(255,255,255,.07);
+    --line2:rgba(255,255,255,.13); --fg:#F2F2F3; --fg2:#A6A6AD; --fg3:#6E6E76;
+    --kill:#E5484D; --warn:#F5A623; --demo:#9A8CFF; --keep:#2BD4C4; --new:#5CC8FF;
+    --permbad:#E5648A; --permgood:#5E8BFF; --infra:#8A93A3; --good:#46E6A8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(1200px 700px at 22% -10%, rgba(229,72,77,.07), transparent 60%),
+      radial-gradient(1200px 700px at 80% 110%, rgba(43,212,196,.07), transparent 60%),
+      var(--bg);
+    color:var(--fg); font:14px/1.45 ui-sans-serif,system-ui,Inter,Segoe UI,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow:hidden;
+  }
+  .wrap{display:flex;flex-direction:column;height:100vh}
+  header.top{
+    display:flex;align-items:center;gap:18px;padding:12px 20px;border-bottom:1px solid var(--line);
+    background:linear-gradient(#0c0d11,#0a0a0b)
+  }
+  .brand{display:flex;flex-direction:column;line-height:1.15}
+  .brand h1{margin:0;font-size:15px;font-weight:650;letter-spacing:-.01em}
+  .brand p{margin:0;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg3)}
+  .tally{display:flex;gap:14px;margin-left:6px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--fg2);
+    background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+  .pill b{color:var(--fg);font-variant-numeric:tabular-nums;font-weight:650}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .controls{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  button.ctl{
+    font:600 11px/1 ui-sans-serif,system-ui;color:var(--fg2);background:rgba(255,255,255,.04);
+    border:1px solid var(--line2);border-radius:8px;padding:8px 11px;cursor:pointer;letter-spacing:.02em;
+    transition:.15s
+  }
+  button.ctl:hover{color:var(--fg);border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.07)}
+  button.ctl.on{color:#06110f;background:var(--keep);border-color:var(--keep)}
+  .stage{flex:1;display:flex;min-height:0;position:relative}
+  .panel{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+  .panel + .panel{border-left:1px solid var(--line2)}
+  .panel .phead{padding:10px 18px 8px;display:flex;align-items:baseline;gap:12px}
+  .phead .tag{font:700 10px/1 ui-sans-serif;letter-spacing:.22em;text-transform:uppercase;
+    padding:5px 9px;border-radius:6px}
+  .phead.now .tag{color:#1a0708;background:rgba(229,72,77,.9)}
+  .phead.target .tag{color:#04140f;background:rgba(43,212,196,.92)}
+  .phead h2{margin:0;font-size:15px;font-weight:620}
+  .phead .sub{font-size:11.5px;color:var(--fg3);margin-left:auto;text-align:right}
+  svg.graph{flex:1;width:100%;display:block;cursor:grab}
+  svg.graph:active{cursor:grabbing}
+  .arrow{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:52px;height:52px;border-radius:50%;background:#0c0d11;border:1px solid var(--line2);
+    display:flex;align-items:center;justify-content:center;z-index:5;color:var(--fg2);
+    box-shadow:0 8px 30px rgba(0,0,0,.5)
+  }
+  .arrow svg{width:22px;height:22px}
+  /* hull */
+  .hull{stroke-width:1.4;fill-opacity:.07;stroke-opacity:.55;pointer-events:none}
+  .hull.hot{animation:pulse 3.2s ease-in-out infinite}
+  .hull.dash{stroke-dasharray:7 7;fill-opacity:.04;stroke-opacity:.4}
+  @keyframes pulse{0%,100%{stroke-opacity:.35;fill-opacity:.05}50%{stroke-opacity:.8;fill-opacity:.12}}
+  .hull-label{font:700 10px/1 ui-sans-serif;letter-spacing:.12em;text-transform:uppercase;
+    pointer-events:none}
+  .hull-sub{font:500 9px/1 ui-sans-serif;letter-spacing:.04em;pointer-events:none;opacity:.7}
+  /* links */
+  .link{fill:none;stroke-opacity:.34}
+  .link.danger{stroke-opacity:.85;stroke-dasharray:6 5;animation:flow 1.1s linear infinite}
+  .link.dash{stroke-dasharray:4 6;stroke-opacity:.3}
+  @keyframes flow{to{stroke-dashoffset:-22}}
+  /* nodes */
+  .node{cursor:grab}
+  .node:active{cursor:grabbing}
+  .node circle.body{stroke:#0a0a0b;stroke-width:1.5}
+  .node text.lbl{font:600 10.5px/1.1 ui-sans-serif;fill:var(--fg);
+    paint-order:stroke;stroke:#0a0a0bdd;stroke-width:3px;stroke-linejoin:round;pointer-events:none}
+  .node .score{font:700 9px/1 ui-monospace,Menlo,monospace;fill:#04140f;pointer-events:none}
+  .node.dim{opacity:.12}
+  .link.dim{opacity:.05}
+  .hull.dim{opacity:.18}
+  /* legend + tooltip */
+  .legend{position:absolute;left:14px;bottom:12px;z-index:6;background:rgba(8,9,12,.86);
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    max-width:230px}
+  .legend h4{margin:0 0 7px;font:700 9.5px/1 ui-sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3)}
+  .legend .row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:11px;color:var(--fg2)}
+  .legend .sw{width:12px;height:12px;border-radius:3px;flex:none}
+  .legend .hsw{width:14px;height:10px;border-radius:3px;border:1.4px solid;flex:none}
+  #tip{
+    position:fixed;z-index:30;pointer-events:none;opacity:0;transition:opacity .12s;
+    max-width:280px;background:#15171d;border:1px solid var(--line2);border-radius:10px;
+    padding:10px 12px;box-shadow:0 16px 50px rgba(0,0,0,.6)
+  }
+  #tip .tname{font-weight:650;font-size:13px;margin-bottom:3px}
+  #tip .tmeta{display:flex;gap:8px;align-items:center;margin:5px 0 6px}
+  #tip .verdict{font:700 9px/1 ui-sans-serif;letter-spacing:.1em;text-transform:uppercase;
+    padding:3px 6px;border-radius:5px;color:#0a0a0b}
+  #tip .tscore{font:700 11px/1 ui-monospace;color:var(--fg2)}
+  #tip .tnote{font-size:11.5px;color:var(--fg2);line-height:1.4}
+  .foot{font-size:10.5px;color:var(--fg3);padding:6px 20px;border-top:1px solid var(--line);text-align:center}
+  .foot b{color:var(--fg2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Cloak &amp; Dagger  -  Architecture Audit</h1>
+      <p>Bullshit map · drag nodes · scroll to zoom · hover for verdict</p>
+    </div>
+    <div class="tally" id="tally"></div>
+    <div class="controls">
+      <button type="button" class="ctl" id="btnFlow">Data flow</button>
+      <button type="button" class="ctl" id="btnKill">Isolate KILL</button>
+      <button type="button" class="ctl" id="btnReheat">Reheat</button>
+      <button type="button" class="ctl" id="btnReset">Reset view</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <section class="panel">
+      <div class="phead now">
+        <span class="tag">Now</span>
+        <h2>What exists today</h2>
+        <span class="sub">23 modules · 4 UI surfaces · 13 permissions<br>2 products fighting each other</span>
+      </div>
+      <svg class="graph" id="svgNow"></svg>
+      <div class="legend" id="legendNow"></div>
+    </section>
+
+    <section class="panel">
+      <div class="phead target">
+        <span class="tag">Target</span>
+        <h2>The privacy microscope</h2>
+        <span class="sub">lean local-first core · 2 surfaces · 4 permissions<br>evidence-first, zero counterattacks</span>
+      </div>
+      <svg class="graph" id="svgTarget"></svg>
+      <div class="legend" id="legendTarget"></div>
+    </section>
+
+    <div class="arrow" title="Reduce · correct · align">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M13 6l6 6-6 6"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="foot">
+    Node size ≈ impact · color = verdict · pulsing ring = hottest cluster ·
+    <b>red dashed links</b> = the keyword→auto-spyware coupling that must die ·
+    <b>grey dashed</b> = opt-in / quarantined. Scores are the audit's 0-50 health sum.
+  </div>
+</div>
+<div id="tip"></div>
+
+<script>
+"use strict";
+const V = { // verdict -> color
+  KILL:"#E5484D", REWRITE:"#F5A623", SIMPLIFY:"#F5A623", DEMO:"#9A8CFF",
+  KEEP:"#2BD4C4", NEW:"#5CC8FF", PERMBAD:"#E5648A", PERMGOOD:"#5E8BFF", INFRA:"#8A93A3",
+  good:"#46E6A8", new:"#5CC8FF", warn:"#F5A623", keep:"#2BD4C4"
+};
+const VLABEL = {KILL:"KILL",REWRITE:"REWRITE",SIMPLIFY:"SIMPLIFY",DEMO:"DEMO-ONLY",KEEP:"KEEP",
+  NEW:"NEW",PERMBAD:"PERMISSION",PERMGOOD:"PERMISSION",INFRA:"INFRA"};
+
+// ---- GROUP definitions (the "circled hotspots") --------------------------
+// hot=pulsing glow; hull=false => anchor only, no blob; anchor in 0..1 of canvas.
+const GROUPS_NOW = {
+  infra:     {label:"",                       color:"#8A93A3", hot:false, hull:false, anchor:[.50,.50]},
+  automation:{label:"Aggressive automation",  sub:"always-on, silent", color:"#E5484D", hot:true,  anchor:[.30,.28]},
+  perms:     {label:"Over-broad permissions", sub:"scary by default",  color:"#E5648A", hot:true,  anchor:[.24,.76]},
+  theatre:   {label:"Theatrical UI",          sub:"vibes, not data",   color:"#F5A623", hot:false, anchor:[.76,.27]},
+  core:      {label:"Sober core  -  buried",    sub:"hidden in a tab",   color:"#2BD4C4", hot:false, anchor:[.75,.77]},
+};
+const GROUPS_TARGET = {
+  infra:  {label:"",                        color:"#8A93A3", hot:false, hull:false, anchor:[.50,.50]},
+  core:   {label:"Local-first analysis core", sub:"the headline", color:"#46E6A8", hot:true,  anchor:[.31,.33]},
+  ui:     {label:"Evidence-first surface",    sub:"show the proof",color:"#2BD4C4", hot:true,  anchor:[.72,.40]},
+  perms:  {label:"Minimal permissions",       sub:"4 total",       color:"#5E8BFF", hot:false, anchor:[.26,.78]},
+  quarant:{label:"Experimental shelf",        sub:"off · labeled", color:"#8A93A3", hot:false, dash:true, anchor:[.76,.81]},
+};
+
+// ---- NODES ----------------------------------------------------------------
+const NOW_NODES = [
+  // infra spine
+  {id:"bg",g:"infra",v:"INFRA",w:3,label:"Background SW",note:"Service worker boots Honeypot, Cookie Shredder, Targeting Shield, DataGhost  -  all at once, on install."},
+  {id:"content",g:"infra",v:"INFRA",w:3,label:"Content (all_urls)",note:"Injected at document_start on every frame of every site."},
+  {id:"popup",g:"infra",v:"INFRA",w:3,label:"Popup dashboard",note:"Leads with the carnival; buries the sober features."},
+  {id:"offscreen",g:"infra",v:"INFRA",w:2,label:"Offscreen doc",note:"Local model inference host (Transformers.js)."},
+  // automation (hot red)
+  {id:"dataghost",g:"automation",v:"KILL",s:13,w:3,label:"DataGhost",note:"Auto-fetches Google/DDG/Wikipedia every 60s. README admits it does NOT touch your cookie profile. Looks like bot traffic."},
+  {id:"honeypot",g:"automation",v:"KILL",s:11,w:3,label:"Honeypot poison",note:"Rewrites real GA/Meta/TikTok beacons with 768-char fake IDs + absurd personas. Sends corrupted data to third parties."},
+  {id:"cookieshred",g:"automation",v:"SIMPLIFY",s:24,w:2,label:"Cookie Shredder",note:"Overwrites tracker-cookie IDs every 60s. Touches only your own cookies  -  reframe as 'reset tracker cookies'."},
+  {id:"bionicspoof",g:"automation",v:"DEMO",s:15,w:2,label:"Fingerprint spoof",note:"Spoofs canvas/WebGL/UA/screen. Your own README: inconsistent spoofing INCREASES uniqueness."},
+  {id:"bionicjitter",g:"automation",v:"KILL",s:13,w:2,label:"Input jitter",note:"10-40ms mouse/key jitter on every page. Admitted ineffective (kloak uses 100ms+). Intercepts all input."},
+  {id:"privacyguard",g:"automation",v:"KILL",s:16,w:2,label:"Silent setting mutation",note:"Silently sets webRTC policy + Accept-Language on every request via the privacy permission. No consent."},
+  {id:"maxcamo",g:"automation",v:"KILL",s:8,w:3,label:"AI→Max Camo",note:"THE worst behavior: a keyword match auto-enables spoofing + decoy traffic + tracker blackout."},
+  // perms (hot red)
+  {id:"p_debugger",g:"perms",v:"PERMBAD",w:2,label:"debugger",note:"Scariest permission in the store. Triggers a persistent warning bar. Used only to read chrome:// / file:// text."},
+  {id:"p_privacy",g:"perms",v:"PERMBAD",w:2,label:"privacy",note:"Lets the extension silently change browser settings."},
+  {id:"p_browsingdata",g:"perms",v:"PERMBAD",w:1,label:"browsingData",note:"Powers the global wipe (all sites, since t=0)."},
+  {id:"p_dnr",g:"perms",v:"PERMBAD",w:2,label:"declarativeNetRequest",note:"Powers beacon poisoning + param strip + Accept-Language rewrite."},
+  {id:"p_allurls",g:"perms",v:"PERMBAD",w:2,label:"<all_urls>",note:"Broadest possible host access  -  content script + DNR on every site."},
+  {id:"p_cookies",g:"perms",v:"PERMBAD",w:1,label:"cookies",note:"Enumerate + overwrite cookies."},
+  {id:"p_alarms",g:"perms",v:"PERMBAD",w:1,label:"alarms",note:"Drives the 60s poison/decoy cycles."},
+  {id:"p_tabs",g:"perms",v:"PERMBAD",w:1,label:"tabs",note:"Tab coverage + blackout test. activeTab would suffice."},
+  // theatre (amber)
+  {id:"pscore",g:"theatre",v:"REWRITE",s:14,w:2,label:"Privacy Score",note:"+9 per enabled toggle + activity points. Pure vibes; rewards turning ON the bad modules."},
+  {id:"radar",g:"theatre",v:"KILL",s:12,w:2,label:"CyberRadar",note:"512 lines of radar-sweep decoration. No data value."},
+  {id:"vid",g:"theatre",v:"DEMO",s:20,w:1,label:"Virtual Identity",note:"Persona picker that drives the weak spoofing layer."},
+  {id:"panic",g:"theatre",v:"SIMPLIFY",s:26,w:2,label:"Panic (global wipe)",note:"Nukes cookies/cache/IDB/localStorage for EVERY site since t=0. Too blunt → per-site clear."},
+  {id:"alias",g:"theatre",v:"DEMO",s:18,w:1,label:"Email alias inject",note:"Injects a button into every email field. Offline alias is a FAKE address that can't receive mail."},
+  {id:"armed",g:"theatre",v:"REWRITE",s:14,w:1,label:"ARMED theater",note:"'ARMED/STANDBY' + 'blackout' + 'poisoned' copy = alert-fatigue cosplay."},
+  // sober core (teal, buried)
+  {id:"heur",g:"core",v:"KEEP",s:38,w:2,label:"Risk heuristic",note:"Transparent keyword clusters + negation + confidence. The defensible core  -  but hide the false-precision number, show matched terms."},
+  {id:"nli",g:"core",v:"KEEP",s:39,w:2,label:"Local NLI",note:"Real DeBERTa zero-shot, genuine confidence. Opt-in. 180MB HF download  -  pre-cache for demo."},
+  {id:"llm",g:"core",v:"KILL",s:18,w:1,label:"Local LLM",note:"Gemma 2.58GB / 45-min timeout, WebGPU-only. Emits 'manipulationRisk:87' with no evidence = 'LLM said so'."},
+  {id:"pexplain",g:"core",v:"KEEP",s:45,w:2,label:"Page Explainer",note:"Pure-local, honestly tagged source:static. Explains the page + data surface. The headline feature."},
+  {id:"aiprof",g:"core",v:"KEEP",s:37,w:2,label:"AI Profiling Detector",note:"Renders the verdict with evidence + honest source. Just cut the 'enable Max Camo' action."},
+  {id:"shadow",g:"core",v:"KEEP",s:43,w:2,label:"Shadow Audit",note:"Measures your real fingerprint entropy, honestly labeled 'illustrative'. Strong, on-theme."},
+  {id:"guard",g:"core",v:"KEEP",s:46,w:2,label:"Sensitive Page Guard",note:"Refuses to scan bank/gov/medical/webmail; never reads passwords. The trust backbone."},
+  {id:"floating",g:"core",v:"KEEP",s:38,w:2,label:"Floating window",note:"Registry-driven cards, honest verdict source, open Shadow DOM with documented rationale."},
+  {id:"paramstrip",g:"core",v:"KEEP",s:41,w:1,label:"Param strip",note:"Strips gclid/fbclid/utm. Legit  -  Brave/uBO do this."},
+  {id:"debugextract",g:"core",v:"KILL",s:15,w:1,label:"Debugger extractor",note:"Reads restricted-page text via CDP. Marginal value, scary permission  -  drop it."},
+];
+const NOW_LINKS = [
+  ["bg","dataghost"],["bg","honeypot"],["bg","cookieshred"],["bg","privacyguard"],
+  ["bg","offscreen"],["bg","debugextract"],["bg","paramstrip"],
+  ["content","bionicspoof"],["content","bionicjitter"],["content","heur"],
+  ["content","floating"],["content","alias"],["content","guard"],
+  ["guard","heur"],["heur","nli"],["nli","offscreen"],["nli","llm"],
+  ["floating","pexplain"],["floating","aiprof"],["heur","aiprof"],
+  ["popup","pscore"],["popup","radar"],["popup","vid"],["popup","panic"],["popup","armed"],["popup","shadow"],
+  // the dangerous coupling (danger links)
+  ["heur","maxcamo","danger"],["maxcamo","dataghost","danger"],
+  ["maxcamo","bionicspoof","danger"],["maxcamo","paramstrip","danger"],
+  // permission -> scary feature
+  ["p_debugger","debugextract"],["p_privacy","privacyguard"],["p_dnr","honeypot"],
+  ["p_dnr","paramstrip"],["p_browsingdata","panic"],["p_cookies","cookieshred"],
+  ["p_alarms","dataghost"],["p_allurls","content"],["p_tabs","bg"],
+];
+
+const TARGET_NODES = [
+  {id:"bg2",g:"infra",v:"INFRA",w:3,label:"Background (thin)",note:"No alarms, no auto-fetch, no setting mutation. Just storage + message bus + opt-in model dispatch."},
+  {id:"content2",g:"infra",v:"INFRA",w:3,label:"Scan (activeTab)",note:"Runs on the current tab when you ask  -  click-to-scan, not silent on every page."},
+  {id:"popup2",g:"infra",v:"INFRA",w:2,label:"Thin popup",note:"Mirrors the current page's snapshot. No vibes score."},
+  {id:"offscreen2",g:"infra",v:"INFRA",w:2,label:"Offscreen (opt-in)",note:"Only spun up when you enable the local NLI model."},
+  // core (hot green)
+  {id:"heur2",g:"core",v:"KEEP",w:3,label:"Heuristic + terms",note:"Same scorer, but it surfaces the exact matched terms as evidence and a confidence band  -  not a fake 0-100."},
+  {id:"nli2",g:"core",v:"KEEP",w:2,label:"Local NLI (opt-in)",note:"Real model, real confidence, clearly labeled, weights download disclosed."},
+  {id:"pexplain2",g:"core",v:"KEEP",w:3,label:"Page Explainer ★",note:"Headline: plain-language 'what is this page + what's the data surface'."},
+  {id:"aiprof2",g:"core",v:"KEEP",w:2,label:"Profiling Detector",note:"What a tracker could infer here  -  with evidence and honest source."},
+  {id:"shadow2",g:"core",v:"KEEP",w:3,label:"Shadow Audit ★",note:"Headline: your real fingerprint entropy, illustrative + honest."},
+  {id:"guard2",g:"core",v:"KEEP",w:2,label:"Sensitive Guard",note:"Still refuses bank/gov/medical; never reads passwords."},
+  // ui (hot teal)
+  {id:"micro",g:"ui",v:"KEEP",w:3,label:"Floating microscope",note:"The single main surface. Registry cards, honest loading/error/sensitive states."},
+  {id:"evidence",g:"ui",v:"NEW",w:2,label:"Evidence Panel",note:"Exact signals: tracker domains, matched terms, consent banner, forms, fingerprint APIs."},
+  {id:"why",g:"ui",v:"NEW",w:2,label:"Why-This-Matters",note:"Small teaching cards: how profiling works, why health/finance pages are sensitive, what local-first means."},
+  {id:"action",g:"ui",v:"NEW",w:2,label:"Sober actions",note:"Open site settings · clear THIS site's data · block 3rd-party cookies. Real, native, safe."},
+  {id:"panel2",g:"ui",v:"KEEP",w:1,label:"Side panel",note:"Long-running audit surface, same tokens."},
+  {id:"paramstrip2",g:"ui",v:"KEEP",w:1,label:"Param strip (opt)",note:"Optional gclid/utm stripping  -  the one legit network feature, kept honest."},
+  // perms (blue)
+  {id:"mp_storage",g:"perms",v:"PERMGOOD",w:1,label:"storage",note:"Settings + ephemeral per-page state."},
+  {id:"mp_activetab",g:"perms",v:"PERMGOOD",w:2,label:"activeTab",note:"Read the current tab only when the user invokes a scan."},
+  {id:"mp_sidepanel",g:"perms",v:"PERMGOOD",w:1,label:"sidePanel",note:"The audit side panel."},
+  {id:"mp_offscreen",g:"perms",v:"PERMGOOD",w:1,label:"offscreen",note:"Only for opt-in local NLI."},
+  // quarantine (grey dashed)
+  {id:"q_spoof",g:"quarant",v:"DEMO",w:1,label:"Spoof (demo)",note:"Kept as a clearly-labeled experiment, OFF by default  -  never auto-armed."},
+  {id:"q_persona",g:"quarant",v:"DEMO",w:1,label:"Entropy Drop (demo)",note:"Persona/Entropy-Drop visual as an educational 'what uniformity buys you' demo."},
+];
+const TARGET_LINKS = [
+  ["mp_storage","bg2"],["mp_activetab","content2"],["mp_sidepanel","panel2"],["mp_offscreen","offscreen2"],
+  ["content2","guard2"],["guard2","heur2"],["heur2","nli2"],["nli2","offscreen2"],
+  ["heur2","evidence"],["heur2","aiprof2"],["pexplain2","evidence"],["aiprof2","why"],["why","action"],
+  ["micro","pexplain2"],["micro","aiprof2"],["micro","shadow2"],["micro","evidence"],
+  ["popup2","micro"],["panel2","evidence"],["content2","pexplain2"],["content2","shadow2"],
+  ["q_spoof","content2","dash"],["q_persona","shadow2","dash"],
+];
+
+// ---- panel builder --------------------------------------------------------
+const tip = document.getElementById("tip");
+function showTip(html,x,y){ tip.innerHTML=html; tip.style.opacity=1;
+  const pad=16; let nx=x+pad, ny=y+pad;
+  const r=tip.getBoundingClientRect();
+  if(nx+r.width>innerWidth) nx=x-r.width-pad;
+  if(ny+r.height>innerHeight) ny=y-r.height-pad;
+  tip.style.left=nx+"px"; tip.style.top=ny+"px"; }
+function hideTip(){ tip.style.opacity=0; }
+
+const panels = [];
+function radius(d){ return ({1:11,2:14,3:18}[d.w]||12); }
+
+function buildPanel(svgSel, nodes, links, groups){
+  const svg = d3.select(svgSel);
+  const node0 = svg.node();
+  let W = node0.clientWidth||860, H = node0.clientHeight||620;
+
+  const defs = svg.append("defs");
+  // glow filter
+  const f = defs.append("filter").attr("id",svgSel.slice(1)+"-glow")
+    .attr("x","-60%").attr("y","-60%").attr("width","220%").attr("height","220%");
+  f.append("feGaussianBlur").attr("stdDeviation","6").attr("result","b");
+  const m=f.append("feMerge"); m.append("feMergeNode").attr("in","b"); m.append("feMergeNode").attr("in","SourceGraphic");
+  // arrow markers per verdict-ish (use one neutral + danger)
+  function marker(id,color,op){
+    defs.append("marker").attr("id",id).attr("viewBox","0 -5 10 10").attr("refX",18)
+      .attr("refY",0).attr("markerWidth",6).attr("markerHeight",6).attr("orient","auto")
+      .append("path").attr("d","M0,-4L8,0L0,4").attr("fill",color).attr("fill-opacity",op||.6);
+  }
+  marker(svgSel.slice(1)+"-arr","#9aa4b2",.5);
+  marker(svgSel.slice(1)+"-arrd","#E5484D",.95);
+
+  const root = svg.append("g");
+  const hullLayer = root.append("g");
+  const hullLabelLayer = root.append("g");
+  const linkLayer = root.append("g");
+  const nodeLayer = root.append("g");
+
+  // anchors in px
+  const M=70;
+  function anchorPx(a){ return [M + a[0]*(W-2*M), M + a[1]*(H-2*M)]; }
+
+  // init positions near group anchor
+  nodes.forEach(n=>{ const a=anchorPx(groups[n.g].anchor);
+    n.x=a[0]+(Math.random()-.5)*60; n.y=a[1]+(Math.random()-.5)*60; });
+
+  const L = links.map(l=>({source:l[0],target:l[1],kind:l[2]||"normal"}));
+
+  const sim = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(L).id(d=>d.id).distance(d=> d.kind==="danger"?120:78).strength(.35))
+    .force("charge", d3.forceManyBody().strength(-300))
+    .force("x", d3.forceX(d=>anchorPx(groups[d.g].anchor)[0]).strength(.16))
+    .force("y", d3.forceY(d=>anchorPx(groups[d.g].anchor)[1]).strength(.16))
+    .force("collide", d3.forceCollide(d=>radius(d)+16))
+    .alpha(1).alphaDecay(.028);
+
+  const link = linkLayer.selectAll("path").data(L).join("path")
+    .attr("class",d=> "link"+(d.kind==="danger"?" danger":d.kind==="dash"?" dash":""))
+    .attr("stroke",d=> d.kind==="danger"?"#E5484D": d.kind==="dash"?"#8A93A3":"#9aa4b2")
+    .attr("stroke-width",d=> d.kind==="danger"?2:1.3)
+    .attr("marker-end",d=> d.kind==="danger"?`url(${svgSel}-arrd)`:`url(${svgSel}-arr)`);
+
+  const g = nodeLayer.selectAll("g.node").data(nodes).join("g").attr("class","node");
+  g.append("circle").attr("class","body")
+    .attr("r",radius)
+    .attr("fill",d=>V[d.v])
+    .attr("fill-opacity",d=> d.v==="INFRA"?.22:.92)
+    .attr("stroke",d=> d.v==="INFRA"?"#5b626e":"#0a0a0b");
+  // INFRA gets ring instead of fill
+  g.filter(d=>d.v==="INFRA").select("circle").attr("stroke-width",1.6);
+  // score chip for nodes with score
+  g.filter(d=>d.s!=null).append("text").attr("class","score")
+    .attr("text-anchor","middle").attr("dy","3").text(d=>d.s);
+  g.append("text").attr("class","lbl").attr("text-anchor","middle")
+    .attr("dy",d=>radius(d)+12).text(d=>d.label);
+
+  g.on("pointerenter",(e,d)=>{
+      const col=V[d.v];
+      const sc = d.s!=null? `<span class="tscore">${d.s}/50</span>`:"";
+      showTip(`<div class="tname">${d.label}</div>
+        <div class="tmeta"><span class="verdict" style="background:${col}">${VLABEL[d.v]}</span>${sc}</div>
+        <div class="tnote">${d.note||""}</div>`, e.clientX, e.clientY);
+      highlightNeighbors(d,true);
+    })
+    .on("pointermove",(e)=>{ tip.style.left=(e.clientX+16)+"px"; tip.style.top=(e.clientY+16)+"px"; })
+    .on("pointerleave",(e,d)=>{ hideTip(); highlightNeighbors(d,false); });
+
+  g.call(d3.drag()
+    .on("start",(e,d)=>{ if(!e.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+    .on("drag",(e,d)=>{ d.fx=e.x; d.fy=e.y; })
+    .on("end",(e,d)=>{ if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }));
+
+  // neighbor highlight
+  const nbr=new Map(); nodes.forEach(n=>nbr.set(n.id,new Set([n.id])));
+  L.forEach(l=>{ nbr.get(l.source.id||l.source).add(l.target.id||l.target);
+    nbr.get(l.target.id||l.target).add(l.source.id||l.source); });
+  function highlightNeighbors(d,on){
+    if(!on){ g.classed("dim",false); link.classed("dim",false); hullLayer.selectAll(".hull").classed("dim",false); return; }
+    const set=nbr.get(d.id);
+    g.classed("dim",n=>!set.has(n.id));
+    link.classed("dim",l=> !(set.has(l.source.id)&&set.has(l.target.id)) && !((l.source.id===d.id)||(l.target.id===d.id)) );
+    link.classed("dim",l=> !((l.source.id===d.id)||(l.target.id===d.id)));
+  }
+
+  // hull layer setup
+  const groupIds = Object.keys(groups).filter(k=> groups[k].hull!==false);
+  const hullSel = hullLayer.selectAll("path").data(groupIds).join("path")
+    .attr("class",k=> "hull"+(groups[k].hot?" hot":"")+(groups[k].dash?" dash":""))
+    .attr("fill",k=>groups[k].color).attr("stroke",k=>groups[k].color)
+    .attr("filter",k=> groups[k].hot?`url(${svgSel}-glow)`:null);
+  const hullLab = hullLabelLayer.selectAll("g").data(groupIds).join("g");
+  hullLab.append("text").attr("class","hull-label").attr("fill",k=>groups[k].color).text(k=>groups[k].label);
+  hullLab.append("text").attr("class","hull-sub").attr("fill",k=>groups[k].color).attr("dy",12).text(k=>groups[k].sub||"");
+
+  const lineGen = d3.line().curve(d3.curveCatmullRomClosed.alpha(.6));
+  const PAD=30, RING=12;
+  function hullPoints(k){
+    const pts=[];
+    nodes.filter(n=>n.g===k).forEach(n=>{ const R=radius(n)+PAD;
+      for(let i=0;i<RING;i++){ const t=i/RING*2*Math.PI; pts.push([n.x+Math.cos(t)*R, n.y+Math.sin(t)*R]); } });
+    return pts;
+  }
+
+  function ticked(){
+    link.attr("d",d=>{
+      const dx=d.target.x-d.source.x, dy=d.target.y-d.source.y;
+      const dr=Math.hypot(dx,dy)*1.7;
+      return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+    });
+    g.attr("transform",d=>`translate(${d.x},${d.y})`);
+    hullSel.attr("d",k=>{ const pts=hullPoints(k); if(pts.length<3) return null;
+      const h=d3.polygonHull(pts); return h?lineGen(h):null; });
+    hullLab.attr("transform",k=>{
+      const ns=nodes.filter(n=>n.g===k); if(!ns.length) return "translate(-9999,-9999)";
+      const minx=d3.min(ns,n=>n.x-radius(n)-PAD), miny=d3.min(ns,n=>n.y-radius(n)-PAD);
+      return `translate(${minx+6},${miny-6})`;
+    });
+  }
+  sim.on("tick",ticked);
+
+  // zoom
+  const zoom=d3.zoom().scaleExtent([.4,3]).on("zoom",e=>root.attr("transform",e.transform));
+  svg.call(zoom).on("dblclick.zoom",null);
+
+  function resize(){ W=node0.clientWidth; H=node0.clientHeight;
+    sim.force("x",d3.forceX(d=>anchorPx(groups[d.g].anchor)[0]).strength(.16))
+       .force("y",d3.forceY(d=>anchorPx(groups[d.g].anchor)[1]).strength(.16))
+       .alpha(.5).restart(); }
+  function reheat(){ sim.alpha(.9).restart(); }
+  function resetView(){ svg.transition().duration(450).call(zoom.transform, d3.zoomIdentity); }
+
+  return {sim,g,link,hullSel,reheat,resetView,resize,nodes};
+}
+
+const pNow = buildPanel("#svgNow", NOW_NODES, NOW_LINKS, GROUPS_NOW);
+const pTarget = buildPanel("#svgTarget", TARGET_NODES, TARGET_LINKS, GROUPS_TARGET);
+panels.push(pNow,pTarget);
+
+// ---- legends --------------------------------------------------------------
+function legend(sel, rows){
+  const el=document.querySelector(sel);
+  el.innerHTML = `<h4>Verdict</h4>` + rows.map(r=>
+    `<div class="row"><span class="sw" style="background:${r[1]}"></span>${r[0]}</div>`).join("");
+}
+legend("#legendNow",[
+  ["KILL",V.KILL],["SIMPLIFY / REWRITE",V.REWRITE],["DEMO-ONLY",V.DEMO],
+  ["KEEP",V.KEEP],["Permission",V.PERMBAD],
+]);
+document.querySelector("#legendNow").innerHTML +=
+  `<h4 style="margin-top:9px">Hotspots</h4>
+   <div class="row"><span class="hsw" style="border-color:${V.KILL}"></span>hottest (pulsing)</div>
+   <div class="row"><span class="hsw" style="border-color:${V.warn||'#F5A623'}"></span>warn</div>`;
+legend("#legendTarget",[
+  ["KEEP",V.KEEP],["NEW",V.NEW],["DEMO (quarantined)",V.DEMO],["Permission",V.PERMGOOD],
+]);
+document.querySelector("#legendTarget").innerHTML +=
+  `<h4 style="margin-top:9px">Hotspots</h4>
+   <div class="row"><span class="hsw" style="border-color:${V.good}"></span>core (pulsing)</div>
+   <div class="row"><span class="hsw" style="border-color:#8A93A3;border-style:dashed"></span>experimental</div>`;
+
+// ---- tally ----------------------------------------------------------------
+function tallyOf(nodes){ const c={}; nodes.forEach(n=>{ if(n.v==="INFRA"||n.v==="PERMBAD"||n.v==="PERMGOOD")return;
+  c[n.v]=(c[n.v]||0)+1; }); return c; }
+const t=tallyOf(NOW_NODES);
+document.getElementById("tally").innerHTML =
+  `<span class="pill"><span class="dot" style="background:${V.KILL}"></span>NOW <b>${(t.KILL||0)} kill</b> · ${( (t.SIMPLIFY||0)+(t.REWRITE||0))} fix · ${(t.DEMO||0)} demo · <b style="color:${V.KEEP}">${(t.KEEP||0)} keep</b></span>`
+ +`<span class="pill"><span class="dot" style="background:${V.PERMBAD}"></span>perms <b>13 → 4</b></span>`
+ +`<span class="pill"><span class="dot" style="background:${V.keep||V.KEEP}"></span>TARGET <b style="color:${V.new}">${TARGET_NODES.filter(n=>n.v==='NEW').length} new</b> · lean core</span>`;
+
+// ---- controls -------------------------------------------------------------
+let flowOn=false, killOn=false;
+document.getElementById("btnFlow").onclick=function(){ flowOn=!flowOn; this.classList.toggle("on",flowOn);
+  panels.forEach(p=> p.link.classed("dim",false).attr("opacity",flowOn?1:1)
+    .style("display",l=> flowOn? null : (l.kind==="danger"||l.kind==="dash") ? null : null));
+  // when flow OFF, fade normal links; keep danger/dash visible
+  panels.forEach(p=> p.link.style("opacity",l=> flowOn?1:(l.kind==="normal"?.12:1)));
+};
+document.getElementById("btnKill").onclick=function(){ killOn=!killOn; this.classList.toggle("on",killOn);
+  panels.forEach(p=>{
+    p.g.classed("dim",d=> killOn && !(d.v==="KILL"||d.v==="PERMBAD"));
+    p.link.classed("dim",l=> killOn && !(l.kind==="danger"));
+  });
+};
+document.getElementById("btnReheat").onclick=()=>panels.forEach(p=>p.reheat());
+document.getElementById("btnReset").onclick=()=>panels.forEach(p=>p.resetView());
+// default: normal links slightly faded so danger pops
+panels.forEach(p=> p.link.style("opacity",l=> l.kind==="normal"?.5:1));
+
+addEventListener("resize",()=>panels.forEach(p=>p.resize()));
+</script>
+</body>
+</html>

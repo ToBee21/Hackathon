@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cloak &amp; Dagger  -  Mapa Prawdy (TERAZ → CO POKAZAĆ JURY)</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<style>
+  :root{
+    --bg:#070a0d; --panel:#0c1116; --line:#1b2733; --line2:#13202a;
+    --fg:#eef4f8; --fg-mid:#b8c5cf; --fg-low:#6e7a85;
+    --teal:#2BD4C4; --green:#3DD4A0; --violet:#9A8CFF; --amber:#E6B450;
+    --red:#FF5C77; --orange:#FF9E64; --grey:#5b6670; --blue:#7FB3D5;
+    --mono:ui-monospace,"JetBrains Mono",Consolas,monospace;
+    --sans:-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:
+    radial-gradient(1300px 700px at 18% -12%, rgba(43,212,196,.07), transparent 60%),
+    radial-gradient(1200px 700px at 92% 112%, rgba(154,140,255,.07), transparent 60%),
+    var(--bg);color:var(--fg);font-family:var(--sans)}
+  .top{display:flex;align-items:center;gap:16px;padding:11px 18px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .mark{width:32px;height:32px;border-radius:9px;border:1px solid var(--teal);
+    display:flex;align-items:center;justify-content:center;color:var(--teal);font-weight:800;font-size:16px;
+    box-shadow:0 0 24px rgba(43,212,196,.4) inset,0 4px 18px rgba(0,0,0,.4)}
+  .brand h1{font-size:15px;margin:0;letter-spacing:.2px}
+  .brand p{margin:0;font-size:10px;text-transform:uppercase;letter-spacing:.18em;color:var(--fg-low)}
+  .spacer{flex:1}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 13px;align-items:center;max-width:560px}
+  .lg{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--fg-mid)}
+  .dot{width:10px;height:10px;border-radius:3px}
+  .controls{display:flex;gap:7px}
+  button.ctl{font-family:var(--sans);font-size:11px;font-weight:600;color:var(--fg-mid);
+    background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer;transition:.15s}
+  button.ctl:hover{color:var(--fg);border-color:#27424f;background:rgba(43,212,196,.06)}
+  button.ctl.on{color:var(--teal);border-color:rgba(43,212,196,.5)}
+
+  .scorebar{display:grid;grid-template-columns:1fr 64px 1fr;border-bottom:1px solid var(--line2)}
+  .scard{padding:8px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .scard.left{border-right:1px solid var(--line2)}
+  .scard .big{font-size:12px;font-weight:800;letter-spacing:.02em}
+  .scard.left .big{color:#FF8A7a}
+  .scard.right{justify-content:flex-end}
+  .scard.right .big{color:var(--teal)}
+  .chip{font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;
+    border:1px solid currentColor;letter-spacing:.02em;white-space:nowrap}
+  .scmid{display:flex;align-items:center;justify-content:center;color:var(--teal);font-weight:800;font-size:13px}
+
+  .stage{display:grid;grid-template-columns:1fr 64px 1fr;height:calc(100% - 58px - 46px - 40px)}
+  .col{position:relative;min-width:0}
+  .col.left{border-right:1px solid var(--line2)}
+  .mid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+    border-left:1px solid var(--line2);border-right:1px solid var(--line2);background:rgba(0,0,0,.22)}
+  .mid .arrow{font-size:24px;color:var(--teal);text-shadow:0 0 18px rgba(43,212,196,.7)}
+  .mid .lbl{writing-mode:vertical-rl;text-orientation:mixed;font-size:10px;letter-spacing:.34em;
+    text-transform:uppercase;color:var(--fg-low);font-weight:700}
+  svg{width:100%;height:100%;display:block;cursor:grab}
+  svg:active{cursor:grabbing}
+  .hull{stroke-width:1.4px;fill-opacity:.06;stroke-opacity:.5}
+  .hull-label{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+    fill:var(--fg-mid);font-weight:700;pointer-events:none}
+  .hotring{fill:none;stroke-width:2px;stroke-dasharray:5 8;opacity:.85}
+  .hotbadge{font-family:var(--mono);font-size:11px;letter-spacing:.06em;font-weight:800}
+  .link{stroke-opacity:.34}
+  .link.flow{stroke-dasharray:2 4}
+  .node circle{cursor:pointer;transition:stroke-width .12s}
+  .node .nm{font-family:var(--sans);font-size:11px;font-weight:700;fill:var(--fg);paint-order:stroke;
+    stroke:rgba(5,8,11,.92);stroke-width:3.5px;stroke-linejoin:round;pointer-events:none}
+  .node .fl{font-family:var(--mono);font-size:9px;fill:var(--fg-low);paint-order:stroke;
+    stroke:rgba(5,8,11,.9);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
+  .vpill rect{rx:4}
+  .vpill text{font-family:var(--mono);font-size:8px;font-weight:800;letter-spacing:.05em;pointer-events:none}
+  .node.dim{opacity:.16}
+  .node.cut circle{stroke-dasharray:4 3}
+
+  .tip{position:fixed;z-index:50;max-width:360px;background:#0a0e13;border:1px solid #27424f;border-radius:11px;
+    padding:11px 13px;box-shadow:0 20px 56px rgba(0,0,0,.65);font-size:12px;line-height:1.55;color:var(--fg-mid);
+    pointer-events:none;opacity:0;transition:opacity .1s}
+  .tip .t-h{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+  .tip .t-h b{color:var(--fg);font-size:13.5px}
+  .tip .pill{font-family:var(--mono);font-size:8.5px;text-transform:uppercase;letter-spacing:.07em;padding:2px 7px;border-radius:999px;border:1px solid currentColor;font-weight:800}
+  .tip .sec{margin-top:6px}
+  .tip .sec .k{font-family:var(--mono);font-size:8.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--fg-low);display:block;margin-bottom:1px}
+  .tip code{font-family:var(--mono);font-size:10.5px;color:var(--teal)}
+
+  .explain{height:40px;border-top:1px solid var(--line);display:flex;align-items:center;gap:18px;
+    padding:0 18px;font-size:11px;color:var(--fg-low);background:rgba(0,0,0,.2);overflow-x:auto;white-space:nowrap}
+  .explain b{color:var(--fg-mid)}
+  .explain .sep{color:#2a3742}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><div class="mark">C</div>
+    <div><h1>Cloak &amp; Dagger  -  Mapa Prawdy</h1>
+      <p>Co naprawdę zbudowaliście · co pokazać jury · co spalić</p></div></div>
+  <div class="spacer"></div>
+  <div class="legend" id="legend"></div>
+  <div class="controls">
+    <button class="ctl" id="btnLinks">Przepływy</button>
+    <button class="ctl on" id="btnHulls">Grupy</button>
+    <button class="ctl on" id="btnLabels">Pliki+werdykt</button>
+    <button class="ctl" id="btnFreeze">Zamroź</button>
+    <button class="ctl" id="btnReheat">Rozsyp</button>
+  </div>
+</div>
+
+<div class="scorebar">
+  <div class="scard left" id="scL"></div>
+  <div class="scmid">vs</div>
+  <div class="scard right" id="scR"></div>
+</div>
+
+<div class="stage">
+  <div class="col left"><svg id="svgL" viewBox="0 0 820 1000" preserveAspectRatio="xMidYMid meet"></svg></div>
+  <div class="mid"><div class="arrow">▶</div><div class="lbl">utnij ściemę</div><div class="arrow">▶</div></div>
+  <div class="col right"><svg id="svgR" viewBox="0 0 820 1000" preserveAspectRatio="xMidYMid meet"></svg></div>
+</div>
+
+<div class="explain">
+  <span><b>Jak czytać:</b> lewo = repo DZIŚ (część prawdziwa, część ściema), prawo = co zostaje na demo.</span>
+  <span class="sep">│</span>
+  <span><b>Kółka</b> = grupy modułów. <b>Pulsujący pierścień</b> = klaster, na którym Ci zależy (★) albo który trzeba spalić (✕).</span>
+  <span class="sep">│</span>
+  <span><b>Kolor ramki</b> = werdykt. <b>Pod węzłem</b> = plik:linia. <b>Najedź</b> = pełny opis + dowód + co zrobić.</span>
+  <span class="sep">│</span>
+  <span><b>Drag</b> węzły · <b>scroll</b> = zoom.</span>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+/* ---------- werdykty ---------- */
+const V = {
+  core:{c:"#2BD4C4",lab:"RDZEŃ"},      // hero, real value
+  real:{c:"#3DD4A0",lab:"DZIAŁA"},     // real, works
+  partial:{c:"#7FB3D5",lab:"CZĘŚĆ"},   // partial
+  weak:{c:"#E6B450",lab:"SLOP"},       // theatre / weak
+  fake:{c:"#FF5C77",lab:"FAKE"},       // fabricated
+  risk:{c:"#FF9E64",lab:"RYZYKO"},     // permission/optics risk
+  dead:{c:"#FF5C77",lab:"MARTWY"},     // dead code → kill
+  broken:{c:"#FF5C77",lab:"ZEPSUTY"},  // broken
+  build:{c:"#9A8CFF",lab:"DOBUDUJ"},
+  repair:{c:"#E6B450",lab:"NAPRAW"},
+  keep:{c:"#3DD4A0",lab:"ZOSTAW"},
+  cut:{c:"#5b6670",lab:"WYTNIJ"}
+};
+const GROUPC={teal:"#2BD4C4",green:"#3DD4A0",violet:"#9A8CFF",amber:"#E6B450",red:"#FF5C77",grey:"#5b6670",blue:"#7FB3D5"};
+
+const lg=d3.select("#legend");
+[["core","Rdzeń / real value"],["real","Działa"],["partial","Częściowe"],["weak","Slop / teatr"],
+ ["risk","Ryzyko"],["fake","Fake"],["dead","Martwy kod"],["build","Dobuduj"],["repair","Napraw"],["cut","Wytnij"]]
+.forEach(([k,t])=>{const e=lg.append("div").attr("class","lg");
+  e.append("span").attr("class","dot").style("background",V[k].c);e.append("span").text(t);});
+
+/* =======================================================================
+   LEWA  -  STAN FAKTYCZNY (z audytu: plik:linia)
+   ======================================================================= */
+const L={
+ groups:{
+  track:{label:"Anti-tracking  -  DEFAULT-ON, REAL",color:"green",hot:true,hotLabel:"★ RDZEŃ  -  TO DZIAŁA"},
+  ai:{label:"Lokalne AI  -  REAL, off-by-default",color:"teal",hot:true,hotLabel:"★ WYRÓŻNIK"},
+  fp:{label:"Fingerprint & cień",color:"blue"},
+  ui:{label:"UI / powierzchnie",color:"violet"},
+  slop:{label:"Teatr / Slop  -  NIE MÓW JURY",color:"amber",hot:true,hotLabel:"⚠ ŚCIEMA"},
+  kill:{label:"KILL ZONE",color:"red",hot:true,hotLabel:"✕ SPAL (~900 linii + token)"}
+ },
+ nodes:[
+  /* anti-tracking */
+  {id:"strip",label:"Strip atrybucji",g:"track",v:"core",r:21,f:"targetingShield.ts:102",
+   h:"Zdejmuje gclid/fbclid/utm_* (40+ paramów) z każdego linku ZANIM strona je zobaczy.",why:"Realne, deklaratywne (DNR), działa też w produkcji. Default-ON.",act:"UWYPUKLIĆ na demie  -  pokaż URL przed/po."},
+  {id:"blackout",label:"Per-origin blackout",g:"track",v:"real",r:18,f:"targetingShield.ts:119 / handleRiskResult.ts:76",
+   h:"Gdy strona = wrażliwa, blokuje ~27 hostów reklamowych TYLKO na tym originie.",why:"Realny action:block eskalowany z detekcji.",act:"Dodać DE-ESKALACJĘ (origin zostaje na zawsze, FIFO>30)."},
+  {id:"cookie",label:"Cookie Shredder",g:"track",v:"core",r:18,f:"cookieShredder.ts:99-202",
+   h:"Co minutę podmienia wartości ciasteczek trackerów (_ga,_fbp) losowym ID.",why:"Realne chrome.cookies.set; whitelist nie rusza loginu/sesji. Default-ON.",act:"UWYPUKLIĆ  -  efekt przejściowy (tracker resetuje)."},
+  /* AI */
+  {id:"score",label:"Heurystyka score.ts",g:"ai",v:"core",r:19,f:"score.ts:27 + dictionaries.ts",
+   h:"Słownikowy scorer PL/EN, 8 kategorii, świadomy negacji. To realny 'AI signal', nie random.",why:"Default-ON, lokalny, wytłumaczalny.",act:"Pokaż dopasowany term jako DOWÓD."},
+  {id:"offscreen",label:"Lokalny model NLI/LLM",g:"ai",v:"real",r:17,f:"offscreen.js:340,565",
+   h:"DeBERTa-NLI (WASM) lub Granite/Gemma (WebGPU) w dokumencie offscreen.",why:"Realne, ale OFF-by-default; wagi ściągają się z HuggingFace (180MB-2.58GB).",act:"Pre-pobrać NLI przed demem; fallback heurystyka."},
+  {id:"guard",label:"Sensitive-page guard",g:"ai",v:"real",r:12,f:"sensitivePageGuard.ts",
+   h:"Lista stron, których NIE skanować (bank/gov/mail/login).",why:"Istnieje, ale auto-skaner czyta tekst KAŻDEJ strony.",act:"PODPIĄĆ guard pod auto-skaner (privacy paradox)."},
+  /* fingerprint */
+  {id:"bionicFp",label:"Bionic Blur (fingerprint)",g:"fp",v:"partial",r:16,f:"bionic-blur-main.ts:505,683,788",
+   h:"Podmienia navigator/UA/WebGL/canvas/audio na spójną personę.",why:"Spójne na warstwie JS, ALE: canvas patchuje getImageData a NIE toDataURL/toBlob; audio tylko getChannelData; brak spoofu nagłówków HTTP.",act:"Mów 'częściowe'. Spatchować toDataURL/toBlob."},
+  {id:"shadow",label:"Shadow Audit (odczyt)",g:"fp",v:"real",r:14,f:"shadowAudit.ts:98-152",
+   h:"Czyta Twój realny fingerprint i szacuje, jak bardzo Cię wyróżnia.",why:"Odczyt realny; bity entropii to stałe literaturowe (poglądowe).",act:"Zawsze mów 'poglądowy (Panopticlick)'."},
+  {id:"persona",label:"Virtual Identity",g:"fp",v:"real",r:12,f:"VirtualIdentity.tsx + bionicBlurCore.ts:156",
+   h:"Selektor person realnie zmienia spoofowany profil, na żywo.",why:"Działa bez reloadu.",act:"ZOSTAW."},
+  /* UI */
+  {id:"float",label:"Floating window",g:"ui",v:"real",r:15,f:"floatingWindow.ts:107,359",
+   h:"Bąbel na stronie (Shadow DOM); karty z rejestru, uczciwe etykiety źródła.",why:"Pokazuje realny model.mode, nie canned text.",act:"Tu dokleić listę 'co odcięto'."},
+  {id:"popup",label:"Popup dashboard",g:"ui",v:"real",r:13,f:"popup.tsx",
+   h:"Panel: toggle, score, persona, panic, radar.",why:"Działa, podłączony do storage.",act:" - "},
+  {id:"panel",label:"Side panel + dashboard",g:"ui",v:"real",r:11,f:"sidepanel.tsx / tabs/dashboard.tsx",
+   h:"Pełny widok analizy bieżącej strony, live.",why:"Update na storage.onChanged.",act:" - "},
+  {id:"reg",label:"featureRegistry + karty",g:"ui",v:"real",r:11,f:"featureRegistry.ts / aiProfilingDetector.ts",
+   h:"Rejestr → karty 'AI Profiling Detector' i 'Co to za strona'.",why:"Realne, konsumują werdykt.",act:"Dodać evidence snippet."},
+  {id:"panic",label:"Panic wipe",g:"ui",v:"core",r:12,f:"background.ts:251",
+   h:"Jednym kliknięciem czyści cookies/cache/IndexedDB/localStorage.",why:"Realne browsingData.remove.",act:"UWYPUKLIĆ."},
+  /* slop */
+  {id:"pscore",label:"Privacy Score",g:"slop",v:"fake",r:15,f:"popup.tsx:72-92 + dashboard.tsx:68-83 (duplikat)",
+   h:"Liczba 0-100 udająca 'poziom ochrony'.",why:"+9/moduł, start ~50 za same toggle, a klik 'Testuj Honeypot' ją podbija. Nic nie mierzy.",act:"RENAME→'Active defenses 6/6' albo realny licznik beaconów."},
+  {id:"ghost",label:"DataGhost (szum)",g:"slop",v:"weak",r:13,f:"background.ts:404-463",
+   h:"Wysyła fałszywe zapytania-wabiki do neutralnych haseł.",why:"no-cors + credentials:omit → ZERO wpływu na profil (kod sam to przyznaje).",act:"Nie mów 'anonimizacja/zatruwamy profil'. Demote OFF."},
+  {id:"honey",label:"Honeypot poison",g:"slop",v:"weak",r:13,f:"honeypot.ts:223-253",
+   h:"Nadpisuje ID trackera 'absurdalnymi personami' w query-params.",why:"GA4/Meta-CAPI/TikTok ślą ID w body/cookie → realne ID i tak leci. Persony = teatr.",act:"DEMO-flavour only, nie twardy mechanizm."},
+  {id:"behav",label:"Maskowanie biometrii",g:"slop",v:"weak",r:13,f:"bionicBlurCore.ts:351-362",
+   h:"Rzekomo myli keystroke-dynamics i ruch myszy.",why:"floor(t/32) → delty MIĘDZY zdarzeniami zachowane → sygnatura klawiatury NIETKNIĘTA. Mysz: ±3px statycznie.",act:"Realny per-event jitter (≥100ms) albo nie obiecuj."},
+  {id:"alias",label:"Email alias (offline)",g:"slop",v:"weak",r:12,f:"emailAlias.ts:96-113",
+   h:"Generuje adresy typu cloak-x@dagger.privacy.",why:"Niedostarczalne TLD  -  adres NIE odbiera poczty.",act:"Oznacz 'decoy' lub podłącz realny SimpleLogin z pola UI."},
+  {id:"entropy",label:"Entropy Drop (przed/po)",g:"slop",v:"broken",r:13,f:"ShadowAudit.tsx @ dashboard.tsx:344",
+   h:"Zielony słupek 'o ile spada Twoja unikalność po masce'.",why:"<ShadowAudit/> montowany BEZ propsów → zawsze 'auto' → słupek NIGDY się nie renderuje.",act:"Przekaż profileId/customBucket albo ukryj sekcję."},
+  /* kill */
+  {id:"token",label:"HARDKODOWANY TOKEN",g:"kill",v:"fake",r:16,f:"background.ts:1003 + hist.396bbb7 + build/llm-*",
+   h:"Żywy token API SimpleLogin w plaintext.",why:"W źródle, w historii git ORAZ w cache buildu. Sprzeczne z 'privacy-by-design'. Jury to wyłapie.",act:"REWOKUJ → usuń linię → purge historii → wyczyść build/."},
+  {id:"deadai",label:"runModel+localLlm+localNli",g:"kill",v:"dead",r:15,f:"src/shared/aiDeepDive/*  (~729 linii)",
+   h:"Druga, nieużywana kopia logiki AI z offscreen.js.",why:"Zero importów w runtime; sugeruje (fałszywie) inferencję w content-script.",act:"SKASOWAĆ (~729 linii). Zostaw tylko gate.ts."},
+  {id:"deadstore",label:"storage.ts  -  martwe API",g:"kill",v:"dead",r:13,f:"storage.ts:109-285 (~177 linii)",
+   h:"panic/settings/state/log API.",why:"Zero importów; żywa apka używa raw chrome.storage.local; ten panicButton() to NIE ten, co działa.",act:"SKASOWAĆ (~177 linii) lub podłączyć."},
+  {id:"buildjunk",label:"build/llm-*-profile",g:"kill",v:"dead",r:12,f:"build/llm-*-profile/**",
+   h:"Profile przeglądarki zacommitowane do repo.",why:"Bloat + nośnik tokenu w cache.",act:"Usuń + .gitignore."},
+  {id:"preview",label:"preview.html (mock)",g:"kill",v:"cut",r:11,f:"demo/cloak-and-dagger-preview.html",
+   h:"Statyczny mockup popupu z NOISE=128/TRACKERS=37 na sztywno.",why:"To nie jest żywa apka.",act:"NIGDY nie pokazuj jako 'żywy popup'."},
+  {id:"dbg",label:"debugger permission",g:"kill",v:"risk",r:12,f:"package.json (debugger) / debuggerTextExtraction.ts",
+   h:"Pozwala czytać tekst stron chrome:/file: przez DevTools protocol.",why:"Żółty banner 'rozpoczęto debugowanie' = maks. nieufność; wartość Kat.3 znikoma.",act:"USUŃ na demo; nie otwieraj chrome://."}
+ ],
+ links:[
+  ["score","offscreen","flow"],["score","blackout","flow"],["blackout","strip"],
+  ["guard","score"],["float","score","flow"],["float","reg"],["reg","popup"],
+  ["popup","pscore"],["popup","panic"],["popup","persona"],["persona","bionicFp"],
+  ["shadow","entropy"],["bionicFp","shadow"],["panel","float"],["offscreen","deadai"],
+  ["token","alias"],["ghost","pscore"],["honey","pscore"]
+ ]
+};
+
+/* =======================================================================
+   PRAWA  -  CO POKAZAĆ JURY (skupiony rdzeń)
+   ======================================================================= */
+const R={
+ groups:{
+  flag:{label:"FLAGSHIP  -  to jest całe demo",color:"teal",hot:true,hotLabel:"★ POKAZUJESZ TO"},
+  anon:{label:"Anonimizacja (uczciwie ograniczona)",color:"green"},
+  trans:{label:"Transparentność / dowód",color:"violet",hot:true,hotLabel:"WYJAŚNIALNOŚĆ = punkty"},
+  ctrl:{label:"Kontrola użytkownika",color:"green"},
+  cut:{label:"Spalone / zdemotowane (NIE mów)",color:"grey",hot:true,hotLabel:"✕ NIE NA SLAJDZIE"}
+ },
+ nodes:[
+  {id:"ai",label:"Local AI (heur+NLI)",g:"flag",v:"core",r:23,f:"score.ts + offscreen.js",
+   h:"Lokalny werdykt: czy strona dotyka wrażliwego tematu (zdrowie/długi/prawo).",why:"Rdzeń, on-device, działa od razu (heurystyka).",act:"ZOSTAW jako serce produktu."},
+  {id:"ev",label:"Evidence engine",g:"flag",v:"build",r:19,f:"+ aiProfilingDetector / score.ts:collectEvidenceTags",
+   h:"Pokazuje KTÓRY fragment tekstu podbił ryzyko (nie tylko tag).",why:"DOBUDOWAĆ  -  to zamienia 'liczbę' w dowód.",act:"Przekaż dopasowany term do karty (~30 linii)."},
+  {id:"router",label:"Risk router → escalate",g:"flag",v:"core",r:16,f:"handleRiskResult.ts:76",
+   h:"High/critical → odpalenie blackoutu trackerów.",why:"Istnieje, działa.",act:"ZOSTAW."},
+  {id:"shield",label:"Targeting Shield",g:"flag",v:"core",r:20,f:"targetingShield.ts:102,119",
+   h:"Strip atrybucji (zawsze) + blackout hostów na originie.",why:"Real, default-on, produkcyjny.",act:"GŁÓWNY dowód demo."},
+  {id:"cut2",label:'„Odcięto N hostów tutaj"',g:"flag",v:"build",r:14,f:"+ floatingWindow (czyt. cnd:targeting:blocked-origins)",
+   h:"Lista realnie zablokowanych hostów dla tej strony.",why:"DOBUDOWAĆ  -  'odcięliśmy DoubleClick/GA/FB tutaj' bije każdy licznik.",act:"Karta w panelu + LOG_EVENT z listą."},
+
+  {id:"bionic",label:"Bionic Blur (fingerprint)",g:"anon",v:"keep",r:15,f:"bionic-blur-main.ts",
+   h:"Maskuje fingerprint spójną personą.",why:"Real (częściowe).",act:"Mów 'częściowe'; ew. spatchuj toDataURL."},
+  {id:"cookie",label:"Cookie Shredder",g:"anon",v:"keep",r:15,f:"cookieShredder.ts",
+   h:"Rotacja ciasteczek trackerów cross-visit.",why:"Real, default-on.",act:"ZOSTAW."},
+
+  {id:"shadow",label:"Shadow Audit (before/after)",g:"trans",v:"keep",r:16,f:"shadowAudit.ts (+ napraw Entropy Drop)",
+   h:"Pokazuje cień cyfrowy przed → po masce.",why:"Odczyt real; słupek 'po' zepsuty (propsy).",act:"Napraw mount albo pokaż tylko 'przed'."},
+  {id:"float",label:"Floating window (dowód)",g:"trans",v:"keep",r:16,f:"floatingWindow.ts",
+   h:"Werdykt + dowód + akcja na stronie.",why:"Powierzchnia produktu.",act:"Tu ląduje evidence + lista hostów."},
+  {id:"guard",label:"Sensitive-page guard",g:"trans",v:"repair",r:12,f:"sensitivePageGuard.ts",
+   h:"Brama: nie skanuj bank/gov/mail.",why:"Istnieje, ale niepodłączona do auto-skanera.",act:"PODPIĄĆ pod auto-skaner (kasuje privacy-paradox)."},
+
+  {id:"panic",label:"Panic wipe",g:"ctrl",v:"keep",r:13,f:"background.ts:251",
+   h:"Czyszczenie danych jednym kliknięciem.",why:"Real.",act:"ZOSTAW."},
+  {id:"toggle",label:"Module toggles + persona",g:"ctrl",v:"keep",r:13,f:"popup.tsx / VirtualIdentity.tsx",
+   h:"Pełna kontrola ON/OFF + wybór persony.",why:"Real.",act:"ZOSTAW."},
+  {id:"alias",label:"Email alias (naprawiony)",g:"ctrl",v:"repair",r:12,f:"emailAlias.ts",
+   h:"Realny SimpleLogin z pola UI; offline oznaczony jako decoy.",why:"Naprawa.",act:"Pole na token zamiast hardcode."},
+
+  {id:"ghost",label:"DataGhost → OFF",g:"cut",v:"cut",r:12,f:"background.ts:404",h:"Szum-wabik.",why:"Zero wpływu na profil.",act:"Default OFF, poza narracją."},
+  {id:"honey",label:"Honeypot → 'flavour'",g:"cut",v:"cut",r:12,f:"honeypot.ts",h:"Zatruwanie query-params.",why:"Realne ID leci body/cookie.",act:"Nie mów 'łamiemy profile'."},
+  {id:"pscore",label:"Privacy Score → ukryj/rename",g:"cut",v:"cut",r:12,f:"popup.tsx:72",h:"Fałszywa metryka.",why:"Nic nie mierzy.",act:"'Active defenses 6/6' lub usuń liczbę."},
+  {id:"behav",label:"Keystroke masking → wytnij claim",g:"cut",v:"cut",r:11,f:"bionicBlurCore.ts:351",h:"Rzekoma biometria.",why:"Delty zachowane.",act:"Nie obiecuj."},
+  {id:"deadcode",label:"Martwy kod → skasuj (~900 linii)",g:"cut",v:"cut",r:13,f:"runModel/localLlm/localNli + storage.ts:109",h:"Duplikaty/martwe API.",why:"Bloat, mylące.",act:"Usuń ~900 linii po tsc."},
+  {id:"token",label:"Token → REWOKUJ+usuń",g:"cut",v:"cut",r:12,f:"background.ts:1003",h:"Sekret w repo.",why:"Krytyczne.",act:"Rewokuj, usuń, purge."}
+ ],
+ links:[
+  ["guard","ai","flow"],["ai","ev","flow"],["ai","router","flow"],["router","shield","flow"],
+  ["shield","cut2","flow"],["ev","float","flow"],["cut2","float"],["shadow","float"],
+  ["toggle","ai"],["toggle","bionic"],["toggle","cookie"],["ai","float","flow"]
+ ]
+};
+
+/* ---------- scorecards (liczone z danych) ---------- */
+function count(nodes,pred){return nodes.filter(pred).length}
+const scL=d3.select("#scL");
+scL.append("span").attr("class","big").text("DZIŚ: 30 modułów · 60/60 testów ✓ · build ✓");
+[["#3DD4A0",count(L.nodes,n=>["core","real"].includes(n.v))+" działa"],
+ ["#7FB3D5",count(L.nodes,n=>n.v==="partial")+" częściowe"],
+ ["#E6B450",count(L.nodes,n=>n.v==="weak")+" SLOP/teatr"],
+ ["#FF5C77",count(L.nodes,n=>["fake","dead","broken"].includes(n.v))+" fake/martwe"],
+ ["#FF5C77","~900 linii do skasowania"],
+ ["#FF5C77","1 token do REWOKACJI"]
+].forEach(([c,t])=>scL.append("span").attr("class","chip").style("color",c).text(t));
+
+const scR=d3.select("#scR");
+[["#5b6670",count(R.nodes,n=>n.v==="cut")+" SPALONE"],
+ ["#E6B450",count(R.nodes,n=>n.v==="repair")+" NAPRAW"],
+ ["#9A8CFF",count(R.nodes,n=>n.v==="build")+" DOBUDUJ"],
+ ["#3DD4A0",count(R.nodes,n=>["keep","core"].includes(n.v))+" ZOSTAW"]
+].forEach(([c,t])=>scR.append("span").attr("class","chip").style("color",c).text(t));
+scR.append("span").attr("class","big").text("DEMO: AI → dowód → blackout · 1 flow, zero ściemy");
+
+/* =======================================================================
+   RENDER FORCE GRAPH
+   ======================================================================= */
+const tip=d3.select("#tip"); const W=820,H=1000;
+let SHOW_LINKS=false,SHOW_HULLS=true,SHOW_LABELS=true;
+
+function anchors(groups){const k=Object.keys(groups),a={},cols=2,rows=Math.ceil(k.length/cols);
+  k.forEach((g,i)=>{a[g]={x:((i%cols)+0.5)/cols*W,y:(Math.floor(i/cols)+0.5)/rows*H};});return a;}
+
+function build(sel,data){
+  const svg=d3.select(sel),root=svg.append("g");
+  svg.call(d3.zoom().scaleExtent([0.35,3]).on("zoom",e=>root.attr("transform",e.transform)));
+  const gHull=root.append("g"),gHot=root.append("g"),gLink=root.append("g"),gNode=root.append("g");
+  const A=anchors(data.groups);
+  const nodes=data.nodes.map(d=>Object.assign({},d,{x:A[d.g].x+(Math.random()-.5)*150,y:A[d.g].y+(Math.random()-.5)*150}));
+  const idmap=new Map(nodes.map(d=>[d.id,d]));
+  const links=data.links.map(l=>({source:idmap.get(l[0]),target:idmap.get(l[1]),flow:l[2]==="flow"})).filter(l=>l.source&&l.target);
+
+  const sim=d3.forceSimulation(nodes)
+    .force("link",d3.forceLink(links).distance(l=>l.source.g===l.target.g?78:150).strength(.22))
+    .force("charge",d3.forceManyBody().strength(-460))
+    .force("x",d3.forceX(d=>A[d.g].x).strength(.17))
+    .force("y",d3.forceY(d=>A[d.g].y).strength(.17))
+    .force("collide",d3.forceCollide(d=>d.r+50))
+    .alpha(1).alphaDecay(.026);
+
+  const link=gLink.selectAll("line").data(links).join("line")
+    .attr("class",d=>"link"+(d.flow?" flow":"")).attr("stroke",d=>d.flow?"#2BD4C4":"#3a4a57")
+    .attr("stroke-width",d=>d.flow?1.6:1).style("display",SHOW_LINKS?null:"none");
+
+  const node=gNode.selectAll("g.node").data(nodes).join("g")
+    .attr("class",d=>"node"+(d.v==="cut"?" cut":""))
+    .call(d3.drag()
+      .on("start",(e,d)=>{if(!e.active)sim.alphaTarget(.25).restart();d.fx=d.x;d.fy=d.y;})
+      .on("drag",(e,d)=>{d.fx=e.x;d.fy=e.y;})
+      .on("end",e=>{if(!e.active)sim.alphaTarget(0);}));
+
+  node.append("circle").attr("r",d=>d.r)
+    .attr("fill",d=>d.v==="cut"?"#0f141a":d3.color(V[d.v].c).copy({opacity:.17}))
+    .attr("stroke",d=>V[d.v].c)
+    .attr("stroke-width",d=>["core"].includes(d.v)?2.6:1.6)
+    .style("filter",d=>["core","fake","dead","broken"].includes(d.v)?`drop-shadow(0 0 9px ${d3.color(V[d.v].c).copy({opacity:.6})})`:null);
+
+  // verdict pill above node
+  const pill=node.append("g").attr("class","vpill");
+  pill.append("rect").attr("height",13).attr("y",d=>-d.r-22)
+    .attr("fill",d=>d3.color(V[d.v].c).copy({opacity:.18})).attr("stroke",d=>V[d.v].c).attr("stroke-width",.8);
+  pill.append("text").attr("y",d=>-d.r-12).attr("text-anchor","middle").attr("fill",d=>V[d.v].c).text(d=>V[d.v].lab);
+  pill.each(function(d){const t=d3.select(this).select("text").node();const w=t.getComputedTextLength()+12;
+    d3.select(this).select("rect").attr("width",w).attr("x",-w/2).attr("rx",4);});
+
+  node.append("text").attr("class","nm").attr("y",d=>d.r+13).attr("text-anchor","middle").text(d=>d.label);
+  node.append("text").attr("class","fl").attr("y",d=>d.r+25).attr("text-anchor","middle").text(d=>d.f);
+
+  node.on("mousemove",(e,d)=>{const col=V[d.v];
+    tip.html(`<div class="t-h"><span class="dot" style="background:${col.c}"></span><b>${d.label}</b>
+      <span class="pill" style="color:${col.c}">${col.lab}</span></div>
+      <div class="sec"><span class="k">Co to jest (po ludzku)</span>${d.h}</div>
+      <div class="sec"><span class="k">Werdykt / dowód</span>${d.why}</div>
+      <div class="sec"><span class="k">Co zrobić</span>${d.act}</div>
+      <div class="sec"><span class="k">Plik</span><code>${d.f}</code></div>`)
+      .style("left",Math.min(e.clientX+16,innerWidth-380)+"px").style("top",Math.min(e.clientY+14,innerHeight-260)+"px").style("opacity",1);
+    d3.select(e.currentTarget).select("circle").attr("stroke-width",3.4);
+    const nb=new Set([d.id]);links.forEach(l=>{if(l.source.id===d.id)nb.add(l.target.id);if(l.target.id===d.id)nb.add(l.source.id);});
+    node.classed("dim",x=>!nb.has(x.id));
+  }).on("mouseleave",(e,d)=>{tip.style("opacity",0);
+    d3.select(e.currentTarget).select("circle").attr("stroke-width",d.v==="core"?2.6:1.6);node.classed("dim",false);});
+
+  const gk=Object.keys(data.groups);
+  const hull=gHull.selectAll("path").data(gk).join("path").attr("class","hull");
+  const hullL=gHull.selectAll("text").data(gk).join("text").attr("class","hull-label");
+  const hot=gk.filter(k=>data.groups[k].hot);
+  const ring=gHot.selectAll("circle").data(hot).join("circle").attr("class","hotring");
+  const ringL=gHot.selectAll("text").data(hot).join("text").attr("class","hotbadge");
+
+  const lineGen=d3.line().curve(d3.curveCatmullRomClosed.alpha(.6));
+  const meta=k=>{const p=nodes.filter(n=>n.g===k);const cx=d3.mean(p,d=>d.x),cy=d3.mean(p,d=>d.y);
+    const rad=d3.max(p,d=>Math.hypot(d.x-cx,d.y-cy)+d.r)+44;return{p,cx,cy,rad};};
+  const pad=(pts,p)=>{const cx=d3.mean(pts,d=>d[0]),cy=d3.mean(pts,d=>d[1]);
+    return pts.map(([x,y])=>{const dx=x-cx,dy=y-cy,l=Math.hypot(dx,dy)||1;return[x+dx/l*p,y+dy/l*p];});};
+
+  sim.on("tick",()=>{
+    link.attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
+    node.attr("transform",d=>`translate(${d.x},${d.y})`);
+    hull.attr("d",k=>{if(!SHOW_HULLS)return null;const {p,cx,cy,rad}=meta(k);
+      if(p.length<3)return `M ${cx-rad},${cy} a ${rad},${rad} 0 1,0 ${rad*2},0 a ${rad},${rad} 0 1,0 ${-rad*2},0`;
+      return lineGen(pad(d3.polygonHull(p.map(d=>[d.x,d.y])),46));})
+      .attr("stroke",k=>GROUPC[data.groups[k].color]).attr("fill",k=>GROUPC[data.groups[k].color])
+      .style("display",SHOW_HULLS?null:"none");
+    hullL.attr("transform",k=>{const m=meta(k);return `translate(${m.cx},${m.cy-m.rad-8})`;})
+      .attr("text-anchor","middle").text(k=>data.groups[k].label).style("display",SHOW_HULLS?null:"none");
+    ring.attr("cx",k=>meta(k).cx).attr("cy",k=>meta(k).cy).attr("r",k=>meta(k).rad+12).attr("stroke",k=>GROUPC[data.groups[k].color]);
+    ringL.attr("x",k=>meta(k).cx).attr("y",k=>meta(k).cy-meta(k).rad-24).attr("text-anchor","middle")
+      .attr("fill",k=>GROUPC[data.groups[k].color]).text(k=>data.groups[k].hotLabel);
+  });
+
+  (function pulse(){ring.transition().duration(1300).ease(d3.easeSinInOut).attr("stroke-opacity",.22)
+    .transition().duration(1300).ease(d3.easeSinInOut).attr("stroke-opacity",.95).on("end",pulse);})();
+
+  return {sim,redraw(){link.style("display",SHOW_LINKS?null:"none");
+    node.selectAll(".fl").style("display",SHOW_LABELS?null:"none");
+    node.selectAll(".vpill").style("display",SHOW_LABELS?null:"none");
+    hull.style("display",SHOW_HULLS?null:"none");hullL.style("display",SHOW_HULLS?null:"none");
+    sim.alpha(.3).restart();}};
+}
+
+const gL=build("#svgL",L),gR=build("#svgR",R);
+d3.select("#btnLinks").on("click",function(){SHOW_LINKS=!SHOW_LINKS;d3.select(this).classed("on",SHOW_LINKS);gL.redraw();gR.redraw();});
+d3.select("#btnHulls").on("click",function(){SHOW_HULLS=!SHOW_HULLS;d3.select(this).classed("on",SHOW_HULLS);gL.redraw();gR.redraw();});
+d3.select("#btnLabels").on("click",function(){SHOW_LABELS=!SHOW_LABELS;d3.select(this).classed("on",SHOW_LABELS);gL.redraw();gR.redraw();});
+let frozen=false;
+d3.select("#btnFreeze").on("click",function(){frozen=!frozen;d3.select(this).classed("on",frozen);
+  if(frozen){gL.sim.stop();gR.sim.stop();this.textContent="Wznów";}else{gL.sim.alpha(.4).restart();gR.sim.alpha(.4).restart();this.textContent="Zamroź";}});
+d3.select("#btnReheat").on("click",()=>[gL,gR].forEach(g=>{g.sim.nodes().forEach(n=>{n.fx=null;n.fy=null;});g.sim.alpha(1).restart();}));
+</script>
+</body>
+</html>

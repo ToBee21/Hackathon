@@ -1,5 +1,5 @@
 // src/content/floatingWindow.ts
-// The contextual floating layer — the product's main on-page surface.
+// The contextual floating layer  -  the product's main on-page surface.
 //
 // Design choices (honest):
 //  - OPEN Shadow DOM host. Open (not closed) so Playwright can pierce it for
@@ -24,7 +24,6 @@ import {
 import {
   buildLlmInsightFromRiskResult,
   formatVerdictLabel,
-  parseLlmInsightJson,
   type LlmInsightSignal,
   type LlmInsightView
 } from "../shared/aiDeepDive/llmView"
@@ -63,12 +62,8 @@ interface LlmOutputState {
   device: string
   dtype: string
   elapsedMs: number | null
-  streamText: string
-  jsonText: string
   insight: LlmInsightView | null
-  rawExcerpt: string
   error: string
-  receivedChars: number
 }
 
 type RuntimeStatusRecord = Partial<DeepScanRuntimeStatus> &
@@ -285,7 +280,7 @@ function buildBubble(): HTMLElement {
   bubble.setAttribute("tabindex", "0")
   bubble.setAttribute(
     "aria-label",
-    `Cloak & Dagger — ${lastRisk ? `ryzyko ${lastRisk.score}` : "otwórz panel"}`
+    `Cloak & Dagger  -  ${lastRisk ? `ryzyko ${lastRisk.score}` : "otwórz panel"}`
   )
   bubble.textContent = lastRisk ? String(lastRisk.score) : "CD"
   const open = () => {
@@ -320,7 +315,7 @@ function buildPanel(): HTMLElement {
       <span class="ttl">Cloak &amp; Dagger</span><br/>
       <span class="sub">${escapeHtml(page ? describePage(page) : "skanuję…")}</span>
     </span>`
-  const minBtn = iconButton("–", "Minimalizuj", () => {
+  const minBtn = iconButton("-", "Minimalizuj", () => {
     state.collapsed = true
     void saveState()
     render()
@@ -547,11 +542,7 @@ function buildLlmLoadingView(): HTMLElement {
   wrap.className = "llminsight"
   const msg = document.createElement("div")
   msg.className = "llmloading"
-  const chars =
-    llmOutputState.receivedChars > 0
-      ? ` Odebrano ${llmOutputState.receivedChars} znaków odpowiedzi.`
-      : ""
-  msg.textContent = `${loadingMessageForStage(llmOutputState.stage)}${chars}`
+  msg.textContent = loadingMessageForStage(llmOutputState.stage)
   wrap.appendChild(msg)
 
   const steps = document.createElement("div")
@@ -619,9 +610,10 @@ function cardSourceLabel(source: FeatureCard["source"]): string {
   return "łączone"
 }
 
-function modelStatusLine(model: { label: string; approxDownloadMb: number }): string {
+function modelStatusLine(model: { label: string; approxDownloadMb: number; localModelId?: string }): string {
   const verdict = modelModeLabel(lastRisk?.model?.mode)
-  return `Werdykt: ${verdict} · model: ${model.label.split(" (")[0]} (~${model.approxDownloadMb} MB, lokalny)`
+  const placement = model.localModelId ? "w pakiecie" : "lokalny cache"
+  return `Werdykt: ${verdict} · model: ${model.label.split(" (")[0]} (~${model.approxDownloadMb} MB, ${placement})`
 }
 
 function modelModeLabel(mode: string | undefined): string {
@@ -694,13 +686,15 @@ function pushAnalysis(): void {
 async function deepScan(): Promise<void> {
   if (!lastConfig.aiModeEnabled) {
     deepScanStatus = "disabled"
-    deepScanMessage = "Model wyłączony — włącz AI Deep-Dive w popupie."
+    deepScanMessage = "Model wyłączony  -  włącz AI Deep-Dive w popupie."
     render()
     return
   }
   const model = getModelOption(lastConfig.selectedModelId)
   deepScanStatus = "loading"
-  deepScanMessage = `Ładowanie ${model.label.split(" (")[0]} (pierwsze użycie pobiera ~${model.approxDownloadMb} MB)…`
+  deepScanMessage = model.localModelId
+    ? `Ładowanie ${model.label.split(" (")[0]} z pakietu extension (~${model.approxDownloadMb} MB, bez HF)…`
+    : `Ładowanie ${model.label.split(" (")[0]} (pierwsze użycie pobiera ~${model.approxDownloadMb} MB)…`
   resetLlmOutput(model.id)
   render()
 
@@ -773,12 +767,8 @@ function emptyLlmOutputState(): LlmOutputState {
     device: "",
     dtype: "",
     elapsedMs: null,
-    streamText: "",
-    jsonText: "",
     insight: null,
-    rawExcerpt: "",
-    error: "",
-    receivedChars: 0
+    error: ""
   }
 }
 
@@ -808,29 +798,6 @@ function updateLlmOutput(status: RuntimeStatusRecord): void {
         : llmOutputState.elapsedMs
   }
 
-  if (typeof status.streamText === "string") {
-    next.streamText = trimLlmOutput(status.streamText)
-  } else if (typeof status.textDelta === "string") {
-    next.streamText = trimLlmOutput(`${next.streamText}${status.textDelta}`)
-  }
-  if (typeof status.rawText === "string") {
-    next.streamText = trimLlmOutput(status.rawText)
-  }
-  if (typeof status.jsonText === "string") {
-    next.jsonText = status.jsonText
-  }
-  next.receivedChars = Math.max(
-    llmOutputState.receivedChars,
-    next.streamText.length,
-    next.jsonText.length
-  )
-  next.insight =
-    parseLlmInsightJson(next.jsonText) ??
-    parseLlmInsightJson(next.streamText) ??
-    next.insight
-  if (typeof status.rawExcerpt === "string") {
-    next.rawExcerpt = status.rawExcerpt
-  }
   if (stage === "failed" || stage === "infer:error") {
     next.error = runtimeErrorMessage(status)
   }
@@ -844,12 +811,6 @@ function shouldTrackLlmOutput(status: RuntimeStatusRecord): boolean {
   if (selected && getModelOption(selected).task === "text-generation") return true
   const modelId = String(status.modelId ?? "")
   return /granite|gemma|llm/i.test(modelId)
-}
-
-function trimLlmOutput(text: string): string {
-  const maxChars = 6000
-  if (text.length <= maxChars) return text
-  return text.slice(text.length - maxChars)
 }
 
 function formatDeepScanRuntimeStatus(status: Record<string, unknown>): string {

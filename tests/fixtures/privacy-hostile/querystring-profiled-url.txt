@@ -1,0 +1,7 @@
+Customer fear: sensitive query strings reveal health, debt, campaign and profiling data.
+Data that could leak: URL query parameters: condition=hiv, debt=true, retargeting metadata.
+Attacker control: link URL, query string and tracking parameters.
+Promise at risk: reports must hash/redact URL details instead of storing raw query data.
+Protection proof: model-output-trust and no-exfiltration security tests.
+
+https://clinic.example.test/article?condition=hiv&debt=true&campaign=utm_source%3Dretargeting

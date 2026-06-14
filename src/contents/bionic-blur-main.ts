@@ -101,7 +101,7 @@ function installBionicBlur(): void {
         type: "BIONIC_BLUR_TELEMETRY",
         payload
       },
-      "*"
+      sameWindowTargetOrigin()
     )
   }
 
@@ -167,6 +167,11 @@ function installBionicBlur(): void {
       })
     )
   }
+}
+
+function sameWindowTargetOrigin(): string {
+  const origin = window.location.origin
+  return origin && origin !== "null" ? origin : "/"
 }
 
 function patchEventListeners(
@@ -497,8 +502,8 @@ function uaPlatformForProfile(platform: string): string {
  * Build a User-Agent that is CONSISTENT with the spoofed profile's OS. We keep
  * the browser's REAL Chrome version (so we never invent a browser that doesn't
  * exist) and only swap the OS token, so navigator.userAgent, navigator.platform
- * and the WebGL renderer all agree. An inconsistent UA — e.g. an Apple GPU under
- * a Windows UA — is itself a high-entropy "spoofing detected" signal that
+ * and the WebGL renderer all agree. An inconsistent UA  -  e.g. an Apple GPU under
+ * a Windows UA  -  is itself a high-entropy "spoofing detected" signal that
  * fingerprinters use to flag and even reverse spoofing, so internal consistency
  * matters more than the specific values we present.
  */
@@ -521,7 +526,7 @@ function patchNavigator(
   const proto = Navigator.prototype as Navigator & Record<string, unknown>
 
   // Capture the REAL values BEFORE redefining the getters. The disabled-path
-  // fallback must return these captured primitives — reading navigator.* inside
+  // fallback must return these captured primitives  -  reading navigator.* inside
   // the getter would re-enter the same accessor and recurse infinitely.
   const real = {
     platform: navigator.platform,

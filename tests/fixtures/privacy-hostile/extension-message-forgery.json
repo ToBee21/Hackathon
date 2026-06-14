@@ -1,0 +1,17 @@
+{
+  "Customer fear:": "A forged extension/offscreen message injects raw model output or fake local-only metadata.",
+  "Data that could leak:": "rawText, jsonText, rawExcerpt, stack traces, fake model locality claims",
+  "Attacker control:": "message type and payload fields sent across extension trust boundaries",
+  "Promise at risk:": "CND messages must be exact-schema validated, not accepted by prefix or trust.",
+  "Protection proof:": "message-boundary, model-output-trust and log-redaction security tests.",
+  "payload": {
+    "type": "CND_OFFSCREEN_LOG",
+    "entry": {
+      "level": "info",
+      "stage": "generated",
+      "rawText": "private model output",
+      "jsonText": "{\"secret\":true}",
+      "model": { "mode": "remote", "localOnly": false }
+    }
+  }
+}

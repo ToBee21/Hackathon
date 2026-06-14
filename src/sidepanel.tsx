@@ -5,7 +5,7 @@
 // the service worker) for the active tab.
 //
 // Why heavier workflows live here and not in the page overlay: this is a
-// chrome-extension:// surface the host page cannot read — the right place for
+// chrome-extension:// surface the host page cannot read  -  the right place for
 // confidential rendering, unlike the in-page Shadow DOM bubble.
 
 import { useEffect, useState, type CSSProperties } from "react"
@@ -115,7 +115,9 @@ export default function SidePanel() {
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
           <span style={{ color: "#9AA4B2" }}>Rozmiar / licencja</span>
-          <span style={{ color: "#6b7a85" }}>~{model.approxDownloadMb} MB · {model.license}</span>
+          <span style={{ color: "#6b7a85" }}>
+            ~{model.approxDownloadMb} MB · {model.localModelId ? "pakiet extension" : model.license}
+          </span>
         </div>
         <div style={{ marginTop: 6, fontSize: 10, color: "#2BD4C4" }}>
           local-first · cloud disabled · dane nie opuszczają urządzenia

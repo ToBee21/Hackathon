@@ -1,9 +1,9 @@
 // src/shared/honeypot.ts
-// Moduł D+: "The Honeypot Trap" — Zatruwanie Profilera (Data Poisoning).
+// Moduł D+: "The Honeypot Trap"  -  Zatruwanie Profilera (Data Poisoning).
 //
 // Aktywna obrona prywatności: zamiast tylko blokować trackery, przechwytujemy
 // ich żądania W LOCIE i nadpisujemy parametry profilujące absurdalnym,
-// wewnętrznie sprzecznym szumem. Profiler dostaje dane — tyle że bezwartościowe
+// wewnętrznie sprzecznym szumem. Profiler dostaje dane  -  tyle że bezwartościowe
 // i niszczące jakość zbudowanego profilu reklamowego.
 //
 // ── Architektura (Manifest V3, niezawodna dla środowiska dev/hackathon) ──
@@ -43,7 +43,7 @@ const STORAGE_KEY_STATE = "cnd:state"
 /**
  * Długość losowego ID sesji wstrzykiwanego jako szum profilowy.
  * Wystarczająco duża, by zaśmiecić pole identyfikatora i rozbić korelację
- * profilu — celowo NIE rozdmuchana do rozmiarów mających uszkodzić serwer.
+ * profilu  -  celowo NIE rozdmuchana do rozmiarów mających uszkodzić serwer.
  */
 const POISON_ID_LENGTH = 768
 
@@ -99,10 +99,10 @@ const RULE_TO_TRACKER = new Map<number, TrackerSignature>()
 const RULE_TO_POISON_DESC = new Map<number, string>()
 
 // ---------------------------------------------------------------------------
-// Poison Payload Generator — "absurdalne tożsamości dezinformacyjne"
+// Poison Payload Generator  -  "absurdalne tożsamości dezinformacyjne"
 // ---------------------------------------------------------------------------
 
-// Sprzeczne geolokalizacje vs strefy czasowe vs języki — kombinacja, która
+// Sprzeczne geolokalizacje vs strefy czasowe vs języki  -  kombinacja, która
 // nie może opisywać realnego człowieka i psuje segmentację geo/językową.
 const GEO_CODES = ["PL", "JP", "BR", "NG", "IS", "NZ", "MN", "BO", "FJ"]
 const TIMEZONES = [
@@ -115,7 +115,7 @@ const TIMEZONES = [
 ]
 const LANGS = ["sw", "is", "mi", "cy", "haw", "yo", "qu", "bo"]
 
-// Sprzeczne dane demograficzne i zainteresowania — np. 90-latek polujący na
+// Sprzeczne dane demograficzne i zainteresowania  -  np. 90-latek polujący na
 // niszowy sprzęt rolniczy wymieszany z luksusowymi jachtami.
 const AGES = [7, 9, 13, 17, 88, 90, 103, 117]
 const PERSONAS: string[] = [
@@ -183,7 +183,7 @@ function generatePoison(tracker: TrackerSignature): HoneypotPoison {
     params[key] = poisonId
   }
 
-  // 2) Sprzeczne sygnały geo/czas/język — niszczą segmentację lokalizacyjną.
+  // 2) Sprzeczne sygnały geo/czas/język  -  niszczą segmentację lokalizacyjną.
   params["geo"] = geo
   params["country"] = geo
   params["tz"] = tz
@@ -196,7 +196,7 @@ function generatePoison(tracker: TrackerSignature): HoneypotPoison {
   params["interests"] = `${interestA},${interestB}`
   params["persona"] = persona
 
-  // 4) Dodatkowe śmieci o losowych kluczach — utrudniają filtrowanie po stronie
+  // 4) Dodatkowe śmieci o losowych kluczach  -  utrudniają filtrowanie po stronie
   //    profilera (nie zna z góry naszych pól).
   params[`x_${generatePoisonId(6)}`] = generatePoisonId(24)
 
@@ -210,7 +210,7 @@ function generatePoison(tracker: TrackerSignature): HoneypotPoison {
 }
 
 // ---------------------------------------------------------------------------
-// Reguły DNR — budowa i instalacja
+// Reguły DNR  -  budowa i instalacja
 // ---------------------------------------------------------------------------
 
 function poisonToParamList(
@@ -269,18 +269,18 @@ async function installRules(enabled: boolean): Promise<void> {
 
     const rules = buildRules()
     await chrome.declarativeNetRequest.updateDynamicRules({
-      // Usuń poprzednią generację zanim dodasz nową — idempotentne odświeżanie.
+      // Usuń poprzednią generację zanim dodasz nową  -  idempotentne odświeżanie.
       removeRuleIds: allRuleIds(),
       addRules: rules,
     })
   } catch {
     // DNR może odmówić (np. limit reguł). Honeypot jest warstwą obronną,
-    // nie twardą zależnością — nie wywracamy service workera.
+    // nie twardą zależnością  -  nie wywracamy service workera.
   }
 }
 
 // ---------------------------------------------------------------------------
-// Mostek do dashboardu (Moduł C) — "mocne logi dla jury"
+// Mostek do dashboardu (Moduł C)  -  "mocne logi dla jury"
 // ---------------------------------------------------------------------------
 
 function sendRuntimeMessage(message: unknown): void {
@@ -290,12 +290,12 @@ function sendRuntimeMessage(message: unknown): void {
       ;(res as Promise<unknown>).catch(() => undefined)
     }
   } catch {
-    // Popup bywa zamknięty — wiadomości są best-effort.
+    // Popup bywa zamknięty  -  wiadomości są best-effort.
   }
 }
 
 /**
- * Zgłasza udane zatrucie: wysyła trzy wiadomości naraz —
+ * Zgłasza udane zatrucie: wysyła trzy wiadomości naraz  -
  *  1. HONEYPOT_ATTACK (kontrakt z wytycznych, dla dedykowanego nasłuchu),
  *  2. LOG_EVENT (pojawia się w istniejącym Real-time Loggerze, source "honeypot"),
  *  3. STATE_UPDATE (podbija licznik "Trackery zmylone" w dashboardzie).
@@ -357,7 +357,7 @@ async function bumpPoisonedCount(delta: number): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// onRuleMatchedDebug — źródło zdarzeń logujących (dev / unpacked)
+// onRuleMatchedDebug  -  źródło zdarzeń logujących (dev / unpacked)
 // ---------------------------------------------------------------------------
 
 function attachMatchListener(): void {
@@ -385,31 +385,27 @@ function attachMatchListener(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Self-test — ręczne wyzwolenie ataku na potrzeby demo dla jury
+// Self-test  -  ręczne wyzwolenie ataku na potrzeby demo dla jury
 // ---------------------------------------------------------------------------
 
 /**
- * Wysyła nieszkodliwe żądanie do endpointu GA, by wyzwolić regułę DNR i pokazać
- * pełny przepływ (przechwycenie → zatrucie → log) na żądanie podczas prezentacji.
- * credentials: "omit" — nigdy nie dokładamy własnych ciasteczek do trackera.
+ * Demo-safe self-test: nie dotyka realnego Google Analytics ani żadnego innego
+ * cudzej endpointu. Emituje lokalny syntetyczny dowód przepływu dla jury
+ * (ten sam format logu i liczników), a realne DNR dopasowania są testowane na
+ * kontrolowanych stronach/fixture'ach.
  */
 async function runSelfTest(): Promise<void> {
-  const url =
-    "https://www.google-analytics.com/g/collect?v=2&tid=G-DEMO&cid=demo&en=page_view"
-  try {
-    await fetch(url, {
-      method: "GET",
-      mode: "no-cors",
-      credentials: "omit",
-      cache: "no-store",
-    })
-  } catch {
-    // Żądanie i tak zostaje przechwycone/zatrute przez DNR — błąd sieci jest OK.
-  }
+  const tracker = TRACKERS[0]
+  const poison = generatePoison(tracker)
+  await reportAttack(
+    tracker,
+    "mock://local-honeypot-self-test/google-analytics/g/collect",
+    poison.description
+  )
 }
 
 // ---------------------------------------------------------------------------
-// Listener wiadomości — toggluje moduł i obsługuje demo (osobny od Modułu A)
+// Listener wiadomości  -  toggluje moduł i obsługuje demo (osobny od Modułu A)
 // ---------------------------------------------------------------------------
 
 function attachMessageListener(): void {
@@ -438,13 +434,13 @@ function attachMessageListener(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Inicjalizacja publiczna — wołana z background.ts
+// Inicjalizacja publiczna  -  wołana z background.ts
 // ---------------------------------------------------------------------------
 
 let initialized = false
 
 /**
- * Uruchamia "The Honeypot Trap". Idempotentne — bezpieczne przy wielokrotnym
+ * Uruchamia "The Honeypot Trap". Idempotentne  -  bezpieczne przy wielokrotnym
  * przebudzeniu service workera (MV3 może go ubijać i wskrzeszać).
  */
 export async function initHoneypotTrap(): Promise<void> {

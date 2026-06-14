@@ -90,7 +90,7 @@ async function createSimpleLoginAlias(
  * Generuje losowy alias e-mail offline (nie wymaga API).
  * Format: cloak-<random>@dagger.privacy
  *
- * Nie jest to prawdziwy adres — służy jako placeholder
+ * Nie jest to prawdziwy adres  -  służy jako placeholder
  * lub do wypełniania formularzy fałszywymi danymi.
  */
 function generateOfflineAlias(): EmailAlias {
@@ -116,15 +116,34 @@ function generateOfflineAlias(): EmailAlias {
 
 /** Pobiera listę zapisanych aliasów z zaszyfrowanego storage. */
 export async function getStoredAliases(): Promise<EmailAlias[]> {
+	const encrypted = await loadEncrypted<EmailAlias[]>(STORAGE_KEYS.EMAIL_ALIASES);
+	if (Array.isArray(encrypted)) return encrypted.filter(isEmailAlias);
+
+	// Legacy migration: older builds stored aliases as plaintext under the same
+	// key. Read once, immediately rewrite as AES-GCM payload, then continue.
 	const stored = await chrome.storage.local.get(STORAGE_KEYS.EMAIL_ALIASES);
-	return (stored[STORAGE_KEYS.EMAIL_ALIASES] as EmailAlias[]) ?? [];
+	const legacy = stored[STORAGE_KEYS.EMAIL_ALIASES];
+	if (!Array.isArray(legacy)) return [];
+
+	const aliases = legacy.filter(isEmailAlias);
+	await saveAliases(aliases);
+	return aliases;
 }
 
 /** Zapisuje listę aliasów do storage. */
 async function saveAliases(aliases: EmailAlias[]): Promise<void> {
-	await chrome.storage.local.set({
-		[STORAGE_KEYS.EMAIL_ALIASES]: aliases,
-	});
+	await saveEncrypted(STORAGE_KEYS.EMAIL_ALIASES, aliases.filter(isEmailAlias));
+}
+
+function isEmailAlias(value: unknown): value is EmailAlias {
+	const alias = value as Partial<EmailAlias>
+	return (
+		typeof alias?.id === "string" &&
+		typeof alias.alias === "string" &&
+		typeof alias.createdAt === "number" &&
+		typeof alias.isActive === "boolean" &&
+		(alias.source === "simplelogin" || alias.source === "relay" || alias.source === "offline")
+	);
 }
 
 // ─── API publiczne ──────────────────────────────────────────────────────────
@@ -191,7 +210,7 @@ export async function requestAliasGeneration(): Promise<EmailAlias> {
 
 /**
  * Dezaktywuje alias (oznacza jako nieaktywny w lokalnym storage).
- * W przypadku SimpleLogin — próbuje usunąć via API.
+ * W przypadku SimpleLogin  -  próbuje usunąć via API.
  */
 export async function deleteAlias(aliasId: string): Promise<boolean> {
 	const aliases = await getStoredAliases();
@@ -200,7 +219,7 @@ export async function deleteAlias(aliasId: string): Promise<boolean> {
 
 	const alias = aliases[index];
 
-	// Jeśli alias pochodzi z SimpleLogin — próbuj usunąć przez API
+	// Jeśli alias pochodzi z SimpleLogin  -  próbuj usunąć przez API
 	if (alias.source === "simplelogin") {
 		const tokens = await getApiTokens();
 		if (tokens.simplelogin) {

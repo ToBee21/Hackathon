@@ -13,6 +13,63 @@ const DEFAULT_CONFIG = {
   maxSnippetChars: 2500
 }
 const LLM_MAX_NEW_TOKENS = 180
+const FORBIDDEN_LOG_FIELDS = new Set([
+  "apiKey",
+  "apiToken",
+  "authorization",
+  "body",
+  "headings",
+  "html",
+  "input",
+  "jsonText",
+  "meta",
+  "password",
+  "prompt",
+  "rawExcerpt",
+  "rawText",
+  "secret",
+  "stack",
+  "streamText",
+  "textDelta",
+  "title",
+  "token"
+])
+const SAFE_LOG_STRING_FIELDS = new Set([
+  "level",
+  "stage",
+  "requestId",
+  "modelId",
+  "selectedModelId",
+  "hfModelId",
+  "device",
+  "dtype",
+  "selectedDtype",
+  "fallbackDtype",
+  "task",
+  "status",
+  "file",
+  "failureStage"
+])
+const SAFE_LOG_NUMBER_FIELDS = new Set([
+  "ts",
+  "elapsedMs",
+  "progress",
+  "loaded",
+  "total",
+  "maxNewTokens",
+  "snippetChars",
+  "tokenChars",
+  "outputChars"
+])
+const SAFE_LOG_BOOLEAN_FIELDS = new Set([
+  "cacheHit",
+  "jsonDetected",
+  "webgpuAvailable"
+])
+const SAFE_LOG_STRING_ARRAY_FIELDS = new Set([
+  "candidateDtypes",
+  "attemptedDtypes"
+])
 
 const NLI_LABELS = [
   "mental health content",
@@ -45,6 +102,7 @@ const MODEL_OPTIONS = [
     id: "gemma-4-e2b",
     task: "text-generation",
     modelId: AI_DEEP_DIVE_GEMMA_MODEL_ID,
+    localModelId: "gemma-4-e2b",
     dtypeWebgpu: "q4",
     dtypeWasm: "q4"
   }
@@ -482,17 +540,17 @@ async function classifyWithLocalLlm(input, heuristic, config, model, requestId) 
 
   const runtime = await getGenerator(model, requestId)
   const generate = runtime.generator
-  let streamText = ""
+  let generatedBuffer = ""
   const streamer = createTextStreamer(generate, model, requestId, (text) => {
-    streamText = trimLlmOutput(`${streamText}${text}`)
+    generatedBuffer = trimLlmOutput(`${generatedBuffer}${text}`)
     emitOffscreenLog("info", "stream-token", {
       requestId,
       modelId: model.id,
       hfModelId: model.modelId,
       device: runtime.device,
       dtype: runtime.dtype,
-      textDelta: text,
-      streamText
+      tokenChars: text.length,
+      outputChars: generatedBuffer.length
     })
   })
   emitOffscreenLog("info", "generating", {
@@ -521,38 +579,33 @@ async function classifyWithLocalLlm(input, heuristic, config, model, requestId) 
       dtype: runtime.dtype,
       failureStage: "generation",
       error: serializeError(error),
-      streamText
+      outputChars: generatedBuffer.length
     })
     throw error
   }
-  const generatedText = trimLlmOutput(readGeneratedText(output) || streamText)
-  const jsonText = extractFirstJsonObject(generatedText)
+  const generatedText = trimLlmOutput(readGeneratedText(output) || generatedBuffer)
+  const extractedJson = extractFirstJsonObject(generatedText)
   emitOffscreenLog("info", "generated", {
     requestId,
     modelId: model.id,
     hfModelId: model.modelId,
     device: runtime.device,
     dtype: runtime.dtype,
-    rawText: generatedText,
-    jsonText,
-    streamText
+    outputChars: generatedText.length,
+    jsonDetected: Boolean(extractedJson)
   })
   const parsed = parseLlmRiskJson(generatedText)
   if (!parsed) {
-    const rawExcerpt = debugExcerpt(generatedText)
     emitOffscreenLog("error", "failed", {
       requestId,
       modelId: model.id,
       hfModelId: model.modelId,
       device: runtime.device,
       dtype: runtime.dtype,
-      error: `LLM JSON parse failed. Raw excerpt: ${rawExcerpt}`,
-      rawExcerpt,
-      rawText: generatedText
+      error: "LLM JSON parse failed; raw model output redacted",
+      outputChars: generatedText.length
     })
-    throw new Error(
-      `LLM JSON parse failed. Raw excerpt: ${rawExcerpt}`
-    )
+    throw new Error("LLM JSON parse failed; raw model output redacted")
   }
 
   return fuseLlmOutput(heuristic, parsed, model)
@@ -687,8 +740,15 @@ async function getGenerator(model, requestId) {
 }
 
 function loadGeneratorForDtype(model, dtype, requestId) {
+  const runtimeModelId = getRuntimeModelId(model)
+  const usesBundledModel = Boolean(model.localModelId)
+  if (usesBundledModel) {
+    setBundledModelRuntime()
+  } else {
+    setRemoteModelDownloadsEnabled(true)
+  }
   return transformers
-    .pipeline("text-generation", model.modelId, {
+    .pipeline("text-generation", runtimeModelId, {
       device: "webgpu",
       dtype,
       progress_callback: createModelProgressLogger(model, requestId, dtype)
@@ -698,6 +758,23 @@ function loadGeneratorForDtype(model, dtype, requestId) {
       device: "webgpu",
       dtype
     }))
+    .finally(() => {
+      if (!usesBundledModel) setRemoteModelDownloadsEnabled(false)
+    })
+}
+
+function getRuntimeModelId(model) {
+  return model.localModelId ?? model.modelId
+}
+
+function setBundledModelRuntime() {
+  configureTransformersRuntime()
+  const env = transformers.env
+  if (!env) return
+  env.allowRemoteModels = false
+  env.allowLocalModels = true
+  env.localModelPath = runtimeUrl("assets/models/")
+  env.useBrowserCache = false
 }
 
 function requireWebGpu(model, requestId) {
@@ -722,7 +799,7 @@ async function resolveWebGpuDtypes(model, requestId) {
   const preferred = orderWebGpuDtypes(model.dtypeWebgpu)
   try {
     const available = await transformers.ModelRegistry?.get_available_dtypes?.(
-      model.modelId
+      getRuntimeModelId(model)
     )
     const dtypes = selectAvailableDtypes(preferred, available)
     emitOffscreenLog("info", "probing-dtypes", {
@@ -759,7 +836,7 @@ function selectAvailableDtypes(preferred, available) {
 }
 
 function generatorCacheKey(model, device, dtype) {
-  return `${model.modelId}::${device}::${dtype}`
+  return `${getRuntimeModelId(model)}::${device}::${dtype}`
 }
 
 function isQuantizedKernelError(error) {
@@ -832,13 +909,25 @@ function configureTransformersRuntime() {
   }
 
   if (env) {
-    env.allowRemoteModels = true
-    env.useBrowserCache = true
+    // Privacy gate: no silent HuggingFace/CDN downloads from the offscreen AI
+    // worker. Models must be packaged or already present in the browser cache.
+    env.allowRemoteModels = false
+    env.allowLocalModels = true
+    env.localModelPath = runtimeUrl("assets/models/")
+    env.useBrowserCache = false
     env.useWasmCache = false
     if (typeof transformers.LogLevel?.ERROR === "number") {
       env.logLevel = transformers.LogLevel.ERROR
     }
   }
+}
+
+function setRemoteModelDownloadsEnabled(enabled) {
+  configureTransformersRuntime()
+  const env = transformers.env
+  if (!env) return
+  env.allowRemoteModels = Boolean(enabled)
+  env.useBrowserCache = true
 }
 
 function runtimeUrl(path) {
@@ -1270,10 +1359,6 @@ function extractFirstJsonObject(text) {
   return null
 }
 
-function debugExcerpt(text) {
-  return String(text ?? "").replace(/\s+/g, " ").trim().slice(0, 500)
-}
-
 function trimLlmOutput(text) {
   const value = String(text ?? "")
   if (value.length <= MAX_LLM_OUTPUT_CHARS) return value
@@ -1292,8 +1377,7 @@ function installGlobalLogCapture() {
         message: event.message,
         filename: event.filename,
         lineno: event.lineno,
-        colno: event.colno,
-        stack: event.error?.stack
+        colno: event.colno
       }
     })
   })
@@ -1337,22 +1421,77 @@ function emitOffscreenLog(level, stage, detail = {}) {
 }
 
 function sanitizeForMessage(value) {
-  try {
-    return JSON.parse(JSON.stringify(value))
-  } catch {
-    return { level: "error", stage: "failed", message: String(value) }
+  const source = value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : { level: "error", stage: "failed", error: value }
+  const entry = {}
+  const redactedFields = []
+
+  for (const [key, raw] of Object.entries(source)) {
+    if (FORBIDDEN_LOG_FIELDS.has(key)) {
+      redactedFields.push(key)
+      continue
+    }
+    if (key === "error") {
+      entry.error = safeLogText(errorMessage(raw))
+      continue
+    }
+    if (SAFE_LOG_STRING_FIELDS.has(key) && typeof raw === "string") {
+      entry[key] = safeLogText(raw, 160)
+      continue
+    }
+    if (SAFE_LOG_NUMBER_FIELDS.has(key) && typeof raw === "number" && Number.isFinite(raw)) {
+      entry[key] = Math.max(0, Math.floor(raw))
+      continue
+    }
+    if (SAFE_LOG_BOOLEAN_FIELDS.has(key) && typeof raw === "boolean") {
+      entry[key] = raw
+      continue
+    }
+    if (SAFE_LOG_STRING_ARRAY_FIELDS.has(key) && Array.isArray(raw)) {
+      entry[key] = raw
+        .filter((item) => typeof item === "string")
+        .map((item) => safeLogText(item, 80))
+        .slice(0, 12)
+    }
   }
+
+  if (redactedFields.length > 0) entry.redactedFields = redactedFields.sort()
+  if (typeof entry.ts !== "number") entry.ts = Date.now()
+  if (typeof entry.level !== "string") entry.level = "info"
+  if (typeof entry.stage !== "string") entry.stage = "unknown"
+  if (typeof entry.elapsedMs !== "number") entry.elapsedMs = 0
+
+  return entry
 }
 
 function serializeError(error) {
   if (error instanceof Error) {
     return {
       name: error.name,
-      message: error.message,
-      stack: error.stack
+      message: error.message
     }
   }
   return { message: String(error) }
+}
+
+function errorMessage(value) {
+  if (value instanceof Error) return value.message
+  if (value && typeof value === "object" && typeof value.message === "string") {
+    return value.message
+  }
+  return String(value ?? "")
+}
+
+function safeLogText(value, maxChars = 240) {
+  const text = String(value ?? "")
+    .replace(/Raw excerpt:[\s\S]*$/gi, "Raw excerpt: [redacted]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(/\b[A-Za-z0-9_-]{24,}\b/g, "[redacted-token]")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+  return text.length <= maxChars ? text : `${text.slice(0, maxChars - 1)}…`
 }
 
 function unique(values) {

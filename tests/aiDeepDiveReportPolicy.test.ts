@@ -23,11 +23,11 @@ function result(level: AiDeepDiveRiskResult["level"]): AiDeepDiveRiskResult {
 }
 
 describe("AI Deep-Dive report policy", () => {
-  it("sends a compact report for every page risk level", () => {
-    expect(shouldSendAiDeepDiveReport(result("low"))).toBe(true)
-    expect(shouldSendAiDeepDiveReport(result("medium"))).toBe(true)
-    expect(shouldSendAiDeepDiveReport(result("high"))).toBe(true)
-    expect(shouldSendAiDeepDiveReport(result("critical"))).toBe(true)
+  it("does not emit page reports by default", () => {
+    expect(shouldSendAiDeepDiveReport(result("low"))).toBe(false)
+    expect(shouldSendAiDeepDiveReport(result("medium"))).toBe(false)
+    expect(shouldSendAiDeepDiveReport(result("high"))).toBe(false)
+    expect(shouldSendAiDeepDiveReport(result("critical"))).toBe(false)
   })
 
   it("shows page notification only for serious risk", () => {

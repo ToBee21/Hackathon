@@ -1,0 +1,36 @@
+<!doctype html>
+<!--
+Customer fear: same-page scripts spoof extension telemetry through the main-world bridge.
+Data that could leak: fake keyboard/privacy telemetry or attacker-controlled event payloads.
+Attacker control: window.postMessage payloads emitted from page JavaScript.
+Promise at risk: message boundaries must reject unknown or over-broad payload schemas.
+Protection proof: message-boundary and page-dom-leakage security tests.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Main-world Telemetry Spoof</title>
+  </head>
+  <body>
+    <script>
+      window.postMessage(
+        {
+          source: "cloak-dagger:bionic-blur",
+          direction: "main-to-bridge",
+          type: "BIONIC_BLUR_TELEMETRY",
+          payload: [
+            {
+              surface: "keyboard",
+              action: "blocked",
+              count: 7,
+              timestamp: Date.now(),
+              metrics: { fake: true, actor: "same-window-script" }
+            }
+          ]
+        },
+        "*"
+      )
+    </script>
+  </body>
+</html>

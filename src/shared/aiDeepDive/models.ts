@@ -1,8 +1,9 @@
 // src/shared/aiDeepDive/models.ts
 // Registry of selectable local models for the AI Deep-Dive risk classifier.
 // One source of truth shared by the picker UI (popup) and the runtime dispatcher.
-// Every model here runs fully on-device via Transformers.js (WebGPU, WASM
-// fallback); weights download once from HuggingFace and cache in IndexedDB.
+// Runtime policy is privacy-first: no silent remote model downloads. Inference
+// can run only when model assets are packaged or already present in the browser
+// cache; any future first-download flow must be explicit user consent.
 
 import {
   AI_DEEP_DIVE_GEMMA_MODEL_ID,
@@ -19,17 +20,19 @@ export interface AiDeepDiveModelOption {
   id: string
   /** Short label shown in the picker. */
   label: string
-  /** Transformers.js pipeline task — decides which runtime path handles it. */
+  /** Transformers.js pipeline task  -  decides which runtime path handles it. */
   task: AiDeepDiveModelTask
-  /** HuggingFace model id loaded by Transformers.js. */
+  /** HuggingFace model id used for provenance and remote-capable fallbacks. */
   modelId: string
+  /** Optional folder name under assets/models/ loaded with env.localModelPath. */
+  localModelId?: string
   /** dtype on the WebGPU device path. */
   dtypeWebgpu: string
   /** dtype on the WASM (CPU) fallback path. */
   dtypeWasm: string
-  /** Approximate one-time download in MB (cached in IndexedDB). */
+  /** Approximate model asset size in MB if the user explicitly provisions it. */
   approxDownloadMb: number
-  /** Distribution license — surfaced so the operator sees redistribution risk. */
+  /** Distribution license  -  surfaced so the operator sees redistribution risk. */
   license: string
   /** Optional operator note shown under the picker. */
   note?: string
@@ -63,11 +66,12 @@ export const AI_DEEP_DIVE_MODELS: readonly AiDeepDiveModelOption[] = [
     label: "Gemma 4 E2B (LLM-JSON, mocny)",
     task: "text-generation",
     modelId: AI_DEEP_DIVE_GEMMA_MODEL_ID,
+    localModelId: "gemma-4-e2b",
     dtypeWebgpu: "q4",
     dtypeWasm: "q4",
-    approxDownloadMb: 2580,
+    approxDownloadMb: 3460,
     license: "Apache-2.0 (Gemma 4)",
-    note: "Najlepsze rozumowanie. 2.58 GB, wymaga WebGPU."
+    note: "Najlepsze rozumowanie. Wagi są w pakiecie extension; wymaga WebGPU."
   }
 ] as const
 

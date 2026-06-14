@@ -3,7 +3,7 @@ import type { AiDeepDiveRiskResult } from "./types"
 export function shouldSendAiDeepDiveReport(
   _result: AiDeepDiveRiskResult
 ): boolean {
-  return true
+  return false
 }
 
 export function shouldShowAiDeepDiveNotification(

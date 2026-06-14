@@ -19,7 +19,7 @@ import type {
 } from "./types"
 
 export const config: PlasmoCSConfig = {
-  matches: ["<all_urls>"],
+  matches: ["http://*/*", "https://*/*"],
   run_at: "document_start",
   all_frames: true
 }
@@ -125,13 +125,28 @@ function postConfigToMain(config: BionicBlurConfig, seed: string): void {
       type: "BIONIC_BLUR_CONFIG",
       payload: {
         config,
-        profileSeed: seed,
+        profileSeed: derivePageScopedSeed(seed),
         profileId,
         customBucket
       }
     },
-    "*"
+    sameWindowTargetOrigin()
   )
+}
+
+function sameWindowTargetOrigin(): string {
+  const origin = window.location.origin
+  return origin && origin !== "null" ? origin : "/"
+}
+
+function derivePageScopedSeed(seed: string): string {
+  const material = `${location.origin}|${seed}`
+  let hash = 0x811c9dc5
+  for (let i = 0; i < material.length; i++) {
+    hash ^= material.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return `origin-${hash.toString(16).padStart(8, "0")}`
 }
 
 /** Wczytuje wybraną personę i ewentualny profil Custom z storage. */
@@ -432,7 +447,7 @@ function createShieldButton(input: HTMLInputElement): HTMLButtonElement {
         entry: {
           timestamp: Date.now(),
           source: "dataGhost",
-          message: `Email alias: wygenerowano ${alias.alias}`,
+          message: "Email alias: wygenerowano i wstawiono do pola",
           count: 1,
         },
       })

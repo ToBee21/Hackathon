@@ -1,0 +1,22 @@
+<!doctype html>
+<!--
+Customer fear: webmail pages expose password-reset links and one-time security tokens.
+Data that could leak: email address, reset URL, OTP-like strings and account provider metadata.
+Attacker control: message body, link text and token-looking bait.
+Promise at risk: logs/status/open DOM must not carry tokens or raw email content.
+Protection proof: log-redaction, page-dom-leakage and build-artifact-privacy security tests.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inbox  -  Password reset</title>
+  </head>
+  <body>
+    <article>
+      <h1>Password reset request</h1>
+      <p>Reset link: https://accounts.example.test/reset?token=abcdef1234567890abcdef1234567890</p>
+      <p>Security code: 493-102. Account: private.user@example.test.</p>
+    </article>
+  </body>
+</html>

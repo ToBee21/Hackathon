@@ -1,6 +1,6 @@
 // src/shared/messages.ts
 // Typed message contracts for the floating contextual layer. These are additive
-// to the existing background message API (src/types.ts) — they namespace under
+// to the existing background message API (src/types.ts)  -  they namespace under
 // "CND_" so they never collide with the legacy NOISE_*/STATE_UPDATE messages.
 //
 // Trust boundary note: messages crossing content-script <-> service-worker are
@@ -11,11 +11,12 @@ import type { PageContext } from "./pageContextSchema"
 import type { FeatureCard } from "./featureRegistry"
 import type { AiDeepDiveRuntimeConfig } from "./aiDeepDive/config"
 import type { AiDeepDiveInput, AiDeepDiveRiskResult } from "./aiDeepDive/types"
+import { isKnownCndMessage } from "../security/validateMessage"
 
 export interface PageAnalysis {
   page: PageContext
   cards: FeatureCard[]
-  /** Where the headline verdict came from — never lie about this. */
+  /** Where the headline verdict came from  -  never lie about this. */
   source: "heuristic" | "nli" | "llm-json" | "fused"
   modelId?: string
   tabId?: number
@@ -43,13 +44,10 @@ export interface DeepScanRuntimeStatus {
   fallbackDtype?: string
   candidateDtypes?: string[]
   attemptedDtypes?: string[]
-  textDelta?: string
-  streamText?: string
-  rawText?: string
-  jsonText?: string | null
-  rawExcerpt?: string
   cacheHit?: boolean
-  error?: unknown
+  outputChars?: number
+  error?: string
+  redactedFields?: string[]
 }
 
 export type CndContentMessage =
@@ -69,10 +67,5 @@ export type CndContentMessage =
   | { type: "CND_RESCAN" }
 
 export function isCndMessage(value: unknown): value is CndContentMessage {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { type?: unknown }).type === "string" &&
-    (value as { type: string }).type.startsWith("CND_")
-  )
+  return isKnownCndMessage(value)
 }

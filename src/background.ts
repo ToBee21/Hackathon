@@ -1,4 +1,4 @@
-// src/background.ts — Module A: DataGhost (Noise Engine)
+// src/background.ts  -  Module A: DataGhost (Noise Engine)
 //
 // Required Plasmo/manifest permissions:
 //   "alarms", "storage"
@@ -10,7 +10,7 @@
 import { initHoneypotTrap } from "./shared/honeypot"
 import { initCookieShredder } from "./shared/cookieShredder"
 import { initTargetingShield } from "./shared/targetingShield"
-import { generateAlias, saveApiToken } from "./shared/emailAlias"
+import { generateAlias } from "./shared/emailAlias"
 import type {
   BackgroundInboundMessage,
   BackgroundOutboundMessage,
@@ -21,15 +21,18 @@ import { handleAiDeepDiveRiskResult } from "./background/aiDeepDive/handleRiskRe
 import { registerAiDeepDiveTabCoverage } from "./background/aiDeepDive/tabCoverage"
 import { classifyHeuristic } from "./shared/aiDeepDive/score"
 import type { AiDeepDiveRiskResult } from "./shared/aiDeepDive/types"
+import { isCndMessage } from "./shared/messages"
+import { panicButton } from "./shared/storage"
+import { sanitizeOffscreenLogEntry } from "./security/privacyGuards"
 
-// Moduł D+: "The Honeypot Trap" — przechwytuje i zatruwa żądania trackerów.
+// Moduł D+: "The Honeypot Trap"  -  przechwytuje i zatruwa żądania trackerów.
 // Rejestruje własne reguły DNR oraz listenery wiadomości (idempotentnie).
 void initHoneypotTrap()
 
-// Moduł: "Cookie Shredder" — rotuje/zatruwa ciasteczka trackingowe.
+// Moduł: "Cookie Shredder"  -  rotuje/zatruwa ciasteczka trackingowe.
 void initCookieShredder()
 
-// Moduł: "Targeting Shield" — strip atrybucji (gclid/fbclid/utm) + per-origin
+// Moduł: "Targeting Shield"  -  strip atrybucji (gclid/fbclid/utm) + per-origin
 // blackout trackerów na wrażliwych stronach (eskalacja z AI Deep-Dive).
 void initTargetingShield()
 
@@ -44,12 +47,12 @@ const REQUESTS_PER_CYCLE_MAX = 5
 const BIONIC_ACCEPT_LANGUAGE_RULE_ID = 41001
 const BIONIC_MAIN_SCRIPT_ID = "srcContentsBionicBlurMain"
 
-// Shared dashboard state key — the single source of truth that Module C
+// Shared dashboard state key  -  the single source of truth that Module C
 // (Popup) reads for the Privacy Score and live counters. DataGhost mirrors its
 // noise total here so Modules A and C stay in sync.
 const STORAGE_KEY_STATE = "cnd:state"
 
-// Diverse, neutral keyword categories — wide variety defeats interest profiling
+// Diverse, neutral keyword categories  -  wide variety defeats interest profiling
 const KEYWORD_POOL: Record<string, string[]> = {
   cooking: [
     "pasta carbonara recipe",
@@ -124,7 +127,7 @@ const KEYWORD_POOL: Record<string, string[]> = {
   ],
 }
 
-// Search/content endpoints — each generates real network traffic
+// Search/content endpoints  -  each generates real network traffic
 const QUERY_BUILDERS: Array<(q: string) => string> = [
   (q) => `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`,
   (q) =>
@@ -242,81 +245,53 @@ function applyBrowserPrivacyGuards(): void {
 }
 
 /**
- * PANIC — głębokie czyszczenie danych śledzących. Wywoływane przez Moduł C
+ * PANIC  -  głębokie czyszczenie danych śledzących. Wywoływane przez Moduł C
  * (Popup) wiadomością PANIC_BUTTON. Wymaga uprawnień "browsingData" oraz
  * host_permissions <all_urls> (oba są w manifeście). Czyści dane przeglądania
- * dla WSZYSTKICH witryn i zeruje współdzielony stan dashboardu — przełączniki
+ * dla WSZYSTKICH witryn i zeruje współdzielony stan dashboardu  -  przełączniki
  * ochrony pozostają włączone, by obrona działała dalej po wyczyszczeniu.
  */
 async function performPanicWipe(): Promise<{
   success: boolean
   clearedBrowsingData: boolean
   clearedState: boolean
+  clearedItems?: Record<string, boolean>
+  error?: string
   timestamp: number
 }> {
-  let clearedBrowsingData = false
-  let clearedState = false
+  const result = await panicButton()
+  const clearedBrowsingData = Boolean(
+    result.clearedItems.cookies ||
+      result.clearedItems.cache ||
+      result.clearedItems.indexedDB ||
+      result.clearedItems.localStorage ||
+      result.clearedItems.sessionStorage
+  )
+  const clearedState = Boolean(result.clearedItems.extensionStorage)
 
-  try {
-    await chrome.browsingData.remove(
-      { since: 0 },
-      {
-        cookies: true,
-        cache: true,
-        indexedDB: true,
-        localStorage: true,
-        serviceWorkers: true
-      }
-    )
-    clearedBrowsingData = true
-  } catch {
-    // browsingData może być zablokowane politykami przedsiębiorstwa.
-  }
-
-  try {
-    await chrome.storage.local.set({
+  sendRuntimeMessage({
+    type: "STATE_UPDATE",
+    state: {
+      privacyScore: 0,
+      trackersBlockedCount: 0,
       noiseGeneratedCount: 0,
+      activeAliasEmail: null,
+      aiDeepDiveRisk: null,
+      aiDeepDiveDetectionCount: 0,
+      maxCamoActive: false,
       cookiesRotatedCount: 0,
       paramsStrippedCount: 0,
-      targetingBlockedCount: 0,
-      [STORAGE_KEY_STATE]: {
-        privacyScore: 0,
-        trackersBlockedCount: 0,
-        noiseGeneratedCount: 0,
-        activeAliasEmail: null,
-        aiDeepDiveRisk: null,
-        aiDeepDiveDetectionCount: 0,
-        maxCamoActive: false,
-        cookiesRotatedCount: 0,
-        paramsStrippedCount: 0,
-        targetingBlockedCount: 0
-      }
-    })
-    clearedState = true
-    sendRuntimeMessage({
-      type: "STATE_UPDATE",
-      state: {
-        privacyScore: 0,
-        trackersBlockedCount: 0,
-        noiseGeneratedCount: 0,
-        activeAliasEmail: null,
-        aiDeepDiveRisk: null,
-        aiDeepDiveDetectionCount: 0,
-        maxCamoActive: false,
-        cookiesRotatedCount: 0,
-        paramsStrippedCount: 0,
-        targetingBlockedCount: 0
-      }
-    })
-  } catch {
-    // Zapis stanu jest best-effort.
-  }
+      targetingBlockedCount: 0
+    }
+  })
 
   return {
-    success: clearedBrowsingData || clearedState,
+    success: result.success || clearedState,
     clearedBrowsingData,
     clearedState,
-    timestamp: Date.now()
+    clearedItems: result.clearedItems,
+    error: result.error,
+    timestamp: result.timestamp
   }
 }
 
@@ -352,28 +327,10 @@ async function injectBionicMainIntoSender(
 // Keyword sourcing
 // ---------------------------------------------------------------------------
 
-/** Try to fetch a random Wikipedia article title for extra topical diversity. */
-async function fetchWikipediaRandomTitle(): Promise<string | null> {
-  try {
-    const res = await fetch(
-      "https://en.wikipedia.org/api/rest_v1/page/random/title",
-      {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(4000),
-      }
-    )
-    if (!res.ok) return null
-    const data = await res.json()
-    const title: string | undefined = data?.title
-    return title ? title.replace(/_/g, " ").toLowerCase() : null
-  } catch {
-    return null
-  }
-}
-
 /**
  * Build the keyword list for one noise cycle.
- * Mixes local pool entries with a live Wikipedia topic when available.
+ * Uses only the local keyword pool. No surprise third-party call just to pick
+ * topics  -  actual decoy network traffic happens only when DataGhost is enabled.
  */
 async function buildKeywordBatch(count: number): Promise<Array<{ keyword: string; category: string }>> {
   const categories = Object.keys(KEYWORD_POOL)
@@ -388,12 +345,6 @@ async function buildKeywordBatch(count: number): Promise<Array<{ keyword: string
     batch.push({ keyword, category })
   }
 
-  // Replace the last slot with a live Wikipedia title when possible
-  const wikiTitle = await fetchWikipediaRandomTitle()
-  if (wikiTitle) {
-    batch[batch.length - 1] = { keyword: wikiTitle, category: "wikipedia" }
-  }
-
   return batch
 }
 
@@ -402,7 +353,7 @@ async function buildKeywordBatch(count: number): Promise<Array<{ keyword: string
 // ---------------------------------------------------------------------------
 
 async function injectNoise(forcedCount?: number): Promise<void> {
-  const stored = await chrome.storage.local.get({ isNoiseEnabled: true })
+  const stored = await chrome.storage.local.get({ isNoiseEnabled: false })
   if (!stored.isNoiseEnabled) return
 
   const count =
@@ -417,11 +368,11 @@ async function injectNoise(forcedCount?: number): Promise<void> {
 
     try {
       // no-cors: generate network traffic without reading the response.
-      // credentials: omit — we never send the user's cookies to these targets.
+      // credentials: omit  -  we never send the user's cookies to these targets.
       // HONESTY NOTE: because no cookies/credentials are attached, this is
       // anonymous COVER/DECOY traffic that adds noise at the network/ISP level.
       // It does NOT write into the user's cookie-based ad profile and is not a
-      // guaranteed "profile wipe" — see readme.md for the accurate description.
+      // guaranteed "profile wipe"  -  see readme.md for the accurate description.
       await fetch(url, {
         method: "GET",
         mode: "no-cors",
@@ -440,7 +391,7 @@ async function injectNoise(forcedCount?: number): Promise<void> {
       payload: { keyword, category, timestamp },
     } as BackgroundOutboundMessage)
 
-    // Human-like delay between requests (800 ms – 2.5 s)
+    // Human-like delay between requests (800 ms - 2.5 s)
     await sleep(randInt(800, 2500))
   }
 
@@ -491,7 +442,7 @@ async function recordNoiseInjected(delta: number): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Alarm — keeps DataGhost alive across service-worker restarts
+// Alarm  -  keeps DataGhost alive across service-worker restarts
 // ---------------------------------------------------------------------------
 
 chrome.alarms.get(ALARM_NAME, (existing) => {
@@ -540,7 +491,7 @@ async function extractRestrictedPageRisk(
 }
 
 // ---------------------------------------------------------------------------
-// Message API — used by Popup (Module C) and future modules
+// Message API  -  used by Popup (Module C) and future modules
 // ---------------------------------------------------------------------------
 
 chrome.runtime.onMessage.addListener(
@@ -558,7 +509,7 @@ chrome.runtime.onMessage.addListener(
 
       case "GET_STATUS":
         chrome.storage.local
-          .get({ noiseGeneratedCount: 0, isNoiseEnabled: true })
+          .get({ noiseGeneratedCount: 0, isNoiseEnabled: false })
           .then((data) => sendResponse(data as unknown as DataGhostStatus))
         return true
 
@@ -602,7 +553,7 @@ chrome.runtime.onMessage.addListener(
         chrome.storage.local
           .get({
             noiseGeneratedCount: 0,
-            isNoiseEnabled: true,
+            isNoiseEnabled: false,
             "cnd:state": {}
           })
           .then((data) => sendResponse(data))
@@ -670,7 +621,7 @@ function setupContextualSurfaces(): void {
       ?.setOptions?.({ path: "sidepanel.html", enabled: true })
       ?.catch?.(() => undefined)
   } catch {
-    // sidePanel API unavailable (older/other browser) — degrade gracefully.
+    // sidePanel API unavailable (older/other browser)  -  degrade gracefully.
   }
   try {
     chrome.contextMenus?.removeAll?.(() => {
@@ -681,7 +632,7 @@ function setupContextualSurfaces(): void {
       })
     })
   } catch {
-    // contextMenus unavailable — non-fatal.
+    // contextMenus unavailable  -  non-fatal.
   }
 }
 
@@ -693,7 +644,7 @@ chrome.contextMenus?.onClicked?.addListener((info, tab) => {
 function openSidePanel(tabId?: number, windowId?: number): void {
   // chrome.sidePanel.open() must run in response to a user gesture. The context
   // menu click and popup button click both qualify; the in-page bubble may not
-  // in all browsers — that limitation is documented, not faked.
+  // in all browsers  -  that limitation is documented, not faked.
   try {
     const opener = chrome.sidePanel?.open as
       | ((opts: { tabId?: number; windowId?: number }) => Promise<void>)
@@ -707,7 +658,7 @@ function openSidePanel(tabId?: number, windowId?: number): void {
       opener({ windowId }).catch(() => undefined)
     }
   } catch {
-    // Open failed (no gesture / unsupported) — caller surface stays usable.
+    // Open failed (no gesture / unsupported)  -  caller surface stays usable.
   }
 }
 
@@ -791,7 +742,7 @@ async function hasCurrentOffscreenDocument(offscreen: {
 // Send the inference request to the offscreen document, retrying while its
 // message listener is still registering. createDocument() resolves before the
 // offscreen page's bundle finishes loading, so the first send can hit "no
-// receiver" ("message port closed before a response") — that's a readiness race,
+// receiver" ("message port closed before a response")  -  that's a readiness race,
 // not a real failure. Once a real inference starts, the await simply waits for it.
 async function inferInOffscreen(
   input: unknown,
@@ -812,7 +763,7 @@ async function inferInOffscreen(
       if (res) return res
     } catch (err) {
       lastErr = err instanceof Error ? err.message : String(err)
-      // Offscreen listener not ready yet — wait and retry.
+      // Offscreen listener not ready yet  -  wait and retry.
     }
     await new Promise((r) => setTimeout(r, 700))
   }
@@ -873,17 +824,7 @@ async function recordOffscreenLog(entry: unknown): Promise<void> {
 }
 
 function normalizeOffscreenLog(entry: unknown): Record<string, unknown> {
-  const record =
-    typeof entry === "object" && entry !== null
-      ? (entry as Record<string, unknown>)
-      : { message: String(entry) }
-  return {
-    ts: typeof record.ts === "number" ? record.ts : Date.now(),
-    level: typeof record.level === "string" ? record.level : "info",
-    stage: typeof record.stage === "string" ? record.stage : "unknown",
-    elapsedMs: typeof record.elapsedMs === "number" ? record.elapsedMs : 0,
-    ...record
-  }
+  return sanitizeOffscreenLogEntry(entry) as unknown as Record<string, unknown>
 }
 
 function broadcastDeepScanStatus(entry: Record<string, unknown>): void {
@@ -906,21 +847,26 @@ function broadcastDeepScanStatus(entry: Record<string, unknown>): void {
 // Dedicated listener for the CND_* contextual-layer protocol. Kept separate from
 // the typed switch above so it doesn't widen that message union.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  const type = (message as { type?: string })?.type
-  if (typeof type !== "string" || !type.startsWith("CND_")) return
+  if (!isCndMessage(message)) return
+  const { type } = message
 
   if (type === "CND_OPEN_SIDE_PANEL") {
+    if (!isTrustedContentSender(sender)) {
+      sendResponse({ ok: false, error: "untrusted sender" })
+      return
+    }
     openSidePanel(sender.tab?.id, sender.tab?.windowId)
     sendResponse({ ok: true })
     return
   }
 
   if (type === "CND_DEEP_SCAN") {
+    if (!isTrustedContentSender(sender)) {
+      sendResponse({ ok: false, error: "untrusted sender" })
+      return
+    }
     void (async () => {
-      const requestId =
-        typeof (message as { requestId?: unknown }).requestId === "string"
-          ? ((message as { requestId: string }).requestId)
-          : crypto.randomUUID()
+      const requestId = message.requestId ?? crypto.randomUUID()
       if (typeof sender.tab?.id === "number") {
         activeDeepScanTabs.set(requestId, sender.tab.id)
       }
@@ -939,8 +885,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return
       }
       const response = await inferInOffscreen(
-        (message as { input?: unknown }).input,
-        (message as { config?: unknown }).config,
+        message.input,
+        message.config,
         requestId
       )
       if (!response.ok) {
@@ -959,13 +905,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (type === "CND_OFFSCREEN_LOG") {
-    void recordOffscreenLog((message as { entry?: unknown }).entry).then(() =>
+    if (!isTrustedOffscreenSender(sender)) {
+      sendResponse({ ok: false, error: "untrusted sender" })
+      return
+    }
+    void recordOffscreenLog(message.entry).then(() =>
       sendResponse({ ok: true })
     )
     return true // async response
   }
 
   if (type === "CND_ANALYSIS_UPDATED") {
+    if (!isTrustedContentSender(sender)) {
+      sendResponse({ ok: false, error: "untrusted sender" })
+      return
+    }
     const tabId = sender.tab?.id
     if (typeof tabId !== "number") {
       sendResponse({ ok: false })
@@ -973,13 +927,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     chrome.storage.local.get({ [STORAGE_KEY_LAST_ANALYSIS]: {} }).then((res) => {
       const all = (res[STORAGE_KEY_LAST_ANALYSIS] ?? {}) as Record<string, unknown>
-      all[String(tabId)] = (message as { analysis?: unknown }).analysis
+      all[String(tabId)] = message.analysis
       chrome.storage.local.set({ [STORAGE_KEY_LAST_ANALYSIS]: all })
       sendResponse({ ok: true })
     })
     return true // async response
   }
 })
+
+function isTrustedContentSender(sender: chrome.runtime.MessageSender): boolean {
+  return sender.id === chrome.runtime.id && typeof sender.tab?.id === "number"
+}
+
+function isTrustedOffscreenSender(sender: chrome.runtime.MessageSender): boolean {
+  return (
+    sender.id === chrome.runtime.id &&
+    typeof sender.url === "string" &&
+    sender.url.startsWith(chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH))
+  )
+}
 
 chrome.runtime.onInstalled.addListener(async () => {
   setupContextualSurfaces()
@@ -988,7 +954,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.local.get({ [STORAGE_KEY_STATE]: {} })
   await chrome.storage.local.set({
     noiseGeneratedCount: 0,
-    isNoiseEnabled: true,
+    isNoiseEnabled: false,
     isCookieShredderEnabled: true,
     isTargetingShieldEnabled: true,
     [STORAGE_KEY_STATE]: {
@@ -1000,9 +966,8 @@ chrome.runtime.onInstalled.addListener(async () => {
     },
   })
   applyBrowserPrivacyGuards()
-  await saveApiToken("simplelogin", "bkfweyfgzamesjizhrygdkcewbbyomlwnymfvjffchyvyplvquhdtvazgrxd")
-  // Kick off the first injection shortly after install
-  injectNoise()
+  // No bundled API token, no install-time external traffic. DataGhost and
+  // SimpleLogin become network-active only after explicit user action.
 })
 
 // Re-register alarm on service-worker wake-up (MV3 workers can be killed)

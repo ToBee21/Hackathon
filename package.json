@@ -11,6 +11,8 @@
     "demo": "node scripts/launch-demo.mjs",
     "smoke:extension": "playwright test tests/bionicBlurExtension.spec.ts --reporter=line",
     "test": "vitest run",
+    "security:prove": "npm run typecheck && npm run build && vitest run tests/security",
+    "security:audit": "vitest run tests/security",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -53,7 +55,8 @@
       "offscreen"
     ],
     "host_permissions": [
-      "<all_urls>"
+      "http://*/*",
+      "https://*/*"
     ],
     "content_security_policy": {
       "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
@@ -63,6 +66,9 @@
         "resources": [
           "assets/onnxruntime/*",
           "assets/offscreen/*",
+          "assets/models/*",
+          "assets/models/*/*",
+          "assets/models/*/onnx/*",
           "assets/vendor/*"
         ],
         "matches": [

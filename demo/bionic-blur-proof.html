@@ -300,11 +300,11 @@
         </div>
 
         <div class="panel stack" id="identity-demo">
-          <h2>Wirtualna Tożsamość — co widzi ta strona</h2>
+          <h2>Wirtualna Tożsamość  -  co widzi ta strona</h2>
           <p style="margin: 0; font-size: 12px; color: #94a3b8">
             Przełącz personę w popupie wtyczki (Auto / Biuro·Windows /
             Kreatywny·macOS / Developer·Linux / Custom), a wartości poniżej
-            zmienią się na żywo — to fingerprint, który widzi strona.
+            zmienią się na żywo  -  to fingerprint, który widzi strona.
           </p>
           <div class="fp-grid" id="identity-grid"></div>
           <button id="refresh-identity" type="button">Odśwież odczyt</button>
@@ -349,7 +349,10 @@
         const line = `[${new Date().toLocaleTimeString()}] ${message}${
           data ? " " + JSON.stringify(data) : ""
         }`
-        logEl.textContent = `${line}\n${logEl.textContent}`.slice(0, 8000)
+        const previousLines = logEl.textContent
+          .split("\n")
+          .filter((entry) => entry.trim().length > 0)
+        logEl.textContent = [line, ...previousLines].slice(0, 8).join("\n")
       }
 
       function avg(values) {
@@ -610,13 +613,13 @@ This is fake demo text, not user data.
           const c = document.createElement("canvas")
           const gl =
             c.getContext("webgl") || c.getContext("experimental-webgl")
-          if (!gl) return "—"
+          if (!gl) return " - "
           const dbg = gl.getExtension("WEBGL_debug_renderer_info")
           return dbg
             ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL))
             : String(gl.getParameter(gl.RENDERER))
         } catch {
-          return "—"
+          return " - "
         }
       }
 
@@ -626,7 +629,7 @@ This is fake demo text, not user data.
           c.width = 200
           c.height = 40
           const ctx = c.getContext("2d")
-          if (!ctx) return "—"
+          if (!ctx) return " - "
           ctx.textBaseline = "top"
           ctx.font = "16px Arial"
           ctx.fillStyle = "#f60"
@@ -635,7 +638,7 @@ This is fake demo text, not user data.
           ctx.fillText("cloak·dagger·proof", 4, 4)
           return fnv1a(c.toDataURL())
         } catch {
-          return "—"
+          return " - "
         }
       }
 

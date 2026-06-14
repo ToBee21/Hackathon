@@ -1,0 +1,1391 @@
+diff --git a/assets/offscreen/offscreen.js b/assets/offscreen/offscreen.js
+index 6327608..c58ef87 100644
+--- a/assets/offscreen/offscreen.js
++++ b/assets/offscreen/offscreen.js
+@@ -13,6 +13,63 @@ const DEFAULT_CONFIG = {
+   maxSnippetChars: 2500
+ }
+ const LLM_MAX_NEW_TOKENS = 180
++const FORBIDDEN_LOG_FIELDS = new Set([
++  "apiKey",
++  "apiToken",
++  "authorization",
++  "body",
++  "headings",
++  "html",
++  "input",
++  "jsonText",
++  "meta",
++  "password",
++  "prompt",
++  "rawExcerpt",
++  "rawText",
++  "secret",
++  "stack",
++  "streamText",
++  "textDelta",
++  "title",
++  "token"
++])
++const SAFE_LOG_STRING_FIELDS = new Set([
++  "level",
++  "stage",
++  "requestId",
++  "modelId",
++  "selectedModelId",
++  "hfModelId",
++  "device",
++  "dtype",
++  "selectedDtype",
++  "fallbackDtype",
++  "task",
++  "status",
++  "file",
++  "failureStage"
++])
++const SAFE_LOG_NUMBER_FIELDS = new Set([
++  "ts",
++  "elapsedMs",
++  "progress",
++  "loaded",
++  "total",
++  "maxNewTokens",
++  "snippetChars",
++  "tokenChars",
++  "outputChars"
++])
++const SAFE_LOG_BOOLEAN_FIELDS = new Set([
++  "cacheHit",
++  "jsonDetected",
++  "webgpuAvailable"
++])
++const SAFE_LOG_STRING_ARRAY_FIELDS = new Set([
++  "candidateDtypes",
++  "attemptedDtypes"
++])
+
+ const NLI_LABELS = [
+   "mental health content",
+@@ -45,6 +102,7 @@ const MODEL_OPTIONS = [
+     id: "gemma-4-e2b",
+     task: "text-generation",
+     modelId: AI_DEEP_DIVE_GEMMA_MODEL_ID,
++    localModelId: "gemma-4-e2b",
+     dtypeWebgpu: "q4",
+     dtypeWasm: "q4"
+   }
+@@ -482,17 +540,17 @@ async function classifyWithLocalLlm(input, heuristic, config, model, requestId)
+
+   const runtime = await getGenerator(model, requestId)
+   const generate = runtime.generator
+-  let streamText = ""
++  let generatedBuffer = ""
+   const streamer = createTextStreamer(generate, model, requestId, (text) => {
+-    streamText = trimLlmOutput(`${streamText}${text}`)
++    generatedBuffer = trimLlmOutput(`${generatedBuffer}${text}`)
+     emitOffscreenLog("info", "stream-token", {
+       requestId,
+       modelId: model.id,
+       hfModelId: model.modelId,
+       device: runtime.device,
+       dtype: runtime.dtype,
+-      textDelta: text,
+-      streamText
++      tokenChars: text.length,
++      outputChars: generatedBuffer.length
+     })
+   })
+   emitOffscreenLog("info", "generating", {
+@@ -521,38 +579,33 @@ async function classifyWithLocalLlm(input, heuristic, config, model, requestId)
+       dtype: runtime.dtype,
+       failureStage: "generation",
+       error: serializeError(error),
+-      streamText
++      outputChars: generatedBuffer.length
+     })
+     throw error
+   }
+-  const generatedText = trimLlmOutput(readGeneratedText(output) || streamText)
+-  const jsonText = extractFirstJsonObject(generatedText)
++  const generatedText = trimLlmOutput(readGeneratedText(output) || generatedBuffer)
++  const extractedJson = extractFirstJsonObject(generatedText)
+   emitOffscreenLog("info", "generated", {
+     requestId,
+     modelId: model.id,
+     hfModelId: model.modelId,
+     device: runtime.device,
+     dtype: runtime.dtype,
+-    rawText: generatedText,
+-    jsonText,
+-    streamText
++    outputChars: generatedText.length,
++    jsonDetected: Boolean(extractedJson)
+   })
+   const parsed = parseLlmRiskJson(generatedText)
+   if (!parsed) {
+-    const rawExcerpt = debugExcerpt(generatedText)
+     emitOffscreenLog("error", "failed", {
+       requestId,
+       modelId: model.id,
+       hfModelId: model.modelId,
+       device: runtime.device,
+       dtype: runtime.dtype,
+-      error: `LLM JSON parse failed. Raw excerpt: ${rawExcerpt}`,
+-      rawExcerpt,
+-      rawText: generatedText
++      error: "LLM JSON parse failed; raw model output redacted",
++      outputChars: generatedText.length
+     })
+-    throw new Error(
+-      `LLM JSON parse failed. Raw excerpt: ${rawExcerpt}`
+-    )
++    throw new Error("LLM JSON parse failed; raw model output redacted")
+   }
+
+   return fuseLlmOutput(heuristic, parsed, model)
+@@ -687,8 +740,15 @@ async function getGenerator(model, requestId) {
+ }
+
+ function loadGeneratorForDtype(model, dtype, requestId) {
++  const runtimeModelId = getRuntimeModelId(model)
++  const usesBundledModel = Boolean(model.localModelId)
++  if (usesBundledModel) {
++    setBundledModelRuntime()
++  } else {
++    setRemoteModelDownloadsEnabled(true)
++  }
+   return transformers
+-    .pipeline("text-generation", model.modelId, {
++    .pipeline("text-generation", runtimeModelId, {
+       device: "webgpu",
+       dtype,
+       progress_callback: createModelProgressLogger(model, requestId, dtype)
+@@ -698,6 +758,23 @@ function loadGeneratorForDtype(model, dtype, requestId) {
+       device: "webgpu",
+       dtype
+     }))
++    .finally(() => {
++      if (!usesBundledModel) setRemoteModelDownloadsEnabled(false)
++    })
++}
++
++function getRuntimeModelId(model) {
++  return model.localModelId ?? model.modelId
++}
++
++function setBundledModelRuntime() {
++  configureTransformersRuntime()
++  const env = transformers.env
++  if (!env) return
++  env.allowRemoteModels = false
++  env.allowLocalModels = true
++  env.localModelPath = runtimeUrl("assets/models/")
++  env.useBrowserCache = false
+ }
+
+ function requireWebGpu(model, requestId) {
+@@ -722,7 +799,7 @@ async function resolveWebGpuDtypes(model, requestId) {
+   const preferred = orderWebGpuDtypes(model.dtypeWebgpu)
+   try {
+     const available = await transformers.ModelRegistry?.get_available_dtypes?.(
+-      model.modelId
++      getRuntimeModelId(model)
+     )
+     const dtypes = selectAvailableDtypes(preferred, available)
+     emitOffscreenLog("info", "probing-dtypes", {
+@@ -759,7 +836,7 @@ function selectAvailableDtypes(preferred, available) {
+ }
+
+ function generatorCacheKey(model, device, dtype) {
+-  return `${model.modelId}::${device}::${dtype}`
++  return `${getRuntimeModelId(model)}::${device}::${dtype}`
+ }
+
+ function isQuantizedKernelError(error) {
+@@ -832,8 +909,12 @@ function configureTransformersRuntime() {
+   }
+
+   if (env) {
+-    env.allowRemoteModels = true
+-    env.useBrowserCache = true
++    // Privacy gate: no silent HuggingFace/CDN downloads from the offscreen AI
++    // worker. Models must be packaged or already present in the browser cache.
++    env.allowRemoteModels = false
++    env.allowLocalModels = true
++    env.localModelPath = runtimeUrl("assets/models/")
++    env.useBrowserCache = false
+     env.useWasmCache = false
+     if (typeof transformers.LogLevel?.ERROR === "number") {
+       env.logLevel = transformers.LogLevel.ERROR
+@@ -841,6 +922,14 @@ function configureTransformersRuntime() {
+   }
+ }
+
++function setRemoteModelDownloadsEnabled(enabled) {
++  configureTransformersRuntime()
++  const env = transformers.env
++  if (!env) return
++  env.allowRemoteModels = Boolean(enabled)
++  env.useBrowserCache = true
++}
++
+ function runtimeUrl(path) {
+   return chrome.runtime.getURL(path)
+ }
+@@ -1270,10 +1359,6 @@ function extractFirstJsonObject(text) {
+   return null
+ }
+
+-function debugExcerpt(text) {
+-  return String(text ?? "").replace(/\s+/g, " ").trim().slice(0, 500)
+-}
+-
+ function trimLlmOutput(text) {
+   const value = String(text ?? "")
+   if (value.length <= MAX_LLM_OUTPUT_CHARS) return value
+@@ -1292,8 +1377,7 @@ function installGlobalLogCapture() {
+         message: event.message,
+         filename: event.filename,
+         lineno: event.lineno,
+-        colno: event.colno,
+-        stack: event.error?.stack
++        colno: event.colno
+       }
+     })
+   })
+@@ -1337,24 +1421,79 @@ function emitOffscreenLog(level, stage, detail = {}) {
+ }
+
+ function sanitizeForMessage(value) {
+-  try {
+-    return JSON.parse(JSON.stringify(value))
+-  } catch {
+-    return { level: "error", stage: "failed", message: String(value) }
++  const source = value && typeof value === "object" && !Array.isArray(value)
++    ? value
++    : { level: "error", stage: "failed", error: value }
++  const entry = {}
++  const redactedFields = []
++
++  for (const [key, raw] of Object.entries(source)) {
++    if (FORBIDDEN_LOG_FIELDS.has(key)) {
++      redactedFields.push(key)
++      continue
++    }
++    if (key === "error") {
++      entry.error = safeLogText(errorMessage(raw))
++      continue
++    }
++    if (SAFE_LOG_STRING_FIELDS.has(key) && typeof raw === "string") {
++      entry[key] = safeLogText(raw, 160)
++      continue
++    }
++    if (SAFE_LOG_NUMBER_FIELDS.has(key) && typeof raw === "number" && Number.isFinite(raw)) {
++      entry[key] = Math.max(0, Math.floor(raw))
++      continue
++    }
++    if (SAFE_LOG_BOOLEAN_FIELDS.has(key) && typeof raw === "boolean") {
++      entry[key] = raw
++      continue
++    }
++    if (SAFE_LOG_STRING_ARRAY_FIELDS.has(key) && Array.isArray(raw)) {
++      entry[key] = raw
++        .filter((item) => typeof item === "string")
++        .map((item) => safeLogText(item, 80))
++        .slice(0, 12)
++    }
+   }
++
++  if (redactedFields.length > 0) entry.redactedFields = redactedFields.sort()
++  if (typeof entry.ts !== "number") entry.ts = Date.now()
++  if (typeof entry.level !== "string") entry.level = "info"
++  if (typeof entry.stage !== "string") entry.stage = "unknown"
++  if (typeof entry.elapsedMs !== "number") entry.elapsedMs = 0
++
++  return entry
+ }
+
+ function serializeError(error) {
+   if (error instanceof Error) {
+     return {
+       name: error.name,
+-      message: error.message,
+-      stack: error.stack
++      message: error.message
+     }
+   }
+   return { message: String(error) }
+ }
+
++function errorMessage(value) {
++  if (value instanceof Error) return value.message
++  if (value && typeof value === "object" && typeof value.message === "string") {
++    return value.message
++  }
++  return String(value ?? "")
++}
++
++function safeLogText(value, maxChars = 240) {
++  const text = String(value ?? "")
++    .replace(/Raw excerpt:[\s\S]*$/gi, "Raw excerpt: [redacted]")
++    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
++    .replace(/\b[A-Za-z0-9_-]{24,}\b/g, "[redacted-token]")
++    .replace(/[\r\n\t]+/g, " ")
++    .replace(/\s{2,}/g, " ")
++    .trim()
++  return text.length <= maxChars ? text : `${text.slice(0, maxChars - 1)}ΓÇª`
++}
++
+ function unique(values) {
+   return Array.from(new Set(values))
+ }
+diff --git a/demo/bionic-blur-proof.html b/demo/bionic-blur-proof.html
+index ee8eb91..4d4c56b 100644
+--- a/demo/bionic-blur-proof.html
++++ b/demo/bionic-blur-proof.html
+@@ -349,7 +349,10 @@
+         const line = `[${new Date().toLocaleTimeString()}] ${message}${
+           data ? " " + JSON.stringify(data) : ""
+         }`
+-        logEl.textContent = `${line}\n${logEl.textContent}`.slice(0, 8000)
++        const previousLines = logEl.textContent
++          .split("\n")
++          .filter((entry) => entry.trim().length > 0)
++        logEl.textContent = [line, ...previousLines].slice(0, 8).join("\n")
+       }
+
+       function avg(values) {
+diff --git a/package.json b/package.json
+index 1d6b71c..1daf104 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "demo": "node scripts/launch-demo.mjs",
+     "smoke:extension": "playwright test tests/bionicBlurExtension.spec.ts --reporter=line",
+     "test": "vitest run",
++    "security:prove": "npm run typecheck && npm run build && vitest run tests/security",
++    "security:audit": "vitest run tests/security",
+     "typecheck": "tsc --noEmit"
+   },
+   "dependencies": {
+@@ -53,7 +55,8 @@
+       "offscreen"
+     ],
+     "host_permissions": [
+-      "<all_urls>"
++      "http://*/*",
++      "https://*/*"
+     ],
+     "content_security_policy": {
+       "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+@@ -63,6 +66,9 @@
+         "resources": [
+           "assets/onnxruntime/*",
+           "assets/offscreen/*",
++          "assets/models/*",
++          "assets/models/*/*",
++          "assets/models/*/onnx/*",
+           "assets/vendor/*"
+         ],
+         "matches": [
+diff --git a/scripts/verify-llm-deep-scan.mjs b/scripts/verify-llm-deep-scan.mjs
+index 0054580..0ff65cc 100644
+--- a/scripts/verify-llm-deep-scan.mjs
++++ b/scripts/verify-llm-deep-scan.mjs
+@@ -17,7 +17,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
+ const EXT = join(ROOT, "build", "chrome-mv3-prod")
+ const MODEL = process.argv[2] || "granite-350m"
+ const TIMEOUT_MS = Number(process.env.LLM_VERIFY_TIMEOUT_MS || 960000)
+-const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
++const BROWSER_EXE =
++  process.env.LLM_VERIFY_BROWSER_EXE ||
++  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
++const KEEP_PROFILE_ON_FAIL = process.env.LLM_VERIFY_KEEP_PROFILE === "1"
+ const LOG_KEY = "cnd:offscreen-logs"
+ const CONFIG_KEY = "cnd:ai-deep-dive:config"
+ const DEFAULT_PROFILE = join(ROOT, "build", "llm-verify-profile")
+@@ -98,7 +101,7 @@ try {
+   console.log("PROFILE:", profileDir)
+   console.log("CACHE MODE:", freshProfile ? "fresh temp profile" : "persistent profile")
+   context = await chromium.launchPersistentContext(profileDir, {
+-    executablePath: EDGE,
++    executablePath: BROWSER_EXE,
+     headless: false,
+     viewport: { width: 1100, height: 850 },
+     args: [
+@@ -235,7 +238,7 @@ try {
+     await Promise.race([context.close().catch(() => {}), sleep(10000)])
+   }
+   killProfileProcesses(profileDir)
+-  if (freshProfile) {
++  if (freshProfile && (ok || !KEEP_PROFILE_ON_FAIL)) {
+     await rm(profileDir, { recursive: true, force: true }).catch(() => {})
+   }
+ }
+diff --git a/src/background.ts b/src/background.ts
+index fe5ce71..50e6e69 100644
+--- a/src/background.ts
++++ b/src/background.ts
+@@ -10,7 +10,7 @@
+ import { initHoneypotTrap } from "./shared/honeypot"
+ import { initCookieShredder } from "./shared/cookieShredder"
+ import { initTargetingShield } from "./shared/targetingShield"
+-import { generateAlias, saveApiToken } from "./shared/emailAlias"
++import { generateAlias } from "./shared/emailAlias"
+ import type {
+   BackgroundInboundMessage,
+   BackgroundOutboundMessage,
+@@ -21,6 +21,9 @@ import { handleAiDeepDiveRiskResult } from "./background/aiDeepDive/handleRiskRe
+ import { registerAiDeepDiveTabCoverage } from "./background/aiDeepDive/tabCoverage"
+ import { classifyHeuristic } from "./shared/aiDeepDive/score"
+ import type { AiDeepDiveRiskResult } from "./shared/aiDeepDive/types"
++import { isCndMessage } from "./shared/messages"
++import { panicButton } from "./shared/storage"
++import { sanitizeOffscreenLogEntry } from "./security/privacyGuards"
+
+ // Modu┼é D+: "The Honeypot Trap" ΓÇö przechwytuje i zatruwa ┼╝─àdania tracker├│w.
+ // Rejestruje w┼éasne regu┼éy DNR oraz listenery wiadomo┼¢ci (idempotentnie).
+@@ -252,71 +255,43 @@ async function performPanicWipe(): Promise<{
+   success: boolean
+   clearedBrowsingData: boolean
+   clearedState: boolean
++  clearedItems?: Record<string, boolean>
++  error?: string
+   timestamp: number
+ }> {
+-  let clearedBrowsingData = false
+-  let clearedState = false
+-
+-  try {
+-    await chrome.browsingData.remove(
+-      { since: 0 },
+-      {
+-        cookies: true,
+-        cache: true,
+-        indexedDB: true,
+-        localStorage: true,
+-        serviceWorkers: true
+-      }
+-    )
+-    clearedBrowsingData = true
+-  } catch {
+-    // browsingData mo┼╝e by─ç zablokowane politykami przedsi─Öbiorstwa.
+-  }
++  const result = await panicButton()
++  const clearedBrowsingData = Boolean(
++    result.clearedItems.cookies ||
++      result.clearedItems.cache ||
++      result.clearedItems.indexedDB ||
++      result.clearedItems.localStorage ||
++      result.clearedItems.sessionStorage
++  )
++  const clearedState = Boolean(result.clearedItems.extensionStorage)
+
+-  try {
+-    await chrome.storage.local.set({
++  sendRuntimeMessage({
++    type: "STATE_UPDATE",
++    state: {
++      privacyScore: 0,
++      trackersBlockedCount: 0,
+       noiseGeneratedCount: 0,
++      activeAliasEmail: null,
++      aiDeepDiveRisk: null,
++      aiDeepDiveDetectionCount: 0,
++      maxCamoActive: false,
+       cookiesRotatedCount: 0,
+       paramsStrippedCount: 0,
+-      targetingBlockedCount: 0,
+-      [STORAGE_KEY_STATE]: {
+-        privacyScore: 0,
+-        trackersBlockedCount: 0,
+-        noiseGeneratedCount: 0,
+-        activeAliasEmail: null,
+-        aiDeepDiveRisk: null,
+-        aiDeepDiveDetectionCount: 0,
+-        maxCamoActive: false,
+-        cookiesRotatedCount: 0,
+-        paramsStrippedCount: 0,
+-        targetingBlockedCount: 0
+-      }
+-    })
+-    clearedState = true
+-    sendRuntimeMessage({
+-      type: "STATE_UPDATE",
+-      state: {
+-        privacyScore: 0,
+-        trackersBlockedCount: 0,
+-        noiseGeneratedCount: 0,
+-        activeAliasEmail: null,
+-        aiDeepDiveRisk: null,
+-        aiDeepDiveDetectionCount: 0,
+-        maxCamoActive: false,
+-        cookiesRotatedCount: 0,
+-        paramsStrippedCount: 0,
+-        targetingBlockedCount: 0
+-      }
+-    })
+-  } catch {
+-    // Zapis stanu jest best-effort.
+-  }
++      targetingBlockedCount: 0
++    }
++  })
+
+   return {
+-    success: clearedBrowsingData || clearedState,
++    success: result.success || clearedState,
+     clearedBrowsingData,
+     clearedState,
+-    timestamp: Date.now()
++    clearedItems: result.clearedItems,
++    error: result.error,
++    timestamp: result.timestamp
+   }
+ }
+
+@@ -352,28 +327,10 @@ async function injectBionicMainIntoSender(
+ // Keyword sourcing
+ // ---------------------------------------------------------------------------
+
+-/** Try to fetch a random Wikipedia article title for extra topical diversity. */
+-async function fetchWikipediaRandomTitle(): Promise<string | null> {
+-  try {
+-    const res = await fetch(
+-      "https://en.wikipedia.org/api/rest_v1/page/random/title",
+-      {
+-        headers: { Accept: "application/json" },
+-        signal: AbortSignal.timeout(4000),
+-      }
+-    )
+-    if (!res.ok) return null
+-    const data = await res.json()
+-    const title: string | undefined = data?.title
+-    return title ? title.replace(/_/g, " ").toLowerCase() : null
+-  } catch {
+-    return null
+-  }
+-}
+-
+ /**
+  * Build the keyword list for one noise cycle.
+- * Mixes local pool entries with a live Wikipedia topic when available.
++ * Uses only the local keyword pool. No surprise third-party call just to pick
++ * topics ΓÇö actual decoy network traffic happens only when DataGhost is enabled.
+  */
+ async function buildKeywordBatch(count: number): Promise<Array<{ keyword: string; category: string }>> {
+   const categories = Object.keys(KEYWORD_POOL)
+@@ -388,12 +345,6 @@ async function buildKeywordBatch(count: number): Promise<Array<{ keyword: string
+     batch.push({ keyword, category })
+   }
+
+-  // Replace the last slot with a live Wikipedia title when possible
+-  const wikiTitle = await fetchWikipediaRandomTitle()
+-  if (wikiTitle) {
+-    batch[batch.length - 1] = { keyword: wikiTitle, category: "wikipedia" }
+-  }
+-
+   return batch
+ }
+
+@@ -402,7 +353,7 @@ async function buildKeywordBatch(count: number): Promise<Array<{ keyword: string
+ // ---------------------------------------------------------------------------
+
+ async function injectNoise(forcedCount?: number): Promise<void> {
+-  const stored = await chrome.storage.local.get({ isNoiseEnabled: true })
++  const stored = await chrome.storage.local.get({ isNoiseEnabled: false })
+   if (!stored.isNoiseEnabled) return
+
+   const count =
+@@ -558,7 +509,7 @@ chrome.runtime.onMessage.addListener(
+
+       case "GET_STATUS":
+         chrome.storage.local
+-          .get({ noiseGeneratedCount: 0, isNoiseEnabled: true })
++          .get({ noiseGeneratedCount: 0, isNoiseEnabled: false })
+           .then((data) => sendResponse(data as unknown as DataGhostStatus))
+         return true
+
+@@ -602,7 +553,7 @@ chrome.runtime.onMessage.addListener(
+         chrome.storage.local
+           .get({
+             noiseGeneratedCount: 0,
+-            isNoiseEnabled: true,
++            isNoiseEnabled: false,
+             "cnd:state": {}
+           })
+           .then((data) => sendResponse(data))
+@@ -873,17 +824,7 @@ async function recordOffscreenLog(entry: unknown): Promise<void> {
+ }
+
+ function normalizeOffscreenLog(entry: unknown): Record<string, unknown> {
+-  const record =
+-    typeof entry === "object" && entry !== null
+-      ? (entry as Record<string, unknown>)
+-      : { message: String(entry) }
+-  return {
+-    ts: typeof record.ts === "number" ? record.ts : Date.now(),
+-    level: typeof record.level === "string" ? record.level : "info",
+-    stage: typeof record.stage === "string" ? record.stage : "unknown",
+-    elapsedMs: typeof record.elapsedMs === "number" ? record.elapsedMs : 0,
+-    ...record
+-  }
++  return sanitizeOffscreenLogEntry(entry) as unknown as Record<string, unknown>
+ }
+
+ function broadcastDeepScanStatus(entry: Record<string, unknown>): void {
+@@ -906,21 +847,26 @@ function broadcastDeepScanStatus(entry: Record<string, unknown>): void {
+ // Dedicated listener for the CND_* contextual-layer protocol. Kept separate from
+ // the typed switch above so it doesn't widen that message union.
+ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+-  const type = (message as { type?: string })?.type
+-  if (typeof type !== "string" || !type.startsWith("CND_")) return
++  if (!isCndMessage(message)) return
++  const { type } = message
+
+   if (type === "CND_OPEN_SIDE_PANEL") {
++    if (!isTrustedContentSender(sender)) {
++      sendResponse({ ok: false, error: "untrusted sender" })
++      return
++    }
+     openSidePanel(sender.tab?.id, sender.tab?.windowId)
+     sendResponse({ ok: true })
+     return
+   }
+
+   if (type === "CND_DEEP_SCAN") {
++    if (!isTrustedContentSender(sender)) {
++      sendResponse({ ok: false, error: "untrusted sender" })
++      return
++    }
+     void (async () => {
+-      const requestId =
+-        typeof (message as { requestId?: unknown }).requestId === "string"
+-          ? ((message as { requestId: string }).requestId)
+-          : crypto.randomUUID()
++      const requestId = message.requestId ?? crypto.randomUUID()
+       if (typeof sender.tab?.id === "number") {
+         activeDeepScanTabs.set(requestId, sender.tab.id)
+       }
+@@ -939,8 +885,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+         return
+       }
+       const response = await inferInOffscreen(
+-        (message as { input?: unknown }).input,
+-        (message as { config?: unknown }).config,
++        message.input,
++        message.config,
+         requestId
+       )
+       if (!response.ok) {
+@@ -959,13 +905,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+   }
+
+   if (type === "CND_OFFSCREEN_LOG") {
+-    void recordOffscreenLog((message as { entry?: unknown }).entry).then(() =>
++    if (!isTrustedOffscreenSender(sender)) {
++      sendResponse({ ok: false, error: "untrusted sender" })
++      return
++    }
++    void recordOffscreenLog(message.entry).then(() =>
+       sendResponse({ ok: true })
+     )
+     return true // async response
+   }
+
+   if (type === "CND_ANALYSIS_UPDATED") {
++    if (!isTrustedContentSender(sender)) {
++      sendResponse({ ok: false, error: "untrusted sender" })
++      return
++    }
+     const tabId = sender.tab?.id
+     if (typeof tabId !== "number") {
+       sendResponse({ ok: false })
+@@ -973,7 +927,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+     }
+     chrome.storage.local.get({ [STORAGE_KEY_LAST_ANALYSIS]: {} }).then((res) => {
+       const all = (res[STORAGE_KEY_LAST_ANALYSIS] ?? {}) as Record<string, unknown>
+-      all[String(tabId)] = (message as { analysis?: unknown }).analysis
++      all[String(tabId)] = message.analysis
+       chrome.storage.local.set({ [STORAGE_KEY_LAST_ANALYSIS]: all })
+       sendResponse({ ok: true })
+     })
+@@ -981,6 +935,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+   }
+ })
+
++function isTrustedContentSender(sender: chrome.runtime.MessageSender): boolean {
++  return sender.id === chrome.runtime.id && typeof sender.tab?.id === "number"
++}
++
++function isTrustedOffscreenSender(sender: chrome.runtime.MessageSender): boolean {
++  return (
++    sender.id === chrome.runtime.id &&
++    typeof sender.url === "string" &&
++    sender.url.startsWith(chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH))
++  )
++}
++
+ chrome.runtime.onInstalled.addListener(async () => {
+   setupContextualSurfaces()
+   // Seed both the internal counter and the shared dashboard state so Module C
+@@ -988,7 +954,7 @@ chrome.runtime.onInstalled.addListener(async () => {
+   const stored = await chrome.storage.local.get({ [STORAGE_KEY_STATE]: {} })
+   await chrome.storage.local.set({
+     noiseGeneratedCount: 0,
+-    isNoiseEnabled: true,
++    isNoiseEnabled: false,
+     isCookieShredderEnabled: true,
+     isTargetingShieldEnabled: true,
+     [STORAGE_KEY_STATE]: {
+@@ -1000,9 +966,8 @@ chrome.runtime.onInstalled.addListener(async () => {
+     },
+   })
+   applyBrowserPrivacyGuards()
+-  await saveApiToken("simplelogin", "[redacted-simplelogin-token]")
+-  // Kick off the first injection shortly after install
+-  injectNoise()
++  // No bundled API token, no install-time external traffic. DataGhost and
++  // SimpleLogin become network-active only after explicit user action.
+ })
+
+ // Re-register alarm on service-worker wake-up (MV3 workers can be killed)
+diff --git a/src/background/aiDeepDive/handleRiskResult.ts b/src/background/aiDeepDive/handleRiskResult.ts
+index e1c819d..55137c5 100644
+--- a/src/background/aiDeepDive/handleRiskResult.ts
++++ b/src/background/aiDeepDive/handleRiskResult.ts
+@@ -101,13 +101,15 @@ function sanitizeRiskResult(result: AiDeepDiveRiskResult): AiDeepDiveRiskResult
+     origin: safeOrigin(result.origin),
+     urlHash: result.urlHash,
+     timestamp: Number.isFinite(result.timestamp) ? result.timestamp : Date.now(),
+-    model: result.model?.localOnly
++    ...(result.model?.localOnly
+       ? {
+-          mode: result.model.mode,
+-          id: result.model.id,
+-          localOnly: true
++          model: {
++            mode: result.model.mode,
++            id: result.model.id,
++            localOnly: true as const
++          }
+         }
+-      : { mode: "heuristic", localOnly: true },
++      : {}),
+     rawTextRetained: false
+   }
+ }
+diff --git a/src/components/AiDeepDiveCard.tsx b/src/components/AiDeepDiveCard.tsx
+index ffabe90..38e1b32 100644
+--- a/src/components/AiDeepDiveCard.tsx
++++ b/src/components/AiDeepDiveCard.tsx
+@@ -113,7 +113,7 @@ export default function AiDeepDiveCard({
+           <p className="text-[10px] font-medium text-fg-mid">Lokalny model</p>
+           <p className="truncate text-[9px] text-fg-low">
+             {selectedModel.modelId} ┬╖ ~{selectedModel.approxDownloadMb} MB ┬╖{" "}
+-            {selectedModel.license}
++            {selectedModel.localModelId ? "pakiet extension" : selectedModel.license}
+           </p>
+         </div>
+         <button
+@@ -152,7 +152,7 @@ export default function AiDeepDiveCard({
+           style={{ colorScheme: "dark" }}>
+           {AI_DEEP_DIVE_MODELS.map((model) => (
+             <option key={model.id} value={model.id}>
+-              {model.label} ┬╖ ~{model.approxDownloadMb} MB
++              {model.label} ┬╖ ~{model.approxDownloadMb} MB{model.localModelId ? " ┬╖ pakiet" : ""}
+             </option>
+           ))}
+         </select>
+diff --git a/src/content.ts b/src/content.ts
+index 6cd8d18..9777a60 100644
+--- a/src/content.ts
++++ b/src/content.ts
+@@ -19,7 +19,7 @@ import type {
+ } from "./types"
+
+ export const config: PlasmoCSConfig = {
+-  matches: ["<all_urls>"],
++  matches: ["http://*/*", "https://*/*"],
+   run_at: "document_start",
+   all_frames: true
+ }
+@@ -125,15 +125,30 @@ function postConfigToMain(config: BionicBlurConfig, seed: string): void {
+       type: "BIONIC_BLUR_CONFIG",
+       payload: {
+         config,
+-        profileSeed: seed,
++        profileSeed: derivePageScopedSeed(seed),
+         profileId,
+         customBucket
+       }
+     },
+-    "*"
++    sameWindowTargetOrigin()
+   )
+ }
+
++function sameWindowTargetOrigin(): string {
++  const origin = window.location.origin
++  return origin && origin !== "null" ? origin : "/"
++}
++
++function derivePageScopedSeed(seed: string): string {
++  const material = `${location.origin}|${seed}`
++  let hash = 0x811c9dc5
++  for (let i = 0; i < material.length; i++) {
++    hash ^= material.charCodeAt(i)
++    hash = Math.imul(hash, 0x01000193) >>> 0
++  }
++  return `origin-${hash.toString(16).padStart(8, "0")}`
++}
++
+ /** Wczytuje wybran─à person─Ö i ewentualny profil Custom z storage. */
+ async function loadProfileSelection(): Promise<void> {
+   const stored = await storageGet([
+@@ -432,7 +447,7 @@ function createShieldButton(input: HTMLInputElement): HTMLButtonElement {
+         entry: {
+           timestamp: Date.now(),
+           source: "dataGhost",
+-          message: `Email alias: wygenerowano ${alias.alias}`,
++          message: "Email alias: wygenerowano i wstawiono do pola",
+           count: 1,
+         },
+       })
+diff --git a/src/content/aiDeepDive/contentEntry.ts b/src/content/aiDeepDive/contentEntry.ts
+index 2e19e2c..04d1db7 100644
+--- a/src/content/aiDeepDive/contentEntry.ts
++++ b/src/content/aiDeepDive/contentEntry.ts
+@@ -7,7 +7,6 @@ import {
+ import { shouldRunModel } from "../../shared/aiDeepDive/gate"
+ import { requestDeepScan } from "../deepScanClient"
+ import {
+-  shouldSendAiDeepDiveReport,
+   shouldShowAiDeepDiveNotification
+ } from "../../shared/aiDeepDive/reportPolicy"
+ import type { AiDeepDiveRiskResult } from "../../shared/aiDeepDive/types"
+@@ -43,9 +42,11 @@ async function runAiDeepDiveScan(
+       if (deep.result) result = deep.result
+     }
+
+-    if (!shouldSendAiDeepDiveReport(result)) return
+     if (!shouldEmit(result)) return
+
++    // This is an internal extension message carrying only the compact verdict.
++    // `shouldSendAiDeepDiveReport` intentionally denies page/report emission by
++    // default, but it must not suppress the local dashboard + MaxCamo state path.
+     sendRuntimeMessage(result)
+     if (shouldShowAiDeepDiveNotification(result)) {
+       showAiDeepDiveToast(result)
+diff --git a/src/content/floatingWindow.ts b/src/content/floatingWindow.ts
+index 50f1c0c..601e800 100644
+--- a/src/content/floatingWindow.ts
++++ b/src/content/floatingWindow.ts
+@@ -24,7 +24,6 @@ import {
+ import {
+   buildLlmInsightFromRiskResult,
+   formatVerdictLabel,
+-  parseLlmInsightJson,
+   type LlmInsightSignal,
+   type LlmInsightView
+ } from "../shared/aiDeepDive/llmView"
+@@ -63,12 +62,8 @@ interface LlmOutputState {
+   device: string
+   dtype: string
+   elapsedMs: number | null
+-  streamText: string
+-  jsonText: string
+   insight: LlmInsightView | null
+-  rawExcerpt: string
+   error: string
+-  receivedChars: number
+ }
+
+ type RuntimeStatusRecord = Partial<DeepScanRuntimeStatus> &
+@@ -547,11 +542,7 @@ function buildLlmLoadingView(): HTMLElement {
+   wrap.className = "llminsight"
+   const msg = document.createElement("div")
+   msg.className = "llmloading"
+-  const chars =
+-    llmOutputState.receivedChars > 0
+-      ? ` Odebrano ${llmOutputState.receivedChars} znak├│w odpowiedzi.`
+-      : ""
+-  msg.textContent = `${loadingMessageForStage(llmOutputState.stage)}${chars}`
++  msg.textContent = loadingMessageForStage(llmOutputState.stage)
+   wrap.appendChild(msg)
+
+   const steps = document.createElement("div")
+@@ -619,9 +610,10 @@ function cardSourceLabel(source: FeatureCard["source"]): string {
+   return "┼é─àczone"
+ }
+
+-function modelStatusLine(model: { label: string; approxDownloadMb: number }): string {
++function modelStatusLine(model: { label: string; approxDownloadMb: number; localModelId?: string }): string {
+   const verdict = modelModeLabel(lastRisk?.model?.mode)
+-  return `Werdykt: ${verdict} ┬╖ model: ${model.label.split(" (")[0]} (~${model.approxDownloadMb} MB, lokalny)`
++  const placement = model.localModelId ? "w pakiecie" : "lokalny cache"
++  return `Werdykt: ${verdict} ┬╖ model: ${model.label.split(" (")[0]} (~${model.approxDownloadMb} MB, ${placement})`
+ }
+
+ function modelModeLabel(mode: string | undefined): string {
+@@ -700,7 +692,9 @@ async function deepScan(): Promise<void> {
+   }
+   const model = getModelOption(lastConfig.selectedModelId)
+   deepScanStatus = "loading"
+-  deepScanMessage = `┼üadowanie ${model.label.split(" (")[0]} (pierwsze u┼╝ycie pobiera ~${model.approxDownloadMb} MB)ΓÇª`
++  deepScanMessage = model.localModelId
++    ? `┼üadowanie ${model.label.split(" (")[0]} z pakietu extension (~${model.approxDownloadMb} MB, bez HF)ΓÇª`
++    : `┼üadowanie ${model.label.split(" (")[0]} (pierwsze u┼╝ycie pobiera ~${model.approxDownloadMb} MB)ΓÇª`
+   resetLlmOutput(model.id)
+   render()
+
+@@ -773,12 +767,8 @@ function emptyLlmOutputState(): LlmOutputState {
+     device: "",
+     dtype: "",
+     elapsedMs: null,
+-    streamText: "",
+-    jsonText: "",
+     insight: null,
+-    rawExcerpt: "",
+-    error: "",
+-    receivedChars: 0
++    error: ""
+   }
+ }
+
+@@ -808,29 +798,6 @@ function updateLlmOutput(status: RuntimeStatusRecord): void {
+         : llmOutputState.elapsedMs
+   }
+
+-  if (typeof status.streamText === "string") {
+-    next.streamText = trimLlmOutput(status.streamText)
+-  } else if (typeof status.textDelta === "string") {
+-    next.streamText = trimLlmOutput(`${next.streamText}${status.textDelta}`)
+-  }
+-  if (typeof status.rawText === "string") {
+-    next.streamText = trimLlmOutput(status.rawText)
+-  }
+-  if (typeof status.jsonText === "string") {
+-    next.jsonText = status.jsonText
+-  }
+-  next.receivedChars = Math.max(
+-    llmOutputState.receivedChars,
+-    next.streamText.length,
+-    next.jsonText.length
+-  )
+-  next.insight =
+-    parseLlmInsightJson(next.jsonText) ??
+-    parseLlmInsightJson(next.streamText) ??
+-    next.insight
+-  if (typeof status.rawExcerpt === "string") {
+-    next.rawExcerpt = status.rawExcerpt
+-  }
+   if (stage === "failed" || stage === "infer:error") {
+     next.error = runtimeErrorMessage(status)
+   }
+@@ -846,12 +813,6 @@ function shouldTrackLlmOutput(status: RuntimeStatusRecord): boolean {
+   return /granite|gemma|llm/i.test(modelId)
+ }
+
+-function trimLlmOutput(text: string): string {
+-  const maxChars = 6000
+-  if (text.length <= maxChars) return text
+-  return text.slice(text.length - maxChars)
+-}
+-
+ function formatDeepScanRuntimeStatus(status: Record<string, unknown>): string {
+   const stage = String(status.stage ?? "unknown")
+   const modelId = String(
+diff --git a/src/contents/bionic-blur-main.ts b/src/contents/bionic-blur-main.ts
+index d03a051..8377393 100644
+--- a/src/contents/bionic-blur-main.ts
++++ b/src/contents/bionic-blur-main.ts
+@@ -101,7 +101,7 @@ function installBionicBlur(): void {
+         type: "BIONIC_BLUR_TELEMETRY",
+         payload
+       },
+-      "*"
++      sameWindowTargetOrigin()
+     )
+   }
+
+@@ -169,6 +169,11 @@ function installBionicBlur(): void {
+   }
+ }
+
++function sameWindowTargetOrigin(): string {
++  const origin = window.location.origin
++  return origin && origin !== "null" ? origin : "/"
++}
++
+ function patchEventListeners(
+   getConfig: () => BionicBlurConfig,
+   getProfile: () => PrivacyProfile,
+diff --git a/src/shared/aiDeepDive/localLlm.ts b/src/shared/aiDeepDive/localLlm.ts
+index b5be6a0..064a648 100644
+--- a/src/shared/aiDeepDive/localLlm.ts
++++ b/src/shared/aiDeepDive/localLlm.ts
+@@ -91,9 +91,7 @@ export async function classifyWithLocalLlm(
+   const generatedText = readGeneratedText(output)
+   const parsed = parseLlmRiskJson(generatedText)
+   if (!parsed) {
+-    throw new Error(
+-      `LLM JSON parse failed. Raw excerpt: ${debugExcerpt(generatedText)}`
+-    )
++    throw new Error("LLM JSON parse failed; raw model output was discarded")
+   }
+
+   return fuseLlmOutput(heuristic, parsed, model)
+@@ -297,15 +295,67 @@ async function loadGenerator(
+   // minutes there, and Gemma is effectively unusable. Keep NLI on WASM, but run
+   // LLM-JSON through WebGPU so the browser uses the ONNX WebGPU/JSEP runtime.
+   const pipeline = (transformers as unknown as { pipeline: PipelineFn }).pipeline
+-  const generator = await pipeline("text-generation", model.modelId, {
+-    device: requireWebGpu(model),
+-    dtype,
+-    progress_callback: createModelProgressLogger(model)
+-  })
++  configureBundledModelRuntime(transformers)
++  const runtimeModelId = getRuntimeModelId(model)
++  const usesBundledModel = Boolean(model.localModelId)
++  if (!usesBundledModel) setRemoteModelDownloadsEnabled(transformers, true)
++  let generator: unknown
++  try {
++    generator = await pipeline("text-generation", runtimeModelId, {
++      device: requireWebGpu(model),
++      dtype,
++      progress_callback: createModelProgressLogger(model)
++    })
++  } finally {
++    if (!usesBundledModel) setRemoteModelDownloadsEnabled(transformers, false)
++  }
+
+   return generator as TextGenerator
+ }
+
++function getRuntimeModelId(model: AiDeepDiveModelOption): string {
++  return model.localModelId ?? model.modelId
++}
++
++function configureBundledModelRuntime(transformers: TransformersModule): void {
++  const env = (transformers as unknown as {
++    env?: {
++      allowLocalModels?: boolean
++      localModelPath?: string
++      useBrowserCache?: boolean
++    }
++  }).env
++  if (!env) return
++  env.allowLocalModels = true
++  env.localModelPath = resolveExtensionAssetUrl("assets/models/")
++  env.useBrowserCache = false
++}
++
++function setRemoteModelDownloadsEnabled(
++  transformers: TransformersModule,
++  enabled: boolean
++): void {
++  const env = (transformers as unknown as {
++    env?: {
++      allowRemoteModels?: boolean
++      useBrowserCache?: boolean
++    }
++  }).env
++  if (!env) return
++  env.allowRemoteModels = Boolean(enabled)
++  env.useBrowserCache = true
++}
++
++function resolveExtensionAssetUrl(path: string): string {
++  const maybeChrome = (
++    globalThis as typeof globalThis & {
++      chrome?: { runtime?: { getURL?: (path: string) => string } }
++    }
++  ).chrome
++
++  return maybeChrome?.runtime?.getURL?.(path) ?? path
++}
++
+ async function resolveWebGpuDtypes(
+   model: AiDeepDiveModelOption
+ ): Promise<string[]> {
+@@ -317,7 +367,8 @@ async function resolveWebGpuDtypes(
+   const preferred = orderWebGpuDtypeCandidates(model.dtypeWebgpu)
+
+   try {
+-    const available = await registry?.get_available_dtypes?.(model.modelId)
++    configureBundledModelRuntime(transformers)
++    const available = await registry?.get_available_dtypes?.(getRuntimeModelId(model))
+     const matches = selectAvailableDtypes(preferred, available)
+     if (matches.length > 0) return matches
+   } catch {
+@@ -379,7 +430,7 @@ function generatorCacheKey(
+   device: "webgpu",
+   dtype: string
+ ): string {
+-  return `${model.modelId}::${device}::${dtype}`
++  return `${getRuntimeModelId(model)}::${device}::${dtype}`
+ }
+
+ function toNumber(value: unknown): number {
+@@ -422,10 +473,6 @@ function extractFirstJsonObject(text: string): string | null {
+   return null
+ }
+
+-function debugExcerpt(text: string): string {
+-  return text.replace(/\s+/g, " ").trim().slice(0, 500)
+-}
+-
+ function unique(values: string[]): string[] {
+   return Array.from(new Set(values))
+ }
+diff --git a/src/shared/aiDeepDive/localNli.ts b/src/shared/aiDeepDive/localNli.ts
+index 0e2e598..1a679a1 100644
+--- a/src/shared/aiDeepDive/localNli.ts
++++ b/src/shared/aiDeepDive/localNli.ts
+@@ -210,7 +210,10 @@ export function configureTransformersRuntime(transformers: TransformersModule):
+   onnxWasm.wasmPaths = getPackagedOnnxWasmDir()
+   onnxWasm.numThreads = 1
+   env.useWasmCache = true
+-  env.allowRemoteModels = true
++  // Privacy gate: inference can run only with packaged or already-cached model
++  // assets. First-run remote downloads require an explicit consent flow; do not
++  // silently phone home from a privacy extension.
++  env.allowRemoteModels = false
+
+   const errorLevel = runtime.LogLevel?.ERROR
+   if (typeof errorLevel === "number") {
+diff --git a/src/shared/aiDeepDive/models.ts b/src/shared/aiDeepDive/models.ts
+index 95fa2f8..edb0fc8 100644
+--- a/src/shared/aiDeepDive/models.ts
++++ b/src/shared/aiDeepDive/models.ts
+@@ -1,8 +1,9 @@
+ // src/shared/aiDeepDive/models.ts
+ // Registry of selectable local models for the AI Deep-Dive risk classifier.
+ // One source of truth shared by the picker UI (popup) and the runtime dispatcher.
+-// Every model here runs fully on-device via Transformers.js (WebGPU, WASM
+-// fallback); weights download once from HuggingFace and cache in IndexedDB.
++// Runtime policy is privacy-first: no silent remote model downloads. Inference
++// can run only when model assets are packaged or already present in the browser
++// cache; any future first-download flow must be explicit user consent.
+
+ import {
+   AI_DEEP_DIVE_GEMMA_MODEL_ID,
+@@ -21,13 +22,15 @@ export interface AiDeepDiveModelOption {
+   label: string
+   /** Transformers.js pipeline task ΓÇö decides which runtime path handles it. */
+   task: AiDeepDiveModelTask
+-  /** HuggingFace model id loaded by Transformers.js. */
++  /** HuggingFace model id used for provenance and remote-capable fallbacks. */
+   modelId: string
++  /** Optional folder name under assets/models/ loaded with env.localModelPath. */
++  localModelId?: string
+   /** dtype on the WebGPU device path. */
+   dtypeWebgpu: string
+   /** dtype on the WASM (CPU) fallback path. */
+   dtypeWasm: string
+-  /** Approximate one-time download in MB (cached in IndexedDB). */
++  /** Approximate model asset size in MB if the user explicitly provisions it. */
+   approxDownloadMb: number
+   /** Distribution license ΓÇö surfaced so the operator sees redistribution risk. */
+   license: string
+@@ -63,11 +66,12 @@ export const AI_DEEP_DIVE_MODELS: readonly AiDeepDiveModelOption[] = [
+     label: "Gemma 4 E2B (LLM-JSON, mocny)",
+     task: "text-generation",
+     modelId: AI_DEEP_DIVE_GEMMA_MODEL_ID,
++    localModelId: "gemma-4-e2b",
+     dtypeWebgpu: "q4",
+     dtypeWasm: "q4",
+-    approxDownloadMb: 2580,
++    approxDownloadMb: 3460,
+     license: "Apache-2.0 (Gemma 4)",
+-    note: "Najlepsze rozumowanie. 2.58 GB, wymaga WebGPU."
++    note: "Najlepsze rozumowanie. Wagi s─à w pakiecie extension; wymaga WebGPU."
+   }
+ ] as const
+
+diff --git a/src/shared/aiDeepDive/reportPolicy.ts b/src/shared/aiDeepDive/reportPolicy.ts
+index 300818b..7ae562b 100644
+--- a/src/shared/aiDeepDive/reportPolicy.ts
++++ b/src/shared/aiDeepDive/reportPolicy.ts
+@@ -3,7 +3,7 @@ import type { AiDeepDiveRiskResult } from "./types"
+ export function shouldSendAiDeepDiveReport(
+   _result: AiDeepDiveRiskResult
+ ): boolean {
+-  return true
++  return false
+ }
+
+ export function shouldShowAiDeepDiveNotification(
+diff --git a/src/shared/emailAlias.ts b/src/shared/emailAlias.ts
+index 6e068be..4d32395 100644
+--- a/src/shared/emailAlias.ts
++++ b/src/shared/emailAlias.ts
+@@ -116,15 +116,34 @@ function generateOfflineAlias(): EmailAlias {
+
+ /** Pobiera list─Ö zapisanych alias├│w z zaszyfrowanego storage. */
+ export async function getStoredAliases(): Promise<EmailAlias[]> {
++    const encrypted = await loadEncrypted<EmailAlias[]>(STORAGE_KEYS.EMAIL_ALIASES);
++    if (Array.isArray(encrypted)) return encrypted.filter(isEmailAlias);
++
++    // Legacy migration: older builds stored aliases as plaintext under the same
++    // key. Read once, immediately rewrite as AES-GCM payload, then continue.
+     const stored = await chrome.storage.local.get(STORAGE_KEYS.EMAIL_ALIASES);
+-    return (stored[STORAGE_KEYS.EMAIL_ALIASES] as EmailAlias[]) ?? [];
++    const legacy = stored[STORAGE_KEYS.EMAIL_ALIASES];
++    if (!Array.isArray(legacy)) return [];
++
++    const aliases = legacy.filter(isEmailAlias);
++    await saveAliases(aliases);
++    return aliases;
+ }
+
+ /** Zapisuje list─Ö alias├│w do storage. */
+ async function saveAliases(aliases: EmailAlias[]): Promise<void> {
+-    await chrome.storage.local.set({
+-        [STORAGE_KEYS.EMAIL_ALIASES]: aliases,
+-    });
++    await saveEncrypted(STORAGE_KEYS.EMAIL_ALIASES, aliases.filter(isEmailAlias));
++}
++
++function isEmailAlias(value: unknown): value is EmailAlias {
++    const alias = value as Partial<EmailAlias>
++    return (
++        typeof alias?.id === "string" &&
++        typeof alias.alias === "string" &&
++        typeof alias.createdAt === "number" &&
++        typeof alias.isActive === "boolean" &&
++        (alias.source === "simplelogin" || alias.source === "relay" || alias.source === "offline")
++    );
+ }
+
+ // ΓöÇΓöÇΓöÇ API publiczne ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+diff --git a/src/shared/honeypot.ts b/src/shared/honeypot.ts
+index 7b60c23..f4730d3 100644
+--- a/src/shared/honeypot.ts
++++ b/src/shared/honeypot.ts
+@@ -389,23 +389,19 @@ function attachMatchListener(): void {
+ // ---------------------------------------------------------------------------
+
+ /**
+- * Wysy┼éa nieszkodliwe ┼╝─àdanie do endpointu GA, by wyzwoli─ç regu┼é─Ö DNR i pokaza─ç
+- * pe┼ény przep┼éyw (przechwycenie ΓåÆ zatrucie ΓåÆ log) na ┼╝─àdanie podczas prezentacji.
+- * credentials: "omit" ΓÇö nigdy nie dok┼éadamy w┼éasnych ciasteczek do trackera.
++ * Demo-safe self-test: nie dotyka realnego Google Analytics ani ┼╝adnego innego
++ * cudzej endpointu. Emituje lokalny syntetyczny dow├│d przep┼éywu dla jury
++ * (ten sam format logu i licznik├│w), a realne DNR dopasowania s─à testowane na
++ * kontrolowanych stronach/fixture'ach.
+  */
+ async function runSelfTest(): Promise<void> {
+-  const url =
+-    "https://www.google-analytics.com/g/collect?v=2&tid=G-DEMO&cid=demo&en=page_view"
+-  try {
+-    await fetch(url, {
+-      method: "GET",
+-      mode: "no-cors",
+-      credentials: "omit",
+-      cache: "no-store",
+-    })
+-  } catch {
+-    // ┼╗─àdanie i tak zostaje przechwycone/zatrute przez DNR ΓÇö b┼é─àd sieci jest OK.
+-  }
++  const tracker = TRACKERS[0]
++  const poison = generatePoison(tracker)
++  await reportAttack(
++    tracker,
++    "mock://local-honeypot-self-test/google-analytics/g/collect",
++    poison.description
++  )
+ }
+
+ // ---------------------------------------------------------------------------
+diff --git a/src/shared/messages.ts b/src/shared/messages.ts
+index 337d9ae..b74db97 100644
+--- a/src/shared/messages.ts
++++ b/src/shared/messages.ts
+@@ -11,6 +11,7 @@ import type { PageContext } from "./pageContextSchema"
+ import type { FeatureCard } from "./featureRegistry"
+ import type { AiDeepDiveRuntimeConfig } from "./aiDeepDive/config"
+ import type { AiDeepDiveInput, AiDeepDiveRiskResult } from "./aiDeepDive/types"
++import { isKnownCndMessage } from "../security/validateMessage"
+
+ export interface PageAnalysis {
+   page: PageContext
+@@ -43,13 +44,10 @@ export interface DeepScanRuntimeStatus {
+   fallbackDtype?: string
+   candidateDtypes?: string[]
+   attemptedDtypes?: string[]
+-  textDelta?: string
+-  streamText?: string
+-  rawText?: string
+-  jsonText?: string | null
+-  rawExcerpt?: string
+   cacheHit?: boolean
+-  error?: unknown
++  outputChars?: number
++  error?: string
++  redactedFields?: string[]
+ }
+
+ export type CndContentMessage =
+@@ -69,10 +67,5 @@ export type CndContentMessage =
+   | { type: "CND_RESCAN" }
+
+ export function isCndMessage(value: unknown): value is CndContentMessage {
+-  return (
+-    typeof value === "object" &&
+-    value !== null &&
+-    typeof (value as { type?: unknown }).type === "string" &&
+-    (value as { type: string }).type.startsWith("CND_")
+-  )
++  return isKnownCndMessage(value)
+ }
+diff --git a/src/sidepanel.tsx b/src/sidepanel.tsx
+index 212f900..fac1f34 100644
+--- a/src/sidepanel.tsx
++++ b/src/sidepanel.tsx
+@@ -115,7 +115,9 @@ export default function SidePanel() {
+         </div>
+         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+           <span style={{ color: "#9AA4B2" }}>Rozmiar / licencja</span>
+-          <span style={{ color: "#6b7a85" }}>~{model.approxDownloadMb} MB ┬╖ {model.license}</span>
++          <span style={{ color: "#6b7a85" }}>
++            ~{model.approxDownloadMb} MB ┬╖ {model.localModelId ? "pakiet extension" : model.license}
++          </span>
+         </div>
+         <div style={{ marginTop: 6, fontSize: 10, color: "#2BD4C4" }}>
+           local-first ┬╖ cloud disabled ┬╖ dane nie opuszczaj─à urz─àdzenia
+diff --git a/src/tabs/dashboard.tsx b/src/tabs/dashboard.tsx
+index c71e6ee..61e645c 100644
+--- a/src/tabs/dashboard.tsx
++++ b/src/tabs/dashboard.tsx
+@@ -195,7 +195,7 @@ export default function Dashboard() {
+     try {
+       const alias = await generateAlias()
+       setState((prev) => ({ ...prev, activeAliasEmail: alias.alias }))
+-      addLog({ timestamp: Date.now(), source: "system", message: `Wygenerowano alias e-mail: ${alias.alias}` })
++      addLog({ timestamp: Date.now(), source: "system", message: "Wygenerowano alias e-mail: [redacted]" })
+     } catch {
+       addLog({ timestamp: Date.now(), source: "system", message: "Nie uda┼éo si─Ö wygenerowa─ç aliasu e-mail" })
+     }
+diff --git a/tests/aiDeepDiveReportPolicy.test.ts b/tests/aiDeepDiveReportPolicy.test.ts
+index d71ce6f..f4d1cdc 100644
+--- a/tests/aiDeepDiveReportPolicy.test.ts
++++ b/tests/aiDeepDiveReportPolicy.test.ts
+@@ -23,11 +23,11 @@ function result(level: AiDeepDiveRiskResult["level"]): AiDeepDiveRiskResult {
+ }
+
+ describe("AI Deep-Dive report policy", () => {
+-  it("sends a compact report for every page risk level", () => {
+-    expect(shouldSendAiDeepDiveReport(result("low"))).toBe(true)
+-    expect(shouldSendAiDeepDiveReport(result("medium"))).toBe(true)
+-    expect(shouldSendAiDeepDiveReport(result("high"))).toBe(true)
+-    expect(shouldSendAiDeepDiveReport(result("critical"))).toBe(true)
++  it("does not emit page reports by default", () => {
++    expect(shouldSendAiDeepDiveReport(result("low"))).toBe(false)
++    expect(shouldSendAiDeepDiveReport(result("medium"))).toBe(false)
++    expect(shouldSendAiDeepDiveReport(result("high"))).toBe(false)
++    expect(shouldSendAiDeepDiveReport(result("critical"))).toBe(false)
+   })
+
+   it("shows page notification only for serious risk", () => {

@@ -17,7 +17,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const EXT = join(ROOT, "build", "chrome-mv3-prod")
 const MODEL = process.argv[2] || "granite-350m"
 const TIMEOUT_MS = Number(process.env.LLM_VERIFY_TIMEOUT_MS || 960000)
-const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+const BROWSER_EXE =
+  process.env.LLM_VERIFY_BROWSER_EXE ||
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+const KEEP_PROFILE_ON_FAIL = process.env.LLM_VERIFY_KEEP_PROFILE === "1"
 const LOG_KEY = "cnd:offscreen-logs"
 const CONFIG_KEY = "cnd:ai-deep-dive:config"
 const DEFAULT_PROFILE = join(ROOT, "build", "llm-verify-profile")
@@ -98,7 +101,7 @@ try {
   console.log("PROFILE:", profileDir)
   console.log("CACHE MODE:", freshProfile ? "fresh temp profile" : "persistent profile")
   context = await chromium.launchPersistentContext(profileDir, {
-    executablePath: EDGE,
+    executablePath: BROWSER_EXE,
     headless: false,
     viewport: { width: 1100, height: 850 },
     args: [
@@ -235,7 +238,7 @@ try {
     await Promise.race([context.close().catch(() => {}), sleep(10000)])
   }
   killProfileProcesses(profileDir)
-  if (freshProfile) {
+  if (freshProfile && (ok || !KEEP_PROFILE_ON_FAIL)) {
     await rm(profileDir, { recursive: true, force: true }).catch(() => {})
   }
 }
