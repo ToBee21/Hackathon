@@ -21,6 +21,10 @@ const BROWSER_EXE =
   process.env.LLM_VERIFY_BROWSER_EXE ||
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
 const KEEP_PROFILE_ON_FAIL = process.env.LLM_VERIFY_KEEP_PROFILE === "1"
+const EXTRA_BROWSER_ARGS = (process.env.LLM_VERIFY_EXTRA_ARGS || "")
+  .split(/\s+/)
+  .map((arg) => arg.trim())
+  .filter(Boolean)
 const LOG_KEY = "cnd:offscreen-logs"
 const CONFIG_KEY = "cnd:ai-deep-dive:config"
 const DEFAULT_PROFILE = join(ROOT, "build", "llm-verify-profile")
@@ -109,7 +113,8 @@ try {
       "--no-default-browser-check",
       "--disable-features=DisableLoadExtensionCommandLineSwitch",
       `--disable-extensions-except=${EXT}`,
-      `--load-extension=${EXT}`
+      `--load-extension=${EXT}`,
+      ...EXTRA_BROWSER_ARGS
     ],
     timeout: 60000
   })
