@@ -265,7 +265,6 @@ export default function VirtualIdentityStudio({
   )
   const config = value ?? internal
 
-  const [tab, setTab] = useState<"default" | "special">("default")
 
   const update = (next: VirtualIdentityConfig) => {
     if (value === undefined) setInternal(next)
@@ -300,7 +299,7 @@ export default function VirtualIdentityStudio({
   const activeArchetype: Archetype | undefined =
     config.archetypeId !== "custom" ? getArchetype(config.archetypeId) : undefined
 
-  const presets = ARCHETYPES.filter((a) => a.category === tab)
+  const presets = ARCHETYPES.filter((a) => a.category === "default")
 
   // Czy edytowana tożsamość jest dokładnie tą zapisaną (aktywną).
   const isActive = activeConfig != null && identityEquals(config, activeConfig)
@@ -358,26 +357,6 @@ export default function VirtualIdentityStudio({
       <div className="grid gap-0 lg:grid-cols-[1fr_300px]">
         {/* ============ LEWA: KONTROLA ============ */}
         <div className="border-line p-4 lg:border-r">
-          {/* Zakładki presetów */}
-          <div className="mb-3 inline-flex rounded-lg bg-white/[0.04] p-0.5">
-            {(["default", "special"] as const).map((t) => {
-              const active = t === tab
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
-                  className="rounded-md px-3 py-1 text-[11px] font-medium transition-colors duration-base"
-                  style={{
-                    backgroundColor: active ? `${ACCENT}1f` : "transparent",
-                    color: active ? ACCENT : "#9AA0AB"
-                  }}>
-                  {t === "default" ? "Domyślne" : "Specjalne"}
-                </button>
-              )
-            })}
-          </div>
-
           {/* Siatka kart archetypów */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 xl:grid-cols-2">
             {presets.map((a) => {

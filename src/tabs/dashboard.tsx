@@ -10,7 +10,6 @@ import {
   type CSSProperties,
 } from "react"
 
-import AiDeepDiveCard from "../components/AiDeepDiveCard"
 import CyberRadar, { type HoneypotEvent } from "../components/CyberRadar"
 import { ChevronDown, Lock, Logo, Mail, ShieldCheck, ShieldOff } from "../components/icons"
 import LoggerView from "../components/LoggerView"
@@ -333,17 +332,10 @@ export default function Dashboard() {
         {/* Main content — 3-column grid */}
         <div className="grid gap-6 p-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-[300px_1fr_300px]">
 
-          {/* Left column — controls */}
+          {/* Left column — score + metrics */}
           <div className="flex flex-col gap-4">
             <ScoreChart score={score} tier={tier} armed={anyEnabled} noiseCount={state.noiseGeneratedCount} trackerCount={state.trackersBlockedCount} />
             <StatCards state={state} />
-            <AiDeepDiveCard
-              risk={state.aiDeepDiveRisk}
-              maxCamoActive={state.maxCamoActive}
-              aiModeEnabled={aiDeepDiveConfig.aiModeEnabled}
-              onToggleAiMode={handleToggleAiDeepDiveMode}
-            />
-            <ModuleToggles toggles={toggles} onToggle={handleToggle} />
           </div>
 
           {/* Center — Radar */}
@@ -378,39 +370,44 @@ export default function Dashboard() {
                 Szum DataGhost
               </span>
             </div>
-          </div>
 
-          {/* Right column — logs + shadow audit + panic */}
-          <div className="flex flex-col gap-4">
-            <LoggerView entries={logs} />
-            <ShadowAudit />
-            <PanicButton onPanic={handlePanic} />
-            <div className="flex flex-col items-center gap-1.5">
-              {state.activeAliasEmail ? (
-                <p className="text-[10px] text-fg-low">
-                  Alias:{" "}
-                  <span className="font-mono text-fg-mid">{state.activeAliasEmail}</span>{" "}
+            {/* Strefa awaryjna + alias — wyśrodkowane pod radarem */}
+            <div className="mt-2 flex w-full max-w-[360px] flex-col gap-3">
+              <PanicButton onPanic={handlePanic} />
+              <div className="flex flex-col items-center gap-1.5">
+                {state.activeAliasEmail ? (
+                  <p className="text-[10px] text-fg-low">
+                    Alias:{" "}
+                    <span className="font-mono text-fg-mid">{state.activeAliasEmail}</span>{" "}
+                    <button
+                      type="button"
+                      onClick={handleGenerateAlias}
+                      className="text-accent/80 transition-colors hover:text-accent"
+                    >
+                      nowy
+                    </button>
+                  </p>
+                ) : (
                   <button
                     type="button"
                     onClick={handleGenerateAlias}
-                    className="text-accent/80 transition-colors hover:text-accent"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] px-2.5 py-1 text-[10px] text-fg-mid ring-1 ring-inset ring-line-strong transition-colors hover:text-fg-hi hover:ring-line-hover"
                   >
-                    nowy
+                    <Mail size={11} /> Generuj alias e-mail
                   </button>
+                )}
+                <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-fg-low/50">
+                  <Lock size={10} /> Privacy-by-Design · dane lokalne
                 </p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleGenerateAlias}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] px-2.5 py-1 text-[10px] text-fg-mid ring-1 ring-inset ring-line-strong transition-colors hover:text-fg-hi hover:ring-line-hover"
-                >
-                  <Mail size={11} /> Generuj alias e-mail
-                </button>
-              )}
-              <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-fg-low/50">
-                <Lock size={10} /> Privacy-by-Design · dane lokalne
-              </p>
+              </div>
             </div>
+          </div>
+
+          {/* Right column — wektory ochrony + logs + shadow audit */}
+          <div className="flex flex-col gap-4">
+            <ModuleToggles toggles={toggles} onToggle={handleToggle} />
+            <LoggerView entries={logs} />
+            <ShadowAudit />
           </div>
         </div>
 
