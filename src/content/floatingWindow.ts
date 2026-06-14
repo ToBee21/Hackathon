@@ -57,6 +57,10 @@ interface FloatingState {
   collapsed: boolean
   x: number | null
   y: number | null
+  /** Edge the collapsed ribbon is snapped to. */
+  dock: "left" | "right"
+  /** Vertical position of the collapsed ribbon (top, px). */
+  ribbonY: number | null
   disabled: boolean
 }
 
@@ -79,7 +83,21 @@ const DEFAULT_STATE: FloatingState = {
   collapsed: true,
   x: null,
   y: null,
+  dock: "right",
+  ribbonY: null,
   disabled: false
+}
+
+// Collapsed ribbon footprint (kept in sync with the .ribbon CSS).
+const RIBBON_W = 34
+const RIBBON_H = 104
+
+// One-shot signal so render() plays the expand/collapse morph exactly once on
+// the transition that triggered it (not on every data-driven re-render).
+let pendingMorph: "expand" | "collapse" | null = null
+
+function isTrustedActivation(event: Event): boolean {
+  return event.isTrusted
 }
 
 const LEVEL_COLOR: Record<CardLevel, string> = {
@@ -109,6 +127,10 @@ let activeDeepScanRequestId: string | null = null
 let rerenderQueued = false
 let deepScanStatusListenerInstalled = false
 let floatingEnabledListenerInstalled = false
+// Auto-open the panel once per page when a real (high/critical) verdict lands,
+// unless the user has minimized it back to the ribbon on this page.
+let autoOpenedForPage = false
+let userMinimized = false
 
 export async function initFloatingWindow(): Promise<void> {
   if (window.top !== window) return
@@ -212,16 +234,59 @@ function buildStyle(): HTMLStyleElement {
   style.textContent = `
     :host { all: initial; }
     * { box-sizing: border-box; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
-    .widget { position: fixed; pointer-events: auto; }
-    .bubble {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: #0E1116; color: #2BD4C4; border: 1px solid #2BD4C4;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; box-shadow: 0 8px 28px rgba(0,0,0,0.45);
-      font-size: 18px; font-weight: 700; user-select: none;
+    .widget { position: fixed; pointer-events: auto; will-change: left, top, transform; }
+    /* Spring-snap to the edge on release; 1:1 (no transition) while dragging. */
+    .widget.snapping { transition: left .36s cubic-bezier(.34,1.56,.64,1), top .22s ease; }
+    .widget.dragging { transition: none !important; }
+
+    /* Collapsed state = edge ribbon (wstazka), not a floating circle. */
+    .ribbon {
+      position: relative; width: ${RIBBON_W}px; height: ${RIBBON_H}px;
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+      padding: 9px 0; cursor: grab; user-select: none; touch-action: none;
+      color: #2BD4C4; background: linear-gradient(180deg, #12171d, #0b0e12);
+      border: 1px solid #233742;
     }
-    .bubble[data-level="critical"], .bubble[data-level="high"] { border-color: #FF5C77; color: #FF5C77; }
-    .bubble[data-level="medium"] { border-color: #E6B450; color: #E6B450; }
+    .ribbon:active { cursor: grabbing; }
+    .ribbon.dock-right { border-radius: 13px 0 0 13px; border-right: none; box-shadow: -7px 9px 28px rgba(0,0,0,0.46); }
+    .ribbon.dock-left  { border-radius: 0 13px 13px 0; border-left: none;  box-shadow:  7px 9px 28px rgba(0,0,0,0.46); }
+    .ribbon::before {
+      content: ""; position: absolute; top: 12px; bottom: 12px; width: 2px; border-radius: 2px;
+      background: currentColor; opacity: .85;
+    }
+    .ribbon.dock-right::before { right: 0; }
+    .ribbon.dock-left::before  { left: 0; }
+    .ribbon[data-level="critical"], .ribbon[data-level="high"] { color: #FF5C77; }
+    .ribbon[data-level="medium"] { color: #E6B450; }
+    .ribbon .rb-grip {
+      width: 10px; height: 13px; flex: none; color: #5d6b75;
+      background-image: radial-gradient(currentColor 1px, transparent 1.5px);
+      background-size: 5px 5px;
+    }
+    .ribbon .rb-mark {
+      flex: 1 1 auto; display: flex; align-items: center; justify-content: center; color: inherit;
+    }
+    .ribbon .rb-mark svg { width: 18px; height: 18px; display: block; }
+    .ribbon .rb-score {
+      flex: none; min-width: 22px; text-align: center; padding: 3px 0; border-radius: 6px;
+      font: 700 12px/1 ui-monospace, Consolas, monospace; color: inherit;
+      background: rgba(43,212,196,.12);
+    }
+    .ribbon[data-level="critical"] .rb-score, .ribbon[data-level="high"] .rb-score { background: rgba(255,92,119,.14); }
+    .ribbon[data-level="medium"] .rb-score { background: rgba(230,180,80,.14); }
+
+    /* Morph: panel grows out of the ribbon; ribbon slides back from the panel. */
+    .panel.morph-in { animation: cndMorphPanel .24s cubic-bezier(.2,.85,.25,1.15) both; }
+    @keyframes cndMorphPanel { from { opacity: 0; transform: scale(.78); } to { opacity: 1; transform: scale(1); } }
+    .ribbon.morph-in { animation: cndMorphRibbon .22s cubic-bezier(.34,1.56,.64,1) both; }
+    @keyframes cndMorphRibbon {
+      from { opacity: 0; transform: translateX(var(--rb-from, 0)) scale(.85); }
+      to   { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .widget.snapping { transition: none; }
+      .panel.morph-in, .ribbon.morph-in { animation: none; }
+    }
     .panel {
       width: 320px; max-height: 70vh; overflow: hidden;
       background: #0E1116; color: #C7D2DA; border: 1px solid #1c2b36;
@@ -337,49 +402,115 @@ function render(): void {
   positionWidget(widget)
 
   if (state.collapsed) {
-    widget.appendChild(buildBubble())
+    const ribbon = buildRibbon()
+    if (pendingMorph === "collapse") {
+      ribbon.classList.add("morph-in")
+      ribbon.style.setProperty("--rb-from", state.dock === "left" ? "-20px" : "20px")
+    }
+    widget.appendChild(ribbon)
   } else {
-    widget.appendChild(buildPanel())
+    const panel = buildPanel()
+    if (pendingMorph === "expand") {
+      panel.classList.add("morph-in")
+      panel.style.transformOrigin = state.dock === "left" ? "0% 22%" : "100% 22%"
+    }
+    widget.appendChild(panel)
   }
+  pendingMorph = null
   shadow.appendChild(widget)
 }
 
 function positionWidget(widget: HTMLElement): void {
+  if (state.collapsed) {
+    // Ribbon docks flush to an edge; only its vertical position is user-chosen.
+    const y = state.ribbonY ?? Math.round(window.innerHeight / 2 - RIBBON_H / 2)
+    widget.style.top = `${clampRibbonY(y)}px`
+    widget.style.bottom = "auto"
+    if (state.dock === "left") {
+      widget.style.left = "0px"
+      widget.style.right = "auto"
+    } else {
+      widget.style.right = "0px"
+      widget.style.left = "auto"
+    }
+    return
+  }
+  // Panel free-floats from its remembered position, else bottom-right.
   if (state.x !== null && state.y !== null) {
     widget.style.left = `${clampX(state.x)}px`
     widget.style.top = `${clampY(state.y)}px`
+    widget.style.right = "auto"
+    widget.style.bottom = "auto"
   } else {
     widget.style.right = "20px"
     widget.style.bottom = "20px"
+    widget.style.left = "auto"
+    widget.style.top = "auto"
   }
 }
 
-function buildBubble(): HTMLElement {
-  const bubble = document.createElement("div")
-  bubble.className = "bubble"
-  bubble.setAttribute("data-cloak-dagger", "bubble")
-  bubble.setAttribute("data-level", currentLevel())
-  bubble.setAttribute("role", "button")
-  bubble.setAttribute("tabindex", "0")
-  bubble.setAttribute(
+function buildRibbon(): HTMLElement {
+  const ribbon = document.createElement("div")
+  ribbon.className = `ribbon dock-${state.dock}`
+  // Stable e2e hook (verify-floating-window.mjs). The visual is now an edge ribbon.
+  ribbon.setAttribute("data-cloak-dagger", "bubble")
+  ribbon.setAttribute("data-level", currentLevel())
+  ribbon.setAttribute("role", "button")
+  ribbon.setAttribute("tabindex", "0")
+  ribbon.setAttribute(
     "aria-label",
-    `PrivacyMyst  -  ${lastRisk ? `ryzyko ${lastRisk.score}` : "otwórz panel"}`
+    `PrivacyMyst Deep-Dive  -  ${
+      lastRisk ? `ryzyko ${lastRisk.score}, otwórz panel` : "otwórz panel"
+    }`
   )
-  bubble.textContent = lastRisk ? String(lastRisk.score) : "CD"
-  const open = () => {
-    state.collapsed = false
-    void saveState()
-    render()
-  }
-  bubble.addEventListener("click", open)
-  bubble.addEventListener("keydown", (e) => {
+  ribbon.title = "PrivacyMyst Deep-Dive — kliknij, aby otworzyć panel"
+  ribbon.innerHTML = `
+    <span class="rb-grip" aria-hidden="true"></span>
+    <span class="rb-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/></svg></span>
+    <span class="rb-score">${lastRisk ? escapeHtml(String(lastRisk.score)) : "PM"}</span>`
+  ribbon.addEventListener("keydown", (e) => {
+    if (!isTrustedActivation(e)) return
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault()
-      open()
+      expandFromRibbon()
     }
   })
-  makeDraggable(bubble, bubble)
-  return bubble
+  makeRibbonDraggable(ribbon, expandFromRibbon)
+  return ribbon
+}
+
+// Place the panel beside the ribbon so the morph reads as it growing out of the
+// ribbon; from there the panel free-floats.
+function anchorPanelBesideRibbon(): void {
+  const panelW = 320
+  const margin = 16
+  const y = state.ribbonY ?? Math.round(window.innerHeight / 2 - RIBBON_H / 2)
+  state.x =
+    state.dock === "left"
+      ? margin
+      : Math.max(margin, window.innerWidth - panelW - margin)
+  state.y = clampY(y)
+}
+
+// Manual open (tap/keyboard on the ribbon).
+function expandFromRibbon(): void {
+  anchorPanelBesideRibbon()
+  state.collapsed = false
+  pendingMorph = "expand"
+  void saveState()
+  render()
+}
+
+// One-shot auto-open when the verdict is genuinely notable. Flips state but does
+// NOT render — the caller renders once afterwards.
+function maybeAutoOpen(): void {
+  if (autoOpenedForPage || userMinimized || !state.collapsed || !lastRisk) return
+  if (lastRisk.level !== "high" && lastRisk.level !== "critical") return
+  autoOpenedForPage = true
+  anchorPanelBesideRibbon()
+  state.collapsed = false
+  pendingMorph = "expand"
+  void saveState()
 }
 
 function buildPanel(): HTMLElement {
@@ -398,8 +529,10 @@ function buildPanel(): HTMLElement {
       <span class="ttl">PrivacyMyst</span><br/>
       <span class="sub">${escapeHtml(page ? describePage(page) : "skanuję…")}</span>
     </span>`
-  const minBtn = iconButton("-", "Minimalizuj", () => {
+  const minBtn = iconButton("-", "Minimalizuj do wstazki", () => {
     state.collapsed = true
+    userMinimized = true
+    pendingMorph = "collapse"
     void saveState()
     render()
   })
@@ -474,14 +607,18 @@ function buildFooter(page: PageContext | null): HTMLElement {
         ? "Ładowanie modelu…"
         : `Głęboki skan (${model.label.split(" (")[0]})`
     deepBtn.disabled = deepScanStatus === "loading"
-    deepBtn.addEventListener("click", () => void deepScan())
+    deepBtn.addEventListener("click", (event) => {
+      if (!isTrustedActivation(event)) return
+      void deepScan()
+    })
     ftr.appendChild(deepBtn)
   }
 
   const sideBtn = document.createElement("button")
   sideBtn.className = "btn ghost"
   sideBtn.textContent = "Otwórz Side Panel"
-  sideBtn.addEventListener("click", () => {
+  sideBtn.addEventListener("click", (event) => {
+    if (!isTrustedActivation(event)) return
     try {
       ext?.runtime?.sendMessage({ type: "CND_OPEN_SIDE_PANEL" })
     } catch {
@@ -493,7 +630,8 @@ function buildFooter(page: PageContext | null): HTMLElement {
   const rescanBtn = document.createElement("button")
   rescanBtn.className = "btn ghost"
   rescanBtn.textContent = "Skanuj ponownie"
-  rescanBtn.addEventListener("click", () => {
+  rescanBtn.addEventListener("click", (event) => {
+    if (!isTrustedActivation(event)) return
     deepScanStatus = "idle"
     deepScanMessage = ""
     llmOutputState = emptyLlmOutputState()
@@ -507,7 +645,8 @@ function buildFooter(page: PageContext | null): HTMLElement {
   visionBtn.title =
     "Wykryj i rozmyj obrazki-reklamy lokalnym modelem wizyjnym (skrót: Alt+Shift+V)"
   visionBtn.setAttribute("data-cloak-dagger", "vision-scan")
-  visionBtn.addEventListener("click", () => {
+  visionBtn.addEventListener("click", (event) => {
+    if (!isTrustedActivation(event)) return
     try {
       ext?.runtime?.sendMessage({ type: "CND_VISION_TRIGGER" })
     } catch {
@@ -801,6 +940,7 @@ async function analyze(): Promise<void> {
   const heuristic = classifyHeuristic(extractVisibleTextFromPage())
   lastRisk = heuristic
   lastCards = sortCards(runActiveFeatures({ page, risk: heuristic }))
+  maybeAutoOpen()
   render()
   pushAnalysis()
 }
@@ -878,6 +1018,7 @@ async function deepScan(): Promise<void> {
     }
     activeDeepScanRequestId = null
   }
+  maybeAutoOpen()
   render()
   pushAnalysis()
 }
@@ -1070,7 +1211,7 @@ function makeDraggable(handle: HTMLElement, moving: HTMLElement): void {
   let moved = false
 
   handle.addEventListener("pointerdown", (e: PointerEvent) => {
-    if (e.button !== 0) return
+    if (e.button !== 0 || !isTrustedActivation(e)) return
     dragging = true
     moved = false
     const widget = moving.classList.contains("widget")
@@ -1120,6 +1261,100 @@ function clampX(x: number): number {
 }
 function clampY(y: number): number {
   return Math.max(0, Math.min(y, window.innerHeight - 56))
+}
+function clampRibbonY(y: number): number {
+  return Math.max(8, Math.min(y, window.innerHeight - RIBBON_H - 8))
+}
+
+// Ribbon drag: 1:1 free follow while dragging, then a spring-snap to the nearest
+// vertical edge on release. A tap (no real movement) activates the panel instead.
+function makeRibbonDraggable(el: HTMLElement, onActivate: () => void): void {
+  let startX = 0
+  let startY = 0
+  let originLeft = 0
+  let originTop = 0
+  let dragging = false
+  let moved = false
+
+  const widgetOf = (): HTMLElement =>
+    (el.closest(".widget") as HTMLElement) || el
+
+  el.addEventListener("pointerdown", (e: PointerEvent) => {
+    if (e.button !== 0 || !isTrustedActivation(e)) return
+    dragging = true
+    moved = false
+    const widget = widgetOf()
+    const rect = widget.getBoundingClientRect()
+    originLeft = rect.left
+    originTop = rect.top
+    startX = e.clientX
+    startY = e.clientY
+    widget.classList.remove("snapping")
+    widget.classList.add("dragging")
+    el.setPointerCapture(e.pointerId)
+  })
+
+  el.addEventListener("pointermove", (e: PointerEvent) => {
+    if (!dragging) return
+    const dx = e.clientX - startX
+    const dy = e.clientY - startY
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true
+    const widget = widgetOf()
+    widget.style.left = `${originLeft + dx}px`
+    widget.style.top = `${clampRibbonY(originTop + dy)}px`
+    widget.style.right = "auto"
+    widget.style.bottom = "auto"
+  })
+
+  el.addEventListener("pointerup", (e: PointerEvent) => {
+    if (!dragging) return
+    dragging = false
+    try {
+      el.releasePointerCapture(e.pointerId)
+    } catch {
+      /* pointer capture may already be released */
+    }
+    const widget = widgetOf()
+    widget.classList.remove("dragging")
+
+    // A tap opens the panel rather than re-docking.
+    if (!moved) {
+      if (!isTrustedActivation(e)) return
+      onActivate()
+      return
+    }
+
+    // Snap to the nearest vertical edge. The back-eased transition slightly
+    // overshoots past the edge (clipped by the viewport) for a "press into the
+    // edge" spring feel.
+    const rect = widget.getBoundingClientRect()
+    const center = rect.left + rect.width / 2
+    state.dock = center < window.innerWidth / 2 ? "left" : "right"
+    state.ribbonY = clampRibbonY(rect.top)
+    el.className = `ribbon dock-${state.dock}`
+
+    widget.classList.add("snapping")
+    widget.style.top = `${state.ribbonY}px`
+    widget.style.right = "auto"
+    widget.style.left =
+      state.dock === "left" ? "0px" : `${window.innerWidth - rect.width}px`
+
+    let done = false
+    const settle = (): void => {
+      if (done) return
+      done = true
+      widget.classList.remove("snapping")
+      // Re-anchor via right/left:0 so the ribbon tracks future window resizes.
+      positionWidget(widget)
+      widget.removeEventListener("transitionend", onEnd)
+    }
+    const onEnd = (ev: Event): void => {
+      if ((ev as TransitionEvent).propertyName === "left") settle()
+    }
+    widget.addEventListener("transitionend", onEnd)
+    window.setTimeout(settle, 440) // fallback if no left-transition fires
+    void saveState()
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -1185,7 +1420,10 @@ function iconButton(
   btn.textContent = label
   btn.setAttribute("aria-label", aria)
   btn.title = aria
-  btn.addEventListener("click", onClick)
+  btn.addEventListener("click", (event) => {
+    if (!isTrustedActivation(event)) return
+    onClick()
+  })
   return btn
 }
 
