@@ -467,6 +467,143 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true
 })
 
+// ---------------------------------------------------------------------------
+// AI Vision ad-image classifier — shares this offscreen's runtime (the
+// esbuild-bundled transformers.js exposes the VLM low-level API). SmolVLM-256M
+// (idefics3, q4f16) decides ad / not-ad from a single image. The page sends a
+// PNG dataURL via CND_VISION_INFER; the image bytes are NEVER logged.
+// ---------------------------------------------------------------------------
+let visionPromise = null
+const VISION_LOCAL_ID = "smolvlm-256m"
+const VISION_PNG_DATA_URL_PREFIX = "data:image/png;base64,"
+const VISION_IMAGE_MAX_CHARS = 24_000_000
+const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/
+const VISION_AD_RE =
+  /\b(advert|marketing|sale|shopping|buy|buying|product|brand|store|shop|banner|promo|discount|offer|deal|coupon|logo)\b/i
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== "CND_VISION_INFER") return undefined
+  const requestId =
+    typeof message.requestId === "string"
+      ? message.requestId
+      : crypto.randomUUID()
+  if (!isValidVisionInferMessage(message)) {
+    emitOffscreenLog("warn", "vision:reject", { requestId })
+    sendResponse({ ok: false, error: "invalid vision infer message" })
+    return false
+  }
+  void (async () => {
+    try {
+      const result = await classifyImageAd(message.image)
+      emitOffscreenLog("info", "vision:done", {
+        requestId,
+        modelId: VISION_LOCAL_ID,
+        device: "webgpu"
+      })
+      sendResponse({ ok: true, result })
+    } catch (error) {
+      emitOffscreenLog("error", "vision:error", {
+        requestId,
+        error: serializeError(error)
+      })
+      sendResponse({
+        ok: false,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  })()
+  return true
+})
+
+function isValidVisionInferMessage(message) {
+  return (
+    message &&
+    typeof message === "object" &&
+    message.type === "CND_VISION_INFER" &&
+    (message.requestId === undefined || isBoundedString(message.requestId, 128)) &&
+    isVisionPngDataUrl(message.image)
+  )
+}
+
+function isVisionPngDataUrl(value) {
+  if (!isBoundedString(value, VISION_IMAGE_MAX_CHARS)) return false
+  if (!value.startsWith(VISION_PNG_DATA_URL_PREFIX)) return false
+  const payload = value.slice(VISION_PNG_DATA_URL_PREFIX.length)
+  return payload.length > 0 && payload.length % 4 === 0 && BASE64_RE.test(payload)
+}
+
+function isBoundedString(value, maxChars) {
+  return typeof value === "string" && value.length <= maxChars
+}
+
+async function getVisionRuntime() {
+  if (!visionPromise) {
+    visionPromise = (async () => {
+      configureTransformersRuntime()
+      const processor =
+        await transformers.AutoProcessor.from_pretrained(VISION_LOCAL_ID)
+      const model =
+        await transformers.AutoModelForImageTextToText.from_pretrained(
+          VISION_LOCAL_ID,
+          {
+            dtype: {
+              embed_tokens: "q4f16",
+              vision_encoder: "q4f16",
+              decoder_model_merged: "q4f16"
+            },
+            device: "webgpu"
+          }
+        )
+      return { processor, model }
+    })().catch((error) => {
+      visionPromise = null
+      throw error
+    })
+  }
+  return visionPromise
+}
+
+async function classifyImageAd(dataUrl) {
+  if (!isVisionPngDataUrl(dataUrl)) throw new Error("invalid image data URL")
+  const { processor, model } = await getVisionRuntime()
+  const image = await transformers.RawImage.fromURL(dataUrl)
+  const messages = [
+    {
+      role: "user",
+      content: [
+        { type: "image" },
+        {
+          type: "text",
+          text:
+            "Is this image an advertisement or marketing banner? Answer in one " +
+            "short sentence describing what it shows."
+        }
+      ]
+    }
+  ]
+  const text = processor.apply_chat_template(messages, {
+    add_generation_prompt: true
+  })
+  const inputs = await processor(text, [image], { do_image_splitting: false })
+  const generated = await model.generate({
+    ...inputs,
+    max_new_tokens: 64,
+    do_sample: false
+  })
+  let decoded
+  try {
+    const inLen = inputs.input_ids.dims.at(-1)
+    decoded = processor.batch_decode(generated.slice(null, [inLen, null]), {
+      skip_special_tokens: true
+    })
+  } catch {
+    decoded = processor.batch_decode(generated, { skip_special_tokens: true })
+  }
+  const description = String(decoded?.[0] ?? "").trim()
+  const isAd = /^\s*[*"'\s]*yes\b/i.test(description) || VISION_AD_RE.test(description)
+  return { isAd, description }
+}
+
 function normalizeInput(input) {
   return {
     title: String(input?.title ?? ""),

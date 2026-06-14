@@ -14,6 +14,7 @@
     "blocklist:keygen": "node scripts/compile-blocklists.mjs --keygen",
     "blocklist:sign": "node server/build-bundle.mjs",
     "infer:nli": "node scripts/run-local-nli.mjs",
+    "bench:sensitivity": "node scripts/bench-sensitivity.mjs",
     "smoke:extension": "playwright test tests/bionicBlurExtension.spec.ts --reporter=line",
     "test": "vitest run",
     "security:prove": "npm run typecheck && npm run build && vitest run tests/security",
@@ -62,6 +63,12 @@
       "contextMenus",
       "offscreen"
     ],
+    "commands": {
+      "scan-ad-images": {
+        "suggested_key": { "default": "Alt+Shift+V" },
+        "description": "Cloak & Dagger: skanuj reklamy-obrazki na stronie (AI vision)"
+      }
+    },
     "host_permissions": [
       "http://*/*",
       "https://*/*"

@@ -12,6 +12,10 @@ import { useEffect, useState, type CSSProperties } from "react"
 
 import { getModelOption } from "./shared/aiDeepDive/models"
 import type { CardLevel, FeatureCard } from "./shared/featureRegistry"
+import {
+  inspectFileBytes,
+  type FileInspectVerdict
+} from "./shared/fileInspect/inspectFile"
 import type { PageAnalysis } from "./shared/messages"
 import { STORAGE_KEYS } from "./shared/storageKeys"
 import { describePage } from "./shared/pageContextSchema"
@@ -138,7 +142,120 @@ export default function SidePanel() {
           <div style={{ fontSize: 11, color: "#6b7a85" }}>Brak aktywnych kart dla tej strony.</div>
         )}
       </div>
+
+      <FileInspector />
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Stage-1 File Inspector — lokalna inspekcja STRUKTURY pobranego pliku.
+// Bajty czytane przez FileReader (arrayBuffer); plik NIE opuszcza urządzenia,
+// żadnego fetcha — zero-network. To nie antywirus: wykrywamy niebezpieczną
+// strukturę (auto-uruchamianie, makra, niezgodność typu, polyglot).
+// ---------------------------------------------------------------------------
+
+function FileInspector() {
+  const [verdict, setVerdict] = useState<FileInspectVerdict | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+
+  async function handleFile(file: File) {
+    setBusy(true)
+    try {
+      const buf = await file.arrayBuffer()
+      setVerdict(inspectFileBytes(file.name, new Uint8Array(buf)))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const color = verdict ? LEVEL_COLOR[verdict.level] : "#2BD4C4"
+
+  return (
+    <section style={{ marginTop: 14, borderTop: "1px solid #1c2b36", paddingTop: 12 }}>
+      <div style={{ fontSize: 11, letterSpacing: "0.14em", color: "#2BD4C4", textTransform: "uppercase" }}>
+        Inspekcja pliku · Stage 1
+      </div>
+      <div style={{ fontSize: 10, color: "#6b7a85", margin: "3px 0 8px" }}>
+        Upuść pobrany załącznik. Czytany lokalnie (FileReader), nie opuszcza urządzenia.
+      </div>
+
+      <label
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragOver(true)
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragOver(false)
+          const f = e.dataTransfer.files?.[0]
+          if (f) void handleFile(f)
+        }}
+        style={{
+          display: "block",
+          border: `1px dashed ${dragOver ? "#2BD4C4" : "#283644"}`,
+          borderRadius: 10,
+          padding: "16px 12px",
+          textAlign: "center",
+          cursor: "pointer",
+          background: dragOver ? "rgba(43,212,196,0.06)" : "rgba(255,255,255,0.015)",
+          fontSize: 11,
+          color: "#9AA4B2"
+        }}>
+        {busy ? "Analizuję strukturę…" : "Upuść plik tutaj lub kliknij, by wybrać"}
+        <input
+          type="file"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) void handleFile(f)
+          }}
+        />
+      </label>
+
+      {verdict && (
+        <div
+          style={{
+            marginTop: 10,
+            border: "1px solid #1c2b36",
+            borderLeft: `3px solid ${color}`,
+            borderRadius: 8,
+            padding: "8px 10px",
+            background: "rgba(255,255,255,0.02)"
+          }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#E6EDF3", overflowWrap: "anywhere" }}>
+              {verdict.filename}
+            </span>
+            <span style={{ fontFamily: "ui-monospace, Consolas, monospace", fontSize: 14, fontWeight: 700, color }}>
+              {verdict.score}
+            </span>
+          </div>
+          <div style={{ fontSize: 11, color: "#C7D2DA", marginTop: 4, lineHeight: 1.4 }}>
+            {verdict.summary}
+          </div>
+          <div style={{ fontSize: 10, color: "#6b7a85", marginTop: 4 }}>
+            typ wykryty: {verdict.detectedType ?? "nierozpoznany"} · rozszerzenie: .{verdict.declaredExtension || "?"} ·{" "}
+            {(verdict.sizeBytes / 1024).toFixed(1)} KB
+          </div>
+          {verdict.signals.length > 0 && (
+            <ul style={{ margin: "6px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
+              {verdict.signals.slice(0, 6).map((s) => (
+                <li key={s.id} style={{ fontSize: 10.5, color: "#C7D2DA", paddingLeft: 11, position: "relative", lineHeight: 1.35 }}>
+                  <span style={{ position: "absolute", left: 0, color: "#6b7a85" }}>-</span>
+                  {s.reason}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div style={{ fontSize: 9, color: "#6b7a85", marginTop: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            źródło: inspekcja strukturalna · 0 sieci · nie antywirus
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
 

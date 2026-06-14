@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PrivacyMyst - On-device AI privacy defense</title>
+<meta name="description" content="Cloak & Dagger is an open-source browser extension that detects profiling, blocks trackers and malware from a signed self-updating list, and runs its AI entirely on your device. No data leaves your browser." />
+<meta name="robots" content="index, follow" />
+<meta property="og:title" content="PrivacyMyst - Cloak & Dagger" />
+<meta property="og:description" content="On-device AI privacy defense. Detects profiling, cuts trackers and malware, never phones home. Open source." />
+<meta property="og:type" content="website" />
+<link rel="icon" type="image/png" href="assets/favicon.png" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <span class="brand">
+      <img class="bmark" src="assets/logo.png" alt="PrivacyMyst" width="30" height="30" />
+      <span class="bname">Privacy<b>Myst</b></span>
+    </span>
+    <span class="grow"></span>
+    <nav class="links">
+      <a href="#demo">See it work</a>
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#trust">Trust</a>
+      <a href="#opensource">Open source</a>
+    </nav>
+    <a class="gh" href="#opensource" aria-label="Open source on GitHub">
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      GitHub
+      <span class="star">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2Z"/></svg>
+        MIT
+      </span>
+    </a>
+  </div>
+</header>
+
+<main>
+
+  <!-- ───────── HERO ───────── -->
+  <section class="hero">
+    <canvas id="mist"></canvas>
+    <div class="wrap">
+      <span class="pill reveal"><span class="tag">Dev preview</span> Built local-first for a hackathon</span>
+      <h1 class="reveal d1">See who's <span class="chrome">profiling</span> you. <span class="violet-text">Cut them off.</span></h1>
+      <p class="lede reveal d2">
+        Cloak &amp; Dagger reads each page the way a data broker would, warns you the
+        instant a site starts building a profile, and blocks known trackers, malware and
+        phishing. <b>The analysis runs entirely on your machine</b> - the text you read
+        never touches a server.
+      </p>
+      <div class="cta reveal d2">
+        <a class="btn primary" href="#get">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg>
+          Install the preview
+        </a>
+        <a class="btn ghost" href="#demo">Watch it block trackers</a>
+      </div>
+      <div class="trustbar reveal d3">
+        <span class="ti"><span class="d"></span><b>Local AI</b>&nbsp;- no cloud inference</span>
+        <span class="ti"><span class="d"></span><b>Signed</b>&nbsp;blocklist, verifiable</span>
+        <span class="ti"><span class="d"></span><b>MIT</b>&nbsp;open source</span>
+        <span class="ti"><span class="d"></span><b>No accounts</b>, no email</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── LIVE DEMO ───────── -->
+  <section class="blk" id="demo">
+    <div class="wrap">
+      <div class="shead reveal">
+        <span class="eyebrow">Live · simulated</span>
+        <h2 class="h2">Watch a profiling attempt fall apart.</h2>
+        <p class="sectlede">Open a page that wants your data and PrivacyMyst scores the risk on-device, then severs every tracker, fingerprinter and malware host before it phones home.</p>
+      </div>
+
+      <div class="demo-shell reveal d1">
+        <div class="demo-top">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <div class="urlbar">
+            <svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            health-insurance-quotes.example
+          </div>
+          <div class="ext-pin">
+            <img src="assets/logo.png" alt="PrivacyMyst" />
+            <span class="badge">0</span>
+          </div>
+        </div>
+        <div class="demo-body">
+          <div class="demo-page">
+            <div class="scan"></div>
+            <div class="fakeline t"></div>
+            <div class="fakeline" style="width:94%"></div>
+            <div class="fakeline" style="width:88%"></div>
+            <div class="fakeline" style="width:96%"></div>
+            <div class="fakeline" style="width:72%"></div>
+            <div class="fakeline" style="width:90%"></div>
+            <div class="fakeline" style="width:64%"></div>
+            <div class="fakeline" style="width:86%"></div>
+            <div class="fakeline" style="width:40%"></div>
+          </div>
+          <div class="demo-panel">
+            <div class="gauge-wrap">
+              <div class="gauge">
+                <svg viewBox="0 0 96 96" style="transform:rotate(-90deg)">
+                  <circle cx="48" cy="48" r="42" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="7"/>
+                  <circle id="gring" cx="48" cy="48" r="42" fill="none" stroke="#6EE7B7" stroke-width="7" stroke-linecap="round"
+                          stroke-dasharray="263.9" stroke-dashoffset="263.9" style="transition:stroke-dashoffset .25s linear, stroke .4s"/>
+                </svg>
+                <span class="num">0</span>
+                <span class="lbl">Risk score</span>
+              </div>
+              <div class="gstat">
+                <h4 id="gstat" style="color:#6EE7B7">Scanning…</h4>
+                <p>On-device classifier · WebGPU</p>
+              </div>
+            </div>
+            <div class="feed">
+              <div class="fh"><span>Blocked in real time</span><b id="feedcount">0</b></div>
+              <div class="feed-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="reveal d2" style="color:var(--low);font-size:13px;margin-top:16px;text-align:center;font-family:'JetBrains Mono';letter-spacing:.02em;">
+        Illustrative recreation of the extension UI. Page text is classified locally and discarded - nothing is uploaded.
+      </p>
+    </div>
+  </section>
+
+  <!-- ───────── HOW ───────── -->
+  <section class="blk" id="how">
+    <div class="wrap">
+      <div class="shead reveal">
+        <span class="eyebrow">How it works</span>
+        <h2 class="h2">Three layers, all running inside your browser.</h2>
+      </div>
+      <div class="layers">
+        <div class="layer reveal">
+          <div class="lnum">01</div>
+          <div>
+            <h3>It reads the page like a profiler would</h3>
+            <p>A local model scores every page for sensitive context - health, finance, identity - and tells you the moment a visit could become a profiling event. The text never leaves the tab.</p>
+          </div>
+        </div>
+        <div class="layer reveal d1">
+          <div class="lnum">02</div>
+          <div>
+            <h3>It blocks the network behind the page</h3>
+            <p>A curated, license-clean list of trackers, malware and phishing domains is enforced everywhere. On a page the AI flags as sensitive, blocking escalates to a stricter tier scoped to that site only.</p>
+          </div>
+        </div>
+        <div class="layer reveal d2">
+          <div class="lnum">03</div>
+          <div>
+            <h3>It tells you exactly why</h3>
+            <p>Every block is labelled with the reason and the source list, so you can see precisely which broker or malware host was about to receive your data.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── FEATURES ───────── -->
+  <section class="blk" id="features">
+    <div class="wrap">
+      <div class="shead reveal">
+        <span class="eyebrow">What's inside</span>
+        <h2 class="h2">A full privacy toolkit - not a single trick.</h2>
+        <p class="sectlede">Six defenses that layer together. The first two are live and verifiable today; the rest are in active development.</p>
+      </div>
+      <div class="grid3">
+        <div class="fcard reveal">
+          <div class="ficon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2m0 14v2m9-9h-2M5 12H3m13.5-6.5-1.4 1.4M8.9 15.1l-1.4 1.4m9 0-1.4-1.4M8.9 8.9 7.5 7.5"/></svg></div>
+          <h3>AI Deep Dive</h3>
+          <p>A local language model and classifier flag profiling and manipulation risk on the page you're reading.</p>
+          <span class="ft">On device</span>
+        </div>
+        <div class="fcard reveal d1">
+          <div class="ficon"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 7.5 8 9 4.5-1.5 8-4 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <h3>Risk-adaptive blocking</h3>
+          <p>Loose baseline everywhere, scorched earth on sensitive pages - driven by the page risk score, not a fixed rule.</p>
+          <span class="ft">Signed feed</span>
+        </div>
+        <div class="fcard reveal d2">
+          <div class="ficon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></div>
+          <h3>Link Guard</h3>
+          <p>Checks links on hover with zero network calls and adds a short cool-down before risky clicks.</p>
+          <span class="ft">Zero network</span>
+        </div>
+        <div class="fcard reveal">
+          <div class="ficon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div>
+          <h3>MailGuard</h3>
+          <p>Reads rendered webmail locally to flag sender spoofing, risky attachments and known campaign patterns.</p>
+          <span class="ft">On device</span>
+        </div>
+        <div class="fcard reveal d1">
+          <div class="ficon"><svg viewBox="0 0 24 24"><path d="M12 2c2 3 2 5 0 7s-2 4 0 6m-4-9c1.5 2 1.5 3 0 5m8-5c1.5 2 1.5 3 0 5"/><circle cx="12" cy="20" r="1.5"/></svg></div>
+          <h3>Fingerprint defense</h3>
+          <p>Bionic Blur softens canvas, audio and motion signals so trackers can't stitch your sessions together.</p>
+          <span class="ft">Per origin</span>
+        </div>
+        <div class="fcard reveal d2">
+          <div class="ficon"><svg viewBox="0 0 24 24"><path d="M12 3 3 8v5c0 5 4 7 9 8 5-1 9-3 9-8V8l-9-5Z"/><path d="M12 8v4m0 4h.01"/></svg></div>
+          <h3>Honeypot &amp; noise</h3>
+          <p>Poisons tracker parameters and injects believable noise, so the profile that gets built is simply wrong.</p>
+          <span class="ft">Active</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── TRUST ───────── -->
+  <section class="blk" id="trust">
+    <div class="wrap">
+      <div class="shead reveal">
+        <span class="eyebrow">Why you can trust it</span>
+        <h2 class="h2">Privacy software you can't verify is just a promise.</h2>
+        <p class="sectlede">This one is built to be checked - by you, line by line.</p>
+      </div>
+      <div class="split">
+        <div class="tlist reveal">
+          <div class="titem">
+            <span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="m5 12 5 5 9-11"/></svg></span>
+            <div>
+              <h4>The AI never phones home</h4>
+              <p>Models run in your browser over WebGPU and WebAssembly. There's no server to send your page text to - because there is no server.</p>
+            </div>
+          </div>
+          <div class="titem">
+            <span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="m5 12 5 5 9-11"/></svg></span>
+            <div>
+              <h4>Updates are signed, not trusted</h4>
+              <p>The blocklist is delivered as data, never code, and every update carries an Ed25519 signature the extension verifies before applying. A broken or hostile server can't poison your install.</p>
+            </div>
+          </div>
+          <div class="titem">
+            <span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="m5 12 5 5 9-11"/></svg></span>
+            <div>
+              <h4>It fails safe</h4>
+              <p>If an update is missing, stale or unsigned, the extension keeps the last good list. The worst a bad update can do is block too much - never unblock malware or leak data.</p>
+            </div>
+          </div>
+        </div>
+        <div class="reveal d1">
+          <div class="pipe">
+            <div class="ph"><span class="pdot"></span> every update is verified on your device</div>
+            <div class="pstep"><span class="pk">fetch</span><span class="pv">bundle.signed.json</span><span class="ok">✓</span></div>
+            <div class="pstep"><span class="pk">verify</span><span class="pv">Ed25519 sig</span><span class="pc">reject if forged</span><span class="ok">✓</span></div>
+            <div class="pstep"><span class="pk">check</span><span class="pv">version &gt; last</span><span class="pc">reject rollback</span><span class="ok">✓</span></div>
+            <div class="pstep"><span class="pk">check</span><span class="pv">size sane</span><span class="pc">reject anomalies</span><span class="ok">✓</span></div>
+            <div class="pstep"><span class="pk">apply</span><span class="pv">block rules only</span><span class="pc">can't redirect</span><span class="ok">✓</span></div>
+          </div>
+          <p style="color:var(--low);font-size:13px;margin-top:14px;">Threat feeds are open-source and license-clean. Overlapping lists are deduplicated so the same bad domain is never counted twice.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── OPEN SOURCE ───────── -->
+  <section class="blk" id="opensource">
+    <div class="wrap">
+      <div class="os reveal">
+        <div class="osgrid">
+          <div>
+            <span class="eyebrow">Open source · MIT</span>
+            <h2>Don't trust us. Read the code.</h2>
+            <p>Every layer - the on-device models, the signature checks, the blocklist pipeline - is public and auditable. Fork it, build it, break it, send a PR. Privacy you can't inspect isn't privacy.</p>
+            <div class="osbtns">
+              <a class="btn violet" href="#">
+                <svg class="ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+                View on GitHub
+              </a>
+              <a class="btn ghost" href="/blocklist/manifest.json">Inspect the live blocklist →</a>
+            </div>
+          </div>
+          <div class="osstats">
+            <div class="osstat">
+              <div class="n"><span data-count="100">0</span><span class="u">%</span></div>
+              <div class="l">Of inference runs on your device</div>
+            </div>
+            <div class="osstat">
+              <div class="n"><span data-count="0">0</span><span class="u"></span></div>
+              <div class="l">Bytes of page text uploaded</div>
+            </div>
+            <div class="osstat">
+              <div class="n"><span data-count="25">0</span><span class="u">k</span></div>
+              <div class="l">Blocked domains in the signed list</div>
+            </div>
+            <div class="osstat">
+              <div class="n">Ed<span class="u">25519</span></div>
+              <div class="l">Signature on every update</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── GET ───────── -->
+  <section class="blk" id="get">
+    <div class="wrap">
+      <div class="shead reveal">
+        <span class="eyebrow">Get the extension</span>
+        <h2 class="h2">A developer preview for Chromium browsers.</h2>
+        <p class="sectlede">No sign-up, no account, no email. The package ships its full on-device AI models, so it builds from source rather than a casual download.</p>
+      </div>
+      <div class="steps">
+        <div class="step reveal">
+          <span class="sn">01</span>
+          <h4>Build from source</h4>
+          <p>Clone the repo and run the build script: <code>npm run build</code>.</p>
+        </div>
+        <div class="step reveal d1">
+          <span class="sn">02</span>
+          <h4>Enable developer mode</h4>
+          <p>Open your browser's extensions page and switch on developer mode.</p>
+        </div>
+        <div class="step reveal d2">
+          <span class="sn">03</span>
+          <h4>Load unpacked</h4>
+          <p>Choose <code>Load unpacked</code> and select the build output folder.</p>
+        </div>
+      </div>
+      <div class="getcard reveal d1">
+        <div class="gi">
+          <img src="assets/icon-512.png" alt="PrivacyMyst" />
+          <div>
+            <h4>Cloak &amp; Dagger - Developer Preview</h4>
+            <p>Local page analysis &amp; the signed blocklist are live and verifiable today.</p>
+          </div>
+        </div>
+        <a class="btn primary" href="#">
+          <svg class="ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          Clone the repo
+        </a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footgrid">
+      <div class="fcol" style="max-width:300px;gap:16px;">
+        <span class="brand">
+          <img class="bmark" src="assets/logo.png" alt="" width="30" height="30" />
+          <span class="bname">Privacy<b>Myst</b></span>
+        </span>
+        <p style="margin:0;font-size:14px;color:var(--low);">Active privacy and data sovereignty for your browser. Built local-first - there are no trackers on this page either.</p>
+      </div>
+      <div class="fcol">
+        <span class="ft">Product</span>
+        <a href="#demo">See it work</a>
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#get">Get it</a>
+      </div>
+      <div class="fcol">
+        <span class="ft">Trust</span>
+        <a href="#trust">Why trust it</a>
+        <a href="#opensource">Open source</a>
+        <a href="/blocklist/manifest.json">Live blocklist</a>
+      </div>
+      <div class="fcol">
+        <span class="ft">Project</span>
+        <a href="#opensource">GitHub</a>
+        <a href="#">License - MIT</a>
+        <a href="#">Threat feeds</a>
+      </div>
+    </div>
+    <div class="foot-end">
+      <span>© <span id="year">2026</span> PrivacyMyst · Cloak &amp; Dagger</span>
+      <span class="mono">no_cloud · no_accounts · on_device</span>
+    </div>
+  </div>
+</footer>
+
+<script src="mist.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

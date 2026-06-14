@@ -62,7 +62,7 @@ export const AI_DEEP_DIVE_MODELS: readonly AiDeepDiveModelOption[] = [
     approxDownloadMb: 763,
     license: "Gemma Terms of Use",
     note:
-      "Text-only, ~0.76 GB w pakiecie. Jedna sesja ONNX, ładuje się czysto na WebGPU — rekomendowany LLM-JSON."
+      "Text-only, ~0.76 GB. UWAGA licencja: Gemma jest objęta Gemma Terms of Use (ai.google.dev/gemma/terms) i Prohibited Use Policy — nie jest open-source. Jedna sesja ONNX, WebGPU."
   },
   {
     id: "qwen3-5-08b",

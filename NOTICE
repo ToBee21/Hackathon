@@ -1,0 +1,39 @@
+Cloak & Dagger — NOTICE
+
+This product (a Chrome MV3 browser extension) redistributes third-party
+components: local AI model weights, ML runtimes, JavaScript libraries, and
+DNS/phishing blocklist data. See THIRD_PARTY_LICENSES.md for the full,
+per-component attribution and the licenses/ directory for the full license
+texts. The same attributions are surfaced to end users in the extension's
+"Licenses" screen (popup → "Licencje").
+
+Required notices
+----------------
+
+Google Gemma (gemma-3-1b-it):
+    Gemma is provided under and subject to the Gemma Terms of Use found at
+    ai.google.dev/gemma/terms
+    (full notice + Prohibited Use Policy: licenses/Gemma-Terms-of-Use.txt)
+
+HaGeZi DNS-Blocklists are licensed under GPL-3.0-only (copyleft). The full
+license text is in licenses/GPL-3.0.txt. The blocklist data is shipped as
+separate, unmodified data (mere aggregation); the extension's own code is not a
+derivative work of it.
+
+NLI dataset citations (the bundled nli-deberta-v3-small classifier is fine-tuned
+on these corpora):
+    MultiNLI — Williams, A., Nangia, N., & Bowman, S. (2018). A Broad-Coverage
+    Challenge Corpus for Sentence Understanding through Inference. NAACL-HLT.
+    (ACL Anthology N18-1101). Dataset under mixed terms (OANC permissive,
+    CC BY 3.0, CC BY-SA 3.0, US public domain).
+    SNLI — Bowman, S. R., Angeli, G., Potts, C., & Manning, C. D. (2015). A large
+    annotated corpus for learning natural language inference. EMNLP.
+    (ACL Anthology D15-1075). Dataset under CC BY-SA 4.0.
+
+Apache-2.0 components (SmolVLM-256M-Instruct, Qwen3.5-0.8B, transformers.js, and
+the upstream base models): the shared Apache License 2.0 text is in
+licenses/Apache-2.0.txt. Every bundled ONNX artifact is a quantized derivative
+(q4f16 / int8) of its upstream checkpoint, noted per Apache-2.0 Section 4(b).
+
+Privacy note: all AI models and runtimes execute fully on-device (WebGPU/WASM).
+No page content, text, or images leave the browser.

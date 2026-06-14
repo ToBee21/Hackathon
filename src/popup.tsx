@@ -209,6 +209,11 @@ export default function Popup() {
     if (url) ext?.tabs?.create({ url })
   }, [])
 
+  const handleOpenLicenses = useCallback(() => {
+    const url = ext?.runtime?.getURL("tabs/licenses.html")
+    if (url) ext?.tabs?.create({ url })
+  }, [])
+
   const anyEnabled =
     toggles.dataGhost ||
     toggles.mouseJitter ||
@@ -355,9 +360,18 @@ export default function Popup() {
                   <Mail size={11} /> Generuj alias e-mail
                 </button>
               )}
-              <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-fg-low/70">
-                <Lock size={10} /> Privacy-by-Design · dane lokalne
-              </p>
+              <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.14em] text-fg-low/70">
+                <span className="flex items-center gap-1.5">
+                  <Lock size={10} /> Privacy-by-Design · dane lokalne
+                </span>
+                <button
+                  type="button"
+                  onClick={handleOpenLicenses}
+                  className="uppercase tracking-[0.14em] transition-colors hover:text-fg-hi"
+                  title="Licencje i atrybucje modeli/runtime/danych">
+                  Licencje
+                </button>
+              </div>
             </div>
           </>
         )}

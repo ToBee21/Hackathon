@@ -1,0 +1,62 @@
+# privacymyst.pl - second Caddy vhost on the SAME Hetzner box (135.181.90.46).
+# DO NOT add this until DNS resolves (domain bought + A record privacymyst.pl ->
+# 135.181.90.46 live), or Caddy will retry-fail the Let's Encrypt cert for it.
+#
+# Deploy (when DNS is ready), zero downtime, same safe procedure:
+#   1. append this block to /etc/caddy/Caddyfile (sibling of the hubertjaniak.pl block)
+#   2. caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+#   3. verify: curl -sI https://privacymyst.pl/  and  /blocklist/manifest.json
+#
+# This vhost is fully PUBLIC (no basic_auth) - it is the product site. The
+# portfolio (hubertjaniak.pl) stays a separate, password-protected block.
+# Served dirs are root-owned and NOT writable by the caddy user.
+
+privacymyst.pl, www.privacymyst.pl {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+		-Server
+		-X-Powered-By
+	}
+
+	# www -> apex
+	@www host www.privacymyst.pl
+	redir @www https://privacymyst.pl{uri} permanent
+
+	# Signed, public, verifiable blocklist channel (shared /srv/blocklist).
+	handle_path /blocklist/* {
+		root * /srv/blocklist
+		header {
+			Access-Control-Allow-Origin "*"
+			Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+			Access-Control-Allow-Headers "If-None-Match, If-Modified-Since"
+			Access-Control-Expose-Headers "ETag, Last-Modified"
+			Cache-Control "public, max-age=300"
+			X-Content-Type-Options "nosniff"
+		}
+		@opt method OPTIONS
+		respond @opt 204
+		file_server
+	}
+
+	# Product landing page (static, root-owned, not caddy-writable).
+	handle {
+		root * /srv/site
+		header {
+			Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+			Cache-Control "public, max-age=300"
+			X-Content-Type-Options "nosniff"
+			X-Frame-Options "DENY"
+		}
+		file_server
+	}
+}
+
+# NOTE: to make privacymyst.pl the canonical update domain, rebuild the extension
+# with BLOCKLIST_UPDATE_URL = https://privacymyst.pl/blocklist/bundle.signed.json
+# and add privacymyst.pl to the allowlist. Until then the live channel stays on
+# hubertjaniak.pl/blocklist, which keeps working.

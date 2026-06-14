@@ -9,7 +9,10 @@ export const CND_MESSAGE_TYPES = [
   "CND_DEEP_SCAN_STATUS",
   "CND_REQUEST_ANALYSIS",
   "CND_TOGGLE_FLOATING",
-  "CND_RESCAN"
+  "CND_RESCAN",
+  "CND_VISION_TRIGGER",
+  "CND_VISION_SCAN",
+  "CND_VISION_INFER"
 ] as const
 
 const CND_MESSAGE_TYPE_SET = new Set<string>(CND_MESSAGE_TYPES)
@@ -19,6 +22,9 @@ const MODEL_IDS = new Set([
   "gemma-3-1b",
   "qwen3-5-08b"
 ])
+const VISION_PNG_DATA_URL_PREFIX = "data:image/png;base64,"
+const VISION_IMAGE_MAX_CHARS = 24_000_000
+const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/
 
 export function isKnownCndMessage(value: unknown): boolean {
   if (!isRecord(value) || !isCndMessageType(value.type)) return false
@@ -27,7 +33,16 @@ export function isKnownCndMessage(value: unknown): boolean {
     case "CND_OPEN_SIDE_PANEL":
     case "CND_REQUEST_ANALYSIS":
     case "CND_RESCAN":
+    case "CND_VISION_TRIGGER":
+    case "CND_VISION_SCAN":
       return true
+    case "CND_VISION_INFER":
+      // Page-side classify round-trip: a PNG dataURL (bounded — a viewport
+      // screenshot is a few MB) + optional request id. Handled by the offscreen.
+      return (
+        isOptionalRequestId(value.requestId) &&
+        isPngDataUrl(value.image, VISION_IMAGE_MAX_CHARS)
+      )
     case "CND_TOGGLE_FLOATING":
       return typeof value.enabled === "boolean"
     case "CND_ANALYSIS_UPDATED":
@@ -99,6 +114,13 @@ function isOptionalRequestId(value: unknown): boolean {
 
 function isBoundedString(value: unknown, maxChars: number): value is string {
   return typeof value === "string" && value.length <= maxChars
+}
+
+function isPngDataUrl(value: unknown, maxChars: number): value is string {
+  if (!isBoundedString(value, maxChars)) return false
+  if (!value.startsWith(VISION_PNG_DATA_URL_PREFIX)) return false
+  const payload = value.slice(VISION_PNG_DATA_URL_PREFIX.length)
+  return payload.length > 0 && payload.length % 4 === 0 && BASE64_RE.test(payload)
 }
 
 function isFiniteNumber(value: unknown): value is number {

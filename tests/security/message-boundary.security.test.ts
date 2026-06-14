@@ -20,6 +20,10 @@ const validConfig = {
   maxSnippetChars: 2500
 }
 
+const onePixelPngDataUrl =
+  "data:image/png;base64," +
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+
 describe("message boundary security gate", () => {
   it("rejects unknown CND_* messages instead of trusting a prefix", () => {
     expect(isCndMessage({ type: "CND_EVIL" })).toBe(false)
@@ -56,5 +60,41 @@ describe("message boundary security gate", () => {
         }
       })
     ).toBe(false)
+  })
+
+  it("accepts vision inference only for bounded PNG data URLs", () => {
+    expect(
+      isCndMessage({
+        type: "CND_VISION_INFER",
+        requestId: "vision-1",
+        image: onePixelPngDataUrl
+      })
+    ).toBe(true)
+
+    expect(
+      isCndMessage({ type: "CND_VISION_INFER", image: "not-a-data-url" })
+    ).toBe(false)
+
+    expect(
+      isCndMessage({
+        type: "CND_VISION_INFER",
+        image: "data:image/svg+xml;base64,PHN2Zy8+"
+      })
+    ).toBe(false)
+
+    expect(
+      isCndMessage({
+        type: "CND_VISION_INFER",
+        image: "data:image/png;base64,AAAA$AAA"
+      })
+    ).toBe(false)
+  })
+
+  it("keeps the offscreen vision listener behind its own payload gate", () => {
+    const source = readRepoFile("assets/offscreen/offscreen.js")
+    expect(source).toContain("isValidVisionInferMessage(message)")
+    expect(source).toContain("isVisionPngDataUrl(message.image)")
+    expect(source).toContain("invalid vision infer message")
+    expect(source).not.toContain("classifyImageAd(String(message.image ?? \"\"))")
   })
 })

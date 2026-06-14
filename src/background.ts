@@ -853,6 +853,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true // async response
   }
 
+  if (type === "CND_VISION_TRIGGER") {
+    // UI button in the page asks to run the AI vision ad-image scan on its tab.
+    if (!isTrustedContentSender(sender)) {
+      sendResponse({ ok: false, error: "untrusted sender" })
+      return
+    }
+    void triggerVisionScan(sender.tab?.id).then((res) => sendResponse(res))
+    return true // async response
+  }
+
   if (type === "CND_OFFSCREEN_LOG") {
     if (!isTrustedOffscreenSender(sender)) {
       sendResponse({ ok: false, error: "untrusted sender" })
@@ -882,6 +892,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })
     return true // async response
   }
+})
+
+// AI Vision ad-image scan: ensure the (single) offscreen document exists so it
+// can answer the page's per-image CND_VISION_INFER classify calls, then tell the
+// tab's content script to harvest + blur. Triggered by the keyboard shortcut and
+// the in-page UI button.
+async function triggerVisionScan(
+  tabId: number | undefined
+): Promise<{ ok: boolean; error?: string }> {
+  if (typeof tabId !== "number") return { ok: false, error: "no active tab" }
+  const ready = await ensureOffscreen()
+  if (!ready) return { ok: false, error: "offscreen document unavailable" }
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: "CND_VISION_SCAN" })
+    return { ok: true }
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+}
+
+chrome.commands?.onCommand?.addListener((command) => {
+  if (command !== "scan-ad-images") return
+  void (async () => {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      lastFocusedWindow: true
+    })
+    await triggerVisionScan(tab?.id)
+  })()
 })
 
 function isTrustedContentSender(sender: chrome.runtime.MessageSender): boolean {

@@ -61,3 +61,6 @@ test-results/
 *.bak.js
 *.OLD.*
 *.bak
+
+# Distilled-model training build artifacts (large binaries, like model weights)
+training/out/

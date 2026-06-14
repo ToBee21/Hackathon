@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PrivacyMyst - Cloak &amp; Dagger privacy extension</title>
+<meta name="description" content="Cloak and Dagger is a browser extension that detects profiling, blocks trackers and malware with a signed self updating list, and runs its AI fully on your device. No data leaves your browser." />
+<meta name="robots" content="index, follow" />
+<meta property="og:title" content="PrivacyMyst - Cloak &amp; Dagger" />
+<meta property="og:description" content="On device AI privacy defense. Detects profiling, cuts trackers and malware, never phones home." />
+<meta property="og:type" content="website" />
+<link rel="icon" type="image/png" href="favicon.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<style>
+  :root {
+    --bg: #0A0B0E;
+    --panel: #0E1116;
+    --line: #1c2b36;
+    --fg: #E6EDF3;
+    --mid: #C7D2DA;
+    --low: #6b7a85;
+    --teal: #2BD4C4;
+    --amber: #E6B450;
+    --red: #FF5C77;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 600px at 70% -10%, rgba(43,212,196,0.10), transparent 60%), var(--bg);
+    color: var(--mid);
+    font: 15px/1.6 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--teal); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+  header {
+    position: sticky; top: 0; z-index: 10;
+    backdrop-filter: blur(8px);
+    background: rgba(10,11,14,0.72);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .nav { display: flex; align-items: center; gap: 16px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--fg); letter-spacing: .2px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 12px var(--teal); }
+  .mark { width: 24px; height: 24px; border-radius: 6px; display: block; }
+  .heroicon { width: 76px; height: 76px; border-radius: 18px; display: block; margin-bottom: 22px; box-shadow: 0 12px 44px rgba(0,0,0,0.55); }
+  .nav .grow { flex: 1 1 auto; }
+  .nav a { color: var(--low); font-size: 13px; }
+  .nav a:hover { color: var(--fg); text-decoration: none; }
+
+  .btn {
+    display: inline-block; padding: 11px 18px; border-radius: 10px;
+    font-weight: 600; font-size: 14px; cursor: pointer; border: 1px solid var(--teal);
+    background: rgba(43,212,196,0.10); color: var(--teal);
+  }
+  .btn:hover { background: rgba(43,212,196,0.18); text-decoration: none; }
+  .btn.solid { background: var(--teal); color: #04181a; border-color: var(--teal); }
+  .btn.ghost { border-color: var(--line); color: var(--mid); background: transparent; }
+
+  .hero { padding: 86px 0 56px; }
+  .kicker { color: var(--teal); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
+  h1 { color: var(--fg); font-size: 46px; line-height: 1.1; margin: 14px 0 16px; letter-spacing: -0.5px; }
+  h1 .soft { color: var(--low); }
+  .lede { font-size: 18px; max-width: 680px; }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+  .trust { margin-top: 22px; color: var(--low); font-size: 13px; display: flex; gap: 18px; flex-wrap: wrap; }
+  .trust b { color: var(--mid); font-weight: 600; }
+
+  section { padding: 48px 0; border-top: 1px solid rgba(255,255,255,0.05); }
+  h2 { color: var(--fg); font-size: 26px; margin: 0 0 6px; letter-spacing: -0.3px; }
+  .sub { color: var(--low); margin: 0 0 26px; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px; border-left-width: 3px;
+  }
+  .card h3 { color: var(--fg); font-size: 15px; margin: 0 0 6px; }
+  .card p { margin: 0; font-size: 13.5px; color: var(--mid); }
+  .card .tag { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--low); margin-top: 10px; }
+  .card.teal { border-left-color: var(--teal); }
+  .card.amber { border-left-color: var(--amber); }
+  .card.red { border-left-color: var(--red); }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  .pillars { display: grid; gap: 12px; }
+  .pillar { display: flex; gap: 12px; }
+  .pillar .b { width: 8px; flex: none; border-radius: 4px; background: var(--teal); }
+  .pillar .amberbar { background: var(--amber); }
+  .pillar h4 { color: var(--fg); margin: 0 0 2px; font-size: 14px; }
+  .pillar p { margin: 0; font-size: 13.5px; }
+
+  .codebox {
+    background: #07090c; border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; font: 12.5px/1.7 ui-monospace, Consolas, monospace; color: var(--mid);
+    overflow-x: auto;
+  }
+  .codebox .c { color: var(--low); }
+  .codebox .g { color: var(--teal); }
+
+  .download { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; }
+  .download .row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .hash { font: 11.5px/1.5 ui-monospace, Consolas, monospace; color: var(--low); word-break: break-all; margin-top: 12px; }
+
+  footer { padding: 40px 0 60px; color: var(--low); font-size: 13px; border-top: 1px solid rgba(255,255,255,0.05); }
+  .footrow { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+  @media (max-width: 760px) {
+    h1 { font-size: 34px; }
+    .grid { grid-template-columns: 1fr; }
+    .split { grid-template-columns: 1fr; }
+    .nav a.hideSmall { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap nav">
+    <span class="brand"><img class="mark" src="logo.png" alt="" width="24" height="24" /> PrivacyMyst</span>
+    <span class="grow"></span>
+    <a class="hideSmall" href="#how">How it works</a>
+    <a class="hideSmall" href="#features">Features</a>
+    <a class="hideSmall" href="#trust">Why trust it</a>
+    <a class="btn ghost" href="#get" style="padding:8px 14px;">Get it</a>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section class="hero" style="border-top:none;">
+      <img class="heroicon" src="icon-512.png" alt="PrivacyMyst" width="76" height="76" />
+      <div class="kicker">Developer preview - local first privacy</div>
+      <h1>See who is profiling you. <span class="soft">Cut them off.</span></h1>
+      <p class="lede">
+        Cloak and Dagger is a browser extension that reads the page the way a data
+        broker would, tells you when a site is building a profile of you, and blocks
+        known trackers, malware and phishing domains. The page analysis runs fully on
+        your machine, so the text you read is never sent to a server.
+      </p>
+      <div class="cta">
+        <a class="btn solid" href="#get">Install the preview</a>
+        <a class="btn" href="#how">See how it works</a>
+      </div>
+      <div class="trust">
+        <span><b>Local AI</b>, no cloud inference</span>
+        <span><b>Signed</b> blocklist channel, verifiable</span>
+        <span><b>Open</b> threat feeds, deduplicated</span>
+        <span><b>No accounts</b>, no sign up, no email</span>
+      </div>
+      <p style="color:var(--low); font-size:12.5px; margin-top:16px; max-width:680px;">
+        Developer preview built for a hackathon. The local page analysis and the
+        signed block list are live and verifiable today. The other modules below are
+        in active development.
+      </p>
+    </section>
+
+    <section id="how">
+      <h2>How it works</h2>
+      <p class="sub">Three layers, all running inside your browser.</p>
+      <div class="pillars">
+        <div class="pillar">
+          <div class="b"></div>
+          <div>
+            <h4>1. It reads the page like a profiler would</h4>
+            <p>A local model scores each page for sensitive signals such as health, finance or identity context, and tells you when your visit could become a profiling event. The text never leaves the tab.</p>
+          </div>
+        </div>
+        <div class="pillar">
+          <div class="b amberbar"></div>
+          <div>
+            <h4>2. It blocks the network behind the page</h4>
+            <p>A curated, license clean list of trackers, malware and phishing domains is enforced everywhere. On a page the AI marks sensitive, blocking escalates to a stricter tier scoped to that site only.</p>
+          </div>
+        </div>
+        <div class="pillar">
+          <div class="b"></div>
+          <div>
+            <h4>3. It tells you why</h4>
+            <p>Every block is labelled with the reason and the source list, so you can see exactly which broker or malware host was about to receive your data.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <h2>What is inside</h2>
+      <p class="sub">A full privacy toolkit, not a single trick.</p>
+      <div class="grid">
+        <div class="card teal">
+          <h3>AI Deep Dive</h3>
+          <p>A local language model and classifier flag profiling and manipulation risk on the page you are reading.</p>
+          <div class="tag">On device</div>
+        </div>
+        <div class="card amber">
+          <h3>Risk adaptive blocking</h3>
+          <p>Loose baseline everywhere, scorched earth on sensitive pages. Driven by the page risk score, not a fixed rule.</p>
+          <div class="tag">Signed feed</div>
+        </div>
+        <div class="card teal">
+          <h3>Link Guard</h3>
+          <p>Checks links on hover with zero network calls and adds a short cool down before risky clicks.</p>
+          <div class="tag">Zero network</div>
+        </div>
+        <div class="card teal">
+          <h3>MailGuard</h3>
+          <p>Reads rendered webmail locally to flag sender spoofing, risky attachments and known campaign patterns.</p>
+          <div class="tag">On device</div>
+        </div>
+        <div class="card amber">
+          <h3>Fingerprint defense</h3>
+          <p>Bionic Blur softens canvas, audio and motion signals so trackers cannot stitch your sessions together.</p>
+          <div class="tag">Per origin</div>
+        </div>
+        <div class="card red">
+          <h3>Honeypot and noise</h3>
+          <p>Poisons tracker parameters and injects believable noise so the profile that gets built is simply wrong.</p>
+          <div class="tag">Active</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="trust">
+      <h2>Why you can trust it</h2>
+      <p class="sub">Privacy software you cannot verify is just a promise. This one is built to be checked.</p>
+      <div class="split">
+        <div class="pillars">
+          <div class="pillar"><div class="b"></div><div><h4>The AI never phones home</h4><p>Models run in your browser over WebGPU and WebAssembly. There is no server to send your page text to, because there is no server.</p></div></div>
+          <div class="pillar"><div class="b"></div><div><h4>Updates are signed, not trusted</h4><p>The block list is delivered as data, never code, and every update carries an Ed25519 signature the extension verifies before it applies. A broken or hostile server cannot poison your install.</p></div></div>
+          <div class="pillar"><div class="b amberbar"></div><div><h4>It fails safe</h4><p>If an update is missing, stale or unsigned, the extension keeps the last good list. The worst a bad update can do is block too much, never unblock malware or leak data.</p></div></div>
+        </div>
+        <div>
+          <div class="codebox">
+<span class="c"># every update is verified on your device</span>
+fetch  <span class="g">bundle.signed.json</span>
+verify <span class="g">Ed25519 signature</span>     <span class="c"># reject if forged</span>
+check  <span class="g">version &gt; last</span>          <span class="c"># reject rollback</span>
+check  <span class="g">size sane</span>               <span class="c"># reject anomalies</span>
+apply  <span class="g">block rules only</span>        <span class="c"># cannot unblock or redirect</span>
+else   <span class="g">keep last good list</span>
+          </div>
+          <p style="color:var(--low); font-size:12.5px; margin-top:12px;">Threat feeds are open source and license clean. Overlapping lists are deduplicated so the same bad domain is not counted twice.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="get">
+      <h2>Get the extension</h2>
+      <p class="sub">A developer preview for Chromium based browsers. No sign up, no account, no email.</p>
+      <div class="download">
+        <ol style="margin:0; padding-left:20px; color:var(--mid); font-size:14px; line-height:1.9;">
+          <li>Build the extension from source with the build script in the repository.</li>
+          <li>Open your browser extensions page and turn on developer mode.</li>
+          <li>Choose load unpacked and select the build output folder.</li>
+        </ol>
+        <p style="color:var(--low); font-size:13px; margin:16px 0 0;">
+          The package carries its full on device AI models, so it is large and ships as a
+          build rather than a casual download. The live signed block list it pulls from is
+          public and verifiable right now at
+          <a href="/blocklist/manifest.json">/blocklist/manifest.json</a>.
+        </p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap footrow">
+    <span>PrivacyMyst. Active privacy and data sovereignty for your browser.</span>
+    <span>Built local first. No trackers on this page either.</span>
+  </div>
+</footer>
+</body>
+</html>

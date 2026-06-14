@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react"
+
 import { AI_DEEP_DIVE_CATEGORY_LABELS } from "../shared/aiDeepDive/categories"
 import {
   AI_DEEP_DIVE_MODELS,
@@ -36,6 +38,33 @@ export default function AiDeepDiveCard({
   onSelectModel?: (modelId: string) => void
 }) {
   const selectedModel = getModelOption(selectedModelId)
+  const isGemma = selectedModelId === "gemma-3-1b"
+  // Gemma Terms of Use §3.1.4 requires showing the verbatim notice; we gate Gemma
+  // behind a one-time in-UI acknowledgement (stored locally).
+  const [gemmaConsent, setGemmaConsent] = useState<boolean | null>(null)
+  useEffect(() => {
+    try {
+      const store = (globalThis as { chrome?: typeof chrome }).chrome?.storage
+        ?.local
+      if (!store) return setGemmaConsent(false)
+      store.get("cnd:gemma-consent", (r: Record<string, unknown>) => {
+        const v = r?.["cnd:gemma-consent"] as { accepted?: boolean } | undefined
+        setGemmaConsent(Boolean(v?.accepted))
+      })
+    } catch {
+      setGemmaConsent(false)
+    }
+  }, [])
+  const acceptGemma = () => {
+    try {
+      ;(globalThis as { chrome?: typeof chrome }).chrome?.storage?.local?.set({
+        "cnd:gemma-consent": { accepted: true, ts: Date.now() }
+      })
+    } catch {
+      /* best-effort */
+    }
+    setGemmaConsent(true)
+  }
   const active = risk && risk.level !== "low"
   const serious = risk?.level === "high" || risk?.level === "critical"
   const scanUnavailable = risk?.evidenceTags.includes("dom_scan_unavailable")
@@ -160,6 +189,49 @@ export default function AiDeepDiveCard({
           <span className="text-[9px] text-fg-low">{selectedModel.note}</span>
         )}
       </label>
+
+      {isGemma && gemmaConsent === false && (
+        <div
+          className="mt-2 rounded-lg p-2 text-[10px] leading-relaxed"
+          style={{
+            border: "1px solid rgba(64,224,200,0.35)",
+            background: "rgba(64,224,200,0.06)",
+            color: "#cfe7e2"
+          }}>
+          <p className="font-semibold" style={{ color: "#e7f6f3" }}>
+            Gemma — wymagana akceptacja licencji
+          </p>
+          <p className="mt-1">
+            Gemma is provided under and subject to the Gemma Terms of Use found at
+            ai.google.dev/gemma/terms. Model objęty też Gemma Prohibited Use Policy
+            (m.in. zakaz nieautoryzowanego śledzenia osób bez ich zgody).
+          </p>
+          <p className="mt-1">
+            <a
+              href="https://ai.google.dev/gemma/terms"
+              target="_blank"
+              rel="noreferrer noopener"
+              style={{ color: "#40e0c8" }}>
+              Terms
+            </a>
+            {" · "}
+            <a
+              href="https://ai.google.dev/gemma/prohibited_use_policy"
+              target="_blank"
+              rel="noreferrer noopener"
+              style={{ color: "#40e0c8" }}>
+              Prohibited Use Policy
+            </a>
+          </p>
+          <button
+            type="button"
+            onClick={acceptGemma}
+            className="mt-2 rounded px-2 py-1 font-semibold"
+            style={{ background: "rgba(64,224,200,0.92)", color: "#04211c" }}>
+            Akceptuję Gemma Terms of Use
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -65,6 +65,13 @@ export type CndContentMessage =
   | { type: "CND_REQUEST_ANALYSIS" }
   | { type: "CND_TOGGLE_FLOATING"; enabled: boolean }
   | { type: "CND_RESCAN" }
+  // AI Vision ad-image scan:
+  // page UI button -> SW (ensure offscreen, then poke the tab's content script)
+  | { type: "CND_VISION_TRIGGER" }
+  // SW -> content-script: harvest + classify + blur ad images now
+  | { type: "CND_VISION_SCAN" }
+  // content-script -> offscreen document: classify one image (PNG dataURL)
+  | { type: "CND_VISION_INFER"; requestId?: string; image: string }
 
 export function isCndMessage(value: unknown): value is CndContentMessage {
   return isKnownCndMessage(value)
