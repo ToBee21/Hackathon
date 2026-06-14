@@ -1,5 +1,5 @@
 // scripts/open-popup.mjs — attach to a running (remote-debugged) browser and open
-// Cloak & Dagger's popup. Usage: node scripts/open-popup.mjs [extId] [port]
+// PrivacyMyst's popup. Usage: node scripts/open-popup.mjs [extId] [port]
 import { createRequire } from "node:module"
 const require = createRequire(import.meta.url)
 const { chromium } = require("@playwright/test")

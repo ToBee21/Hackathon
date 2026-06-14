@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Generuje Cloak-and-Dagger-Checklista-Testow.xlsx — checklista do odhaczania,
+# Generuje PrivacyMyst-Checklista-Testow.xlsx — checklista do odhaczania,
 # czy każda funkcjonalność wtyczki działa. Uruchom: python3 scripts/build_test_checklist.py
 import datetime
 from openpyxl import Workbook
@@ -8,7 +8,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.utils import get_column_letter
 
-OUT = "Cloak-and-Dagger-Checklista-Testow.xlsx"
+OUT = "PrivacyMyst-Checklista-Testow.xlsx"
 
 # ── Paleta (spójna z brandem wtyczki) ───────────────────────────────────────
 INK      = "0A0B0E"   # tło nagłówka
@@ -112,7 +112,7 @@ ws.sheet_view.showGridLines = False
 # Tytuł
 ws.merge_cells("A1:H1")
 t = ws["A1"]
-t.value = "CLOAK & DAGGER — CHECKLISTA TESTÓW FUNKCJONALNOŚCI"
+t.value = "PRIVACYMYST — CHECKLISTA TESTÓW FUNKCJONALNOŚCI"
 t.font = font(bold=True, size=16, color=ACCENT)
 t.fill = fill(INK)
 t.alignment = Alignment(horizontal="left", vertical="center", indent=1)

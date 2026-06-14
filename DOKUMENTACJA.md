@@ -1,4 +1,4 @@
-# Cloak & Dagger — dokumentacja funkcjonalności (materiał do prezentacji)
+# PrivacyMyst — dokumentacja funkcjonalności (materiał do prezentacji)
 
 > **Aktywny system ochrony prywatności i suwerenności danych w sieci.**
 > Rozszerzenie Chrome (Manifest V3, Plasmo + React). Wszystko liczone **lokalnie** —
@@ -6,7 +6,7 @@
 > celowo NIE niesie ciasteczek/tożsamości).
 
 Ten dokument: dla każdej funkcji — **co robi**, **dlaczego to ważne**, **jak działa**
-i **jak na żywo pokazać, że działa**. Checklista do odhaczania: `Cloak-and-Dagger-Checklista-Testow.xlsx`.
+i **jak na żywo pokazać, że działa**. Checklista do odhaczania: `PrivacyMyst-Checklista-Testow.xlsx`.
 Szczegółowy plan QA: `TESTING.md`.
 
 ---
@@ -16,7 +16,7 @@ Szczegółowy plan QA: `TESTING.md`.
 Klasyczne blokery (uBlock itd.) **chowają** użytkownika. My idziemy dalej — **aktywnie
 psujemy** dane, które trackery zdążą zebrać:
 
-| Podejście klasyczne | Cloak & Dagger |
+| Podejście klasyczne | PrivacyMyst |
 |---|---|
 | Blokuj tracker | Blokuj **i zatruwaj** profil sprzecznymi danymi |
 | Ukryj fingerprint | Podstaw **spójny, fałszywy** fingerprint (Wirtualna Tożsamość) |
@@ -289,5 +289,5 @@ npm run smoke:extension   # Playwright — Bionic Blur E2E
 npm run build       # plasmo build → produkcyjny artefakt
 ```
 
-Pełna checklista manualna: **`Cloak-and-Dagger-Checklista-Testow.xlsx`** (20 testów,
+Pełna checklista manualna: **`PrivacyMyst-Checklista-Testow.xlsx`** (20 testów,
 arkusze: Checklista / Snippety SW console / Setup). Plan QA: **`TESTING.md`**.

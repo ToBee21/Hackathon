@@ -1,4 +1,4 @@
-// scripts/shot.mjs — screenshot the running Cloak & Dagger popup for verification.
+// scripts/shot.mjs — screenshot the running PrivacyMyst popup for verification.
 import { createRequire } from "node:module"
 const require = createRequire(import.meta.url)
 const { chromium } = require("@playwright/test")

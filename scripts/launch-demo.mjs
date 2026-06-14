@@ -1,5 +1,5 @@
 // scripts/launch-demo.mjs
-// Launch the BUILT Cloak & Dagger extension in a real browser and open the popup
+// Launch the BUILT PrivacyMyst extension in a real browser and open the popup
 // dashboard. Strategy: spawn the browser DETACHED with a remote-debugging port
 // (so the window survives after this script exits), then attach over CDP to find
 // the extension and open its popup. Prefers Edge (still honours --load-extension;
@@ -149,7 +149,7 @@ async function main() {
     await log("No chrome-extension target found. Current targets:")
     for (const t of targets.slice(0, 12)) await log(`  - [${t.type}] ${t.url}`)
     await log("READY — browser is open. If the extension loaded, open its popup")
-    await log("MANUALLY via the toolbar Extensions (puzzle) icon → 'Cloak & Dagger'.")
+    await log("MANUALLY via the toolbar Extensions (puzzle) icon → 'PrivacyMyst'.")
     process.exit(0)
   }
 

@@ -376,7 +376,7 @@ const SHIELD_SIZE = 22
 function createShieldButton(input: HTMLInputElement): HTMLButtonElement {
   const btn = document.createElement("button")
   btn.type = "button"
-  btn.title = "Cloak & Dagger: wygeneruj alias e-mail"
+  btn.title = "PrivacyMyst: wygeneruj alias e-mail"
   btn.setAttribute(SHIELD_ATTR, "1")
   btn.style.cssText = [
     "position:absolute",

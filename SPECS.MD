@@ -1,9 +1,9 @@
-# Specyfikacja Techniczna: Projekt "Cloak & Dagger"
+# Specyfikacja Techniczna: Projekt "PrivacyMyst"
 
 ## 1. O Projekcie
 Projekt powstaje w ramach Hackathonu Signal:Noise dla **Kategorii 3: Prywatność i Suwerenność Danych** (zgodnie z wytycznymi w image.png). 
 
-**Cloak & Dagger** to zaawansowane rozszerzenie do przeglądarki, które odwraca paradygmat ochrony prywatności. Zamiast pasywnego blokowania elementów śledzących, narzędzie stosuje **aktywny kontratak techniczny**: zatruwa profile reklamowe fałszywym szumem informacyjnym, maskuje unikalną biometrię behawioralną użytkownika oraz zabezpiecza jego tożsamość e-mailową i lokalne dane.
+**PrivacyMyst** to zaawansowane rozszerzenie do przeglądarki, które odwraca paradygmat ochrony prywatności. Zamiast pasywnego blokowania elementów śledzących, narzędzie stosuje **aktywny kontratak techniczny**: zatruwa profile reklamowe fałszywym szumem informacyjnym, maskuje unikalną biometrię behawioralną użytkownika oraz zabezpiecza jego tożsamość e-mailową i lokalne dane.
 
 ---
 

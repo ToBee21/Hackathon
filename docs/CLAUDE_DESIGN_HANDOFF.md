@@ -1,6 +1,6 @@
-# Cloak & Dagger Premium Redesign Handoff
+# PrivacyMyst Premium Redesign Handoff
 
-> Source-of-truth handoff for a full premium UI redesign of the Cloak & Dagger
+> Source-of-truth handoff for a full premium UI redesign of the PrivacyMyst
 > Chrome extension. This document analyzes the **current** UI as it exists in
 > code, criticizes it honestly, and specifies the target black/red/white
 > redesign with exact file paths, component names, tokens, and CSS values.
@@ -24,7 +24,7 @@
 
 ## 1. Product Identity
 
-After redesign, Cloak & Dagger should read as:
+After redesign, PrivacyMyst should read as:
 
 - a **defensive privacy instrument** — a tool, not a marketing widget
 - a **local-first browser intelligence layer** — all inference runs on-device;
@@ -58,7 +58,7 @@ All paths are exact. Surfaces: **popup** (Plasmo, React + Tailwind),
 | Popup root | [src/popup.tsx](../src/popup.tsx) | App shell, tab state, message bus, score compute, storage | Yes | 360px fixed width; `.console` ambient bg + `.stagger` entrance |
 | Global tokens | [tailwind.config.js](../tailwind.config.js) | Color/type/shadow/easing tokens | Indirectly | Teal-first (`accent #2BD4C4`); near-black neutrals |
 | Global CSS | [src/style.css](../src/style.css) | Ambient orb, blueprint grid, grain, keyframes, reduced-motion net | Indirectly | `--orb`, `--accent`, `heroPulse`, `drift`, `ringPing` |
-| Header brand | [src/popup.tsx:462-475](../src/popup.tsx#L462-L475) | Logo chip + "Cloak & Dagger" + "Active Privacy Defense" | Yes | `edge-lit` lit-glass chip |
+| Header brand | [src/popup.tsx:462-475](../src/popup.tsx#L462-L475) | Logo chip + "PrivacyMyst" + "Active Privacy Defense" | Yes | `edge-lit` lit-glass chip |
 | Fullscreen button | [src/popup.tsx:479-494](../src/popup.tsx#L479-L494) | Opens `tabs/dashboard.html` | Yes (expand icon) | Inline `<svg>`, not from icon set |
 | Status pill (ARMED) | [src/popup.tsx:496-515](../src/popup.tsx#L496-L515) | ARMED / STANDBY with ping dot | Yes (ARMED) | Teal when armed; `anim-ping` |
 | Tab switcher | [src/popup.tsx:519-539](../src/popup.tsx#L519-L539) | STATUS / RADAR | Yes | Inline teal underline + bg |
@@ -113,7 +113,7 @@ decorative teal that means "good."
 
 ## 4. Redesign Goal
 
-> **Turn Cloak & Dagger from a glowing teal cyber dashboard into a premium
+> **Turn PrivacyMyst from a glowing teal cyber dashboard into a premium
 > black/red/white privacy command instrument that feels handcrafted, sharp,
 > dangerous, and trustworthy — where red means risk/armed and nothing glows
 > unless something is actually wrong.**
@@ -251,7 +251,7 @@ with a named scale** and make numbers a deliberate hierarchy.
 
 | Role | Font Size | Weight | Line Height | Letter Spacing | Case | Usage |
 |---|---|---|---|---|---|---|
-| app title | 13px | 600 | 1.15 | -0.01em | As-is | "Cloak & Dagger" |
+| app title | 13px | 600 | 1.15 | -0.01em | As-is | "PrivacyMyst" |
 | app subtitle | 9px | 500 | 1.3 | 0.16em | UPPER | "ACTIVE PRIVACY DEFENSE" |
 | tab label | 11px | 600 | 1.0 | 0.12em | UPPER | STATUS / RADAR |
 | score number | 40px | 600 | 1.0 | -0.03em | — | Privacy Score (`display` token) |
@@ -634,7 +634,7 @@ Do not fix here — fix in the implementation pass.
 # NEXT PROMPT: Premium UI Redesign Implementation
 
 ```md
-You are implementing the premium Cloak & Dagger UI redesign.
+You are implementing the premium PrivacyMyst UI redesign.
 
 Before editing code:
 1. Read docs/CLAUDE_DESIGN_HANDOFF.md in full.

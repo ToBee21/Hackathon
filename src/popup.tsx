@@ -15,8 +15,10 @@ import {
   type CSSProperties
 } from "react"
 
+import wordmark from "url:../assets/wordmark.png"
+
 import CyberRadar, { type HoneypotEvent } from "./components/CyberRadar"
-import { Logo, Lock, Mail, Maximize, ShieldCheck, ShieldOff } from "./components/icons"
+import { Lock, Mail, Maximize, ShieldCheck, ShieldOff } from "./components/icons"
 import ModuleToggles from "./components/ModuleToggles"
 import PanicButton from "./components/PanicButton"
 import ScoreChart, { type ProtectionTier } from "./components/ScoreChart"
@@ -234,14 +236,9 @@ export default function Popup() {
         {/* Header — tożsamość + pełny ekran + stan systemu */}
         <header style={v(0)} className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="edge-lit flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-fg-hi shadow-card">
-              <Logo size={20} />
-            </span>
             <div className="leading-tight">
-              <h1 className="text-[13px] font-semibold tracking-tight text-fg-hi">
-                Cloak <span className="text-fg-low">&amp;</span> Dagger
-              </h1>
-              <p className="text-[9px] uppercase tracking-[0.16em] text-fg-low">
+              <img src={wordmark} alt="PrivacyMyst" className="h-6 w-auto" />
+              <p className="mt-1 text-[9px] uppercase tracking-[0.16em] text-fg-low">
                 Active Privacy Defense
               </p>
             </div>

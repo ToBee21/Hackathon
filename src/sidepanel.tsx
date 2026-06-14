@@ -10,6 +10,8 @@
 
 import { useEffect, useState, type CSSProperties } from "react"
 
+import wordmark from "url:../assets/wordmark.png"
+
 import { getModelOption } from "./shared/aiDeepDive/models"
 import type { CardLevel, FeatureCard } from "./shared/featureRegistry"
 import type { PageAnalysis } from "./shared/messages"
@@ -86,9 +88,11 @@ export default function SidePanel() {
   return (
     <div style={wrap}>
       <header style={{ borderBottom: "1px solid #1c2b36", paddingBottom: 10, marginBottom: 12 }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.18em", color: "#2BD4C4", textTransform: "uppercase" }}>
-          Cloak &amp; Dagger
-        </div>
+        <img
+          src={wordmark}
+          alt="PrivacyMyst"
+          style={{ height: 20, width: "auto", display: "block", marginBottom: 4 }}
+        />
         <div style={{ fontSize: 15, fontWeight: 600, color: "#E6EDF3" }}>Page Audit</div>
         <div style={{ fontSize: 11, color: "#6b7a85", marginTop: 2 }}>
           {analysis ? describePage(analysis.page) : loading ? "ładowanie…" : "brak analizy aktywnej karty"}

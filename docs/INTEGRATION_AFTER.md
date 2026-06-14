@@ -1,4 +1,4 @@
-# Cloak & Dagger — AFTER the Grand Integration
+# PrivacyMyst — AFTER the Grand Integration
 
 > Unified, building, tested state — **2026-06-13**. Six parallel work streams
 > (see `INTEGRATION_BEFORE.md`) merged into one coherent extension.

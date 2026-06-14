@@ -1,4 +1,4 @@
-# Cloak & Dagger — plan testów
+# PrivacyMyst — plan testów
 
 Jak uruchomić i sprawdzić **wszystkie** funkcjonalności wtyczki. Dokument oparty na
 aktualnym kodzie (`src/`), nie na założeniach.

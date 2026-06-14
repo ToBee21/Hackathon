@@ -619,7 +619,7 @@ function setupContextualSurfaces(): void {
     chrome.contextMenus?.removeAll?.(() => {
       chrome.contextMenus?.create?.({
         id: "cnd-open-side-panel",
-        title: "Cloak & Dagger: otwórz Side Panel",
+        title: "PrivacyMyst: otwórz Side Panel",
         contexts: ["all"]
       })
     })

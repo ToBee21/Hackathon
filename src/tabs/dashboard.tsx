@@ -10,8 +10,10 @@ import {
   type CSSProperties,
 } from "react"
 
+import wordmark from "url:../../assets/wordmark.png"
+
 import CyberRadar, { type HoneypotEvent } from "../components/CyberRadar"
-import { ChevronDown, Lock, Logo, Mail, ShieldCheck, ShieldOff } from "../components/icons"
+import { ChevronDown, Lock, Mail, ShieldCheck, ShieldOff } from "../components/icons"
 import LoggerView from "../components/LoggerView"
 import ModuleToggles from "../components/ModuleToggles"
 import PanicButton from "../components/PanicButton"
@@ -286,14 +288,9 @@ export default function Dashboard() {
         {/* Top bar */}
         <header className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
           <div className="flex items-center gap-3">
-            <span className="edge-lit flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 shadow-card">
-              <Logo size={20} />
-            </span>
             <div className="leading-tight">
-              <h1 className="text-[15px] font-semibold tracking-tight text-fg-hi">
-                Cloak <span className="text-fg-low">&amp;</span> Dagger
-              </h1>
-              <p className="text-[9px] uppercase tracking-[0.16em] text-fg-low">
+              <img src={wordmark} alt="PrivacyMyst" className="h-7 w-auto" />
+              <p className="mt-1 text-[9px] uppercase tracking-[0.16em] text-fg-low">
                 Privacy Intelligence Dashboard
               </p>
             </div>

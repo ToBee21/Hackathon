@@ -1,4 +1,4 @@
-# Cloak & Dagger — BEFORE the Grand Integration
+# PrivacyMyst — BEFORE the Grand Integration
 
 > Snapshot of the fragmented state captured **2026-06-13**, immediately before the
 > "ultimate" merge. Pristine pre-merge ref: **`backup/pre-ultimate-70371e9`**.
