@@ -580,6 +580,125 @@ strong {
   stroke-dashoffset: 0;
 }
 
+/* ============================== architecture sticky stage ============================== */
+.arch-section {
+  display: block;
+  padding: 0;
+  min-height: 280vh;
+  overflow: visible; /* required: any overflow!=visible ancestor breaks sticky */
+  border-bottom: 1px solid rgba(35, 40, 49, 0.5);
+}
+.arch-section.is-static {
+  min-height: 100vh;
+}
+.arch-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: clamp(64px, 9vh, 110px) var(--gutter) var(--s-7);
+  max-width: var(--maxw);
+  margin: 0 auto;
+}
+.arch-section.is-static .arch-sticky {
+  position: relative;
+  height: auto;
+  min-height: 100vh;
+}
+.arch-sticky .stage {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
+.stage-header {
+  flex: 0 0 auto;
+}
+.stage-header .eyebrow {
+  margin-bottom: var(--s-3);
+}
+.stage-header .subhead,
+.stage-header .headline,
+.stage-header .display {
+  margin-bottom: var(--s-2);
+}
+.stage-caption {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  color: var(--ink-3);
+  max-width: 80ch;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* generic stage layout (graph section) */
+.stage-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  width: 100%;
+}
+.stage-visual {
+  position: relative;
+  height: min(64vh, 580px);
+}
+.stage-visual .stage {
+  height: 100%;
+}
+
+/* ============================== trace button ============================== */
+.trace-btn {
+  position: absolute;
+  right: var(--s-4);
+  top: var(--s-4);
+  z-index: 8;
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-0);
+  background: rgba(7, 8, 10, 0.78);
+  border: 1px solid var(--red);
+  border-radius: var(--radius-1);
+  padding: var(--s-2) var(--s-4);
+  cursor: pointer;
+  transition: background 0.2s var(--ease-out);
+}
+.trace-btn:hover:not(:disabled) {
+  background: var(--red);
+}
+.trace-btn:disabled {
+  border-color: var(--surface-line-strong);
+  color: var(--ink-3);
+  cursor: default;
+}
+
+/* ============================== react flow theming ============================== */
+.react-flow {
+  background: transparent;
+}
+.react-flow__attribution {
+  background: transparent !important;
+  font-size: 8px;
+}
+.react-flow__attribution a {
+  color: var(--ink-3);
+}
+.react-flow__edge-text {
+  fill: var(--ink-2);
+}
+.react-flow__edge.animated path {
+  stroke-dasharray: 6 4;
+  animation: rf-dash 0.7s linear infinite;
+}
+@keyframes rf-dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
 /* ============================== reduced motion ============================== */
 @media (prefers-reduced-motion: reduce) {
   html {

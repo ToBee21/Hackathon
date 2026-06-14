@@ -107,7 +107,7 @@
         {
           "id": "a-note",
           "kind": "note",
-          "text": "Granica zaufania: cały tekst strony jest serializowany i waliduje się przy każdym przejściu content → background → offscreen. Logi są sanityzowane — 18 zakazanych pól, redakcja e-maili i tokenów.",
+          "text": "Granica zaufania: cały tekst strony jest serializowany i waliduje się przy każdym przejściu content → background → offscreen. Logi są sanityzowane — 20 zakazanych pól, redakcja e-maili i tokenów.",
           "enter": { "anim": "fade", "delay": 200 }
         }
       ],
@@ -151,9 +151,9 @@
           "kind": "kpis",
           "enter": { "anim": "slide", "delay": 360 },
           "items": [
-            { "value": "45", "label": "plików testów: 30 funkcjonalnych, 12 bezpieczeństwa, 3 integracyjne", "evidence": "tests/" },
-            { "value": "110", "label": "plików źródłowych TypeScript / TSX", "evidence": "src/" },
-            { "value": "13", "label": "uprawnień manifestu — zasada minimum", "evidence": "package.json" }
+            { "value": "297", "label": "testów przechodzi (44 pliki, w tym 12 zestawów bezpieczeństwa)", "evidence": "tests/ · vitest" },
+            { "value": "111", "label": "plików źródłowych TypeScript / TSX", "evidence": "src/" },
+            { "value": "14", "label": "jawnie zadeklarowanych uprawnień manifestu", "evidence": "package.json" }
           ]
         }
       ],
@@ -252,7 +252,7 @@
         {
           "id": "c-callout",
           "kind": "callout",
-          "text": "13 znanych typów wiadomości na allowliście. 18 zakazanych pól w logach. Nadawca walidowany przez sender.id === chrome.runtime.id.",
+          "text": "12 typów wiadomości na allowliście. 20 zakazanych pól w logach. Nadawca walidowany przez sender.id === chrome.runtime.id.",
           "enter": { "anim": "slide", "delay": 360 }
         }
       ],
@@ -294,6 +294,42 @@
       "presenterNotes": "Nie czytaj wszystkich 9 — wskaż 3 najmocniejsze (Vision, MailGuard, Bionic Blur) i powiedz „reszta jest tu i przetestowana”."
     },
     {
+      "id": "team",
+      "title": "Zespół",
+      "type": "features",
+      "bg": "bg1",
+      "layout": "center",
+      "durationHint": 14,
+      "layers": [
+        { "id": "t-eyebrow", "kind": "eyebrow", "text": "07 — Zespół", "enter": { "anim": "fade" } },
+        { "id": "t-head", "kind": "heading", "text": "Cztery strumienie,\njedno rozszerzenie.", "enter": { "anim": "slide" } },
+        {
+          "id": "t-lead",
+          "kind": "lead",
+          "text": "Cztery równoległe moduły (A / C / D + warstwa AI) zostały scalone w jedno działające rozszerzenie. Każda osoba odpowiada za swój obszar i potrafi go obronić przy kodzie.",
+          "enter": { "anim": "slide", "delay": 120 }
+        },
+        {
+          "id": "t-features",
+          "kind": "features",
+          "enter": { "anim": "slide", "delay": 240 },
+          "items": [
+            { "id": "Hubert", "name": "Architektura · AI · lokalny runtime", "oneLiner": "AI Deep-Dive, runtime offscreen (transformers.js/ONNX), Bionic Blur, wizja reklam, guardraile bezpieczeństwa i podpisany blocklist (Ed25519), warstwa legal/atrybucje.", "files": "git: GlazowanyPager · assets/offscreen/offscreen.js, src/shared/aiDeepDive/*, src/security/*, src/shared/blocklist/secureUpdater.ts" },
+            { "id": "Kacper", "name": "Moduł D — Secure Core · Cyber Radar", "oneLiner": "Szyfrowanie AES-GCM + PBKDF2 i Panic Button (crypto.ts / storage.ts), generator aliasów e-mail (SimpleLogin + fallback), oraz Cyber Radar — wizualizacja zagrożeń.", "files": "git: Makaren337 · src/shared/crypto.ts, storage.ts, emailAlias.ts, components/CyberRadar.tsx" },
+            { "id": "Krystian", "name": "Honeypot · anty-tracking · demo", "oneLiner": "Honeypot Trap z declarativeNetRequest (zatruwanie parametrów profilujących), Wirtualna Tożsamość + DataGhost (Moduł C), dowód na żywo.", "files": "git: Krystian · src/shared/honeypot.ts, virtualIdentityStudio.ts, dataGhost/*" },
+            { "id": "Bartosz", "name": "Moduł A · prezentacja · backup demo", "oneLiner": "Zatruwanie cookies, dashboard/menu, pełnoekranowy Cyber Radar wpięty w zdarzenia honeypota, odcinanie trackerów na wrażliwych stronach; strona prezentacji, flow i plan awaryjny.", "files": "git: szalik · src/shared/cookieShredder.ts, src/tabs/dashboard.tsx, Cyber Radar UI" }
+          ]
+        },
+        {
+          "id": "t-note",
+          "kind": "note",
+          "text": "Mapowanie autorów git → osoby: GlazowanyPager → Hubert, Makaren337 → Kacper, szalik → Bartosz, Krystian → Krystian. Nicki w historii commitów to nie osobni ludzie.",
+          "enter": { "anim": "fade", "delay": 400 }
+        }
+      ],
+      "presenterNotes": "Krótko: kto za co odpowiada. Podkreśl, że to cztery równoległe strumienie scalone w jedno."
+    },
+    {
       "id": "pitch",
       "title": "Teza końcowa",
       "type": "pitch",
@@ -301,7 +337,7 @@
       "layout": "center",
       "durationHint": 12,
       "layers": [
-        { "id": "pi-eyebrow", "kind": "eyebrow", "text": "07 — Teza", "enter": { "anim": "fade" } },
+        { "id": "pi-eyebrow", "kind": "eyebrow", "text": "08 — Teza", "enter": { "anim": "fade" } },
         { "id": "pi-display", "kind": "display", "text": "Lokalne modele.\nRealna ochrona.\nZero chmury.", "enter": { "anim": "blurIn", "delay": 120 } },
         {
           "id": "pi-lead",
