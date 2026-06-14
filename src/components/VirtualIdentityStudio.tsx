@@ -14,6 +14,8 @@
 
 import { useMemo, useState, type CSSProperties } from "react"
 
+import grandmaModelUrl from "url:../../assets/models/grandma.stl"
+
 import {
   AGE_BANDS,
   ARCHETYPES,
@@ -43,6 +45,7 @@ import {
 } from "../shared/virtualIdentityStudio"
 import type { ProfileBucket } from "../types"
 import { Aperture, Cursor, Fingerprint, Ghost, ShieldCheck } from "./icons"
+import StlModelViewer from "./StlModelViewer"
 
 const ACCENT = "#2BD4C4"
 
@@ -537,13 +540,20 @@ export default function VirtualIdentityStudio({
           {/* Podgląd postaci */}
           <div className="relative flex items-center justify-center overflow-hidden rounded-xl bg-void/60 ring-1 ring-inset ring-line">
             <div className="console-grid absolute inset-0 opacity-60" />
-            <div className="relative anim-pulse py-3">
-              <CharacterSilhouette
-                gender={config.gender}
-                ageBand={config.ageBand}
-                toneId={toneId}
-              />
-            </div>
+            {config.archetypeId === "granny" ? (
+              // Babcia — obracający się model 3D zamiast sylwetki SVG.
+              <div className="h-[320px] w-full">
+                <StlModelViewer src={grandmaModelUrl} />
+              </div>
+            ) : (
+              <div className="relative anim-pulse py-3">
+                <CharacterSilhouette
+                  gender={config.gender}
+                  ageBand={config.ageBand}
+                  toneId={toneId}
+                />
+              </div>
+            )}
             <span className="absolute left-3 top-3 font-mono text-[9px] uppercase tracking-wide text-fg-low">
               {origin.code} · {origin.timezone.split("/")[1]?.replace("_", " ") ?? origin.timezone}
             </span>

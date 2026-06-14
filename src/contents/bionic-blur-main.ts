@@ -739,8 +739,13 @@ function patchWebGL(
       return originalGetParameter.call(this, parameter)
     }
 
-    const originalGetExtension = proto.getExtension
-    proto.getExtension = function patchedGetExtension(name) {
+    const originalGetExtension = proto.getExtension as (
+      name: string
+    ) => unknown
+    proto.getExtension = function patchedGetExtension(
+      this: WebGLRenderingContext,
+      name: string
+    ) {
       if (shouldPatch() && name === "WEBGL_debug_renderer_info") {
         return {
           UNMASKED_VENDOR_WEBGL: debugVendor,
@@ -748,7 +753,7 @@ function patchWebGL(
         } as WEBGL_debug_renderer_info
       }
       return originalGetExtension.call(this, name)
-    }
+    } as typeof proto.getExtension
 
     const originalReadPixels = proto.readPixels
     proto.readPixels = function patchedReadPixels(...args: Parameters<WebGLRenderingContext["readPixels"]>) {
