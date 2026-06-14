@@ -51,6 +51,7 @@ const STORAGE_KEY_VIRTUAL_IDENTITY_ACTIVE = "cnd:virtual-identity:active"
 const STORAGE_KEY_PROFILE_ID = "cnd:bionic-blur:profile-id"
 const STORAGE_KEY_CUSTOM_PROFILE = "cnd:bionic-blur:custom-profile"
 const STORAGE_KEY_NOISE_TOPICS = "cnd:dataghost:topics"
+const STORAGE_KEY_LOGS = "cnd:logs"
 const MAX_LOG_ENTRIES = 50
 const LOG_COLLAPSE_WINDOW_MS = 8000
 
@@ -137,11 +138,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!ext?.storage?.local) { setHydrated(true); return }
-    ext.storage.local.get([STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE, STORAGE_KEY_AI_DEEP_DIVE_CONFIG, STORAGE_KEY_VIRTUAL_IDENTITY, STORAGE_KEY_VIRTUAL_IDENTITY_ACTIVE], (result) => {
+    ext.storage.local.get([STORAGE_KEY_TOGGLES, STORAGE_KEY_STATE, STORAGE_KEY_AI_DEEP_DIVE_CONFIG, STORAGE_KEY_VIRTUAL_IDENTITY, STORAGE_KEY_VIRTUAL_IDENTITY_ACTIVE, STORAGE_KEY_LOGS], (result) => {
       if (result?.[STORAGE_KEY_TOGGLES]) setToggles({ ...DEFAULT_TOGGLES, ...result[STORAGE_KEY_TOGGLES] })
       if (result?.[STORAGE_KEY_STATE]) setState({ ...DEFAULT_STATE, ...result[STORAGE_KEY_STATE] })
       if (result?.[STORAGE_KEY_VIRTUAL_IDENTITY]) setIdentity({ ...DEFAULT_IDENTITY, ...result[STORAGE_KEY_VIRTUAL_IDENTITY] })
       if (result?.[STORAGE_KEY_VIRTUAL_IDENTITY_ACTIVE]) setActiveIdentity(result[STORAGE_KEY_VIRTUAL_IDENTITY_ACTIVE])
+      if (Array.isArray(result?.[STORAGE_KEY_LOGS])) setLogs(result[STORAGE_KEY_LOGS] as LogEntry[])
       setAiDeepDiveConfig(normalizeAiDeepDiveConfig(result?.[STORAGE_KEY_AI_DEEP_DIVE_CONFIG]))
       setHydrated(true)
     })
@@ -186,6 +188,12 @@ export default function Dashboard() {
     if (!hydrated || !ext?.storage?.local) return
     ext.storage.local.set({ [STORAGE_KEY_STATE]: { ...state, privacyScore: score } })
   }, [hydrated, score, state])
+
+  // Persystencja telemetrii — logi przeżywają zamknięcie/otwarcie okna.
+  useEffect(() => {
+    if (!hydrated || !ext?.storage?.local) return
+    ext.storage.local.set({ [STORAGE_KEY_LOGS]: logs })
+  }, [hydrated, logs])
 
   const handleToggle = useCallback((module: ModuleId, enabled: boolean) => {
     setToggles((prev) => {
@@ -264,6 +272,7 @@ export default function Dashboard() {
     setLogs([])
     setState(DEFAULT_STATE)
     setHoneypotEvents([])
+    ext?.storage?.local?.set({ [STORAGE_KEY_LOGS]: [] })
     addLog({ timestamp: Date.now(), source: "system", message: "PANIC: wyczyszczono sesje śledzące i dane lokalne" })
   }, [addLog])
 

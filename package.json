@@ -43,6 +43,7 @@
       "storage",
       "browsingData",
       "cookies",
+      "history",
       "alarms",
       "tabs",
       "debugger",

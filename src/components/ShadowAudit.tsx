@@ -15,6 +15,10 @@ import {
   type ShadowProfile,
   type ShadowRarity
 } from "../shared/shadowAudit"
+import {
+  collectInferredProfile,
+  type InferredProfile
+} from "../shared/inferredProfile"
 import type { ProfileBucket, ProfileId } from "../types"
 
 const RARITY: Record<ShadowRarity, { label: string; color: string }> = {
@@ -77,11 +81,108 @@ function EntropyRow({
   )
 }
 
+const INTEREST_COLOR = "#9A8CFF"
+
+function InferredSection({ data }: { data: InferredProfile | null }) {
+  if (!data) {
+    return (
+      <p className="mt-3 border-t border-line pt-2.5 text-[10px] text-fg-low">
+        Analizuję historię…
+      </p>
+    )
+  }
+
+  if (!data.available || data.interests.length === 0) {
+    return (
+      <div className="mt-3 border-t border-line pt-2.5">
+        <p className="text-micro uppercase text-fg-low">Profil z historii</p>
+        <p className="mt-1 text-[10px] leading-snug text-fg-mid">
+          {data.reason ?? "Brak danych."}
+          {data.available === false &&
+            " Włącz uprawnienie „history” i przeładuj wtyczkę, by zobaczyć realny profil."}
+        </p>
+      </div>
+    )
+  }
+
+  const pct = (v: number) => Math.round(v * 100)
+
+  return (
+    <div className="mt-3 border-t border-line pt-2.5">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-micro uppercase text-fg-low">
+          Zainteresowania (z Twojej historii)
+        </p>
+        <span className="font-mono text-[9px] tnum text-fg-low">
+          {data.domainsMatched} dopasowań
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        {data.interests.map((it) => (
+          <div key={it.id}>
+            <div className="mb-0.5 flex items-end justify-between">
+              <span className="text-[10.5px] text-fg-mid">{it.label}</span>
+              <span className="font-mono text-[9px] tnum text-fg-low">{pct(it.share)}%</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.max(4, pct(it.share))}%`,
+                  backgroundColor: INTEREST_COLOR
+                }}
+              />
+            </div>
+            {it.evidence.length > 0 && (
+              <p className="mt-0.5 truncate font-mono text-[9px] text-fg-low/70">
+                {it.evidence.join(" · ")}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {(data.gender || data.age) && (
+        <div className="mt-3 rounded-lg border border-dashed border-line p-2.5">
+          <p className="text-micro uppercase text-fg-low">
+            Jak zgaduje Cię branża reklamowa
+          </p>
+          <div className="mt-1.5 flex gap-4">
+            {data.gender && (
+              <div className="leading-tight">
+                <p className="text-[11px] text-fg-hi">{data.gender.label}</p>
+                <p className="font-mono text-[9px] tnum text-fg-low">
+                  pewność ~{pct(data.gender.confidence)}%
+                </p>
+              </div>
+            )}
+            {data.age && (
+              <div className="leading-tight">
+                <p className="text-[11px] text-fg-hi">{data.age.label} lat</p>
+                <p className="font-mono text-[9px] tnum text-fg-low">
+                  pewność ~{pct(data.age.confidence)}%
+                </p>
+              </div>
+            )}
+          </div>
+          <p className="mt-1.5 text-[9px] leading-snug text-fg-low/70">
+            To stereotypowa zgadywanka profilerów na podstawie kategorii stron —
+            często BŁĘDNA. Pokazujemy ją, byś zobaczył skalę profilowania. Liczone
+            lokalnie, nic nie wychodzi z przeglądarki.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ShadowAudit({
   profileId = "auto",
   customBucket = null
 }: ShadowAuditProps) {
   const [profile, setProfile] = useState<ShadowProfile | null>(null)
+  const [inferred, setInferred] = useState<InferredProfile | null>(null)
 
   const scan = useCallback(() => {
     try {
@@ -89,6 +190,9 @@ export default function ShadowAudit({
     } catch {
       setProfile(null)
     }
+    collectInferredProfile()
+      .then(setInferred)
+      .catch(() => setInferred(null))
   }, [])
 
   useEffect(() => {
@@ -198,6 +302,8 @@ export default function ShadowAudit({
             nie pomiar względem realnej populacji. Popup pokazuje Twój prawdziwy
             fingerprint; maskowanie działa na stronach WWW.
           </p>
+
+          <InferredSection data={inferred} />
         </div>
       ) : (
         <div className="flex h-24 flex-col items-center justify-center gap-2 text-center">
