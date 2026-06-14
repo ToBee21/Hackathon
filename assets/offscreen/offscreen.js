@@ -103,7 +103,7 @@ const MODEL_OPTIONS = [
     task: "text-generation",
     modelId: AI_DEEP_DIVE_GEMMA_MODEL_ID,
     localModelId: "gemma-4-e2b",
-    dtypeWebgpu: "q4",
+    dtypeWebgpu: "q4f16",
     dtypeWasm: "q4"
   }
 ]
@@ -750,7 +750,8 @@ function loadGeneratorForDtype(model, dtype, requestId) {
   return transformers
     .pipeline("text-generation", runtimeModelId, {
       device: "webgpu",
-      dtype,
+      dtype: pipelineDtypeForModel(model, dtype),
+      ...(model.id === "gemma-4-e2b" ? { textOnly: true } : {}),
       progress_callback: createModelProgressLogger(model, requestId, dtype)
     })
     .then((generator) => ({
@@ -765,6 +766,18 @@ function loadGeneratorForDtype(model, dtype, requestId) {
 
 function getRuntimeModelId(model) {
   return model.localModelId ?? model.modelId
+}
+
+function pipelineDtypeForModel(model, dtype) {
+  if (model.id === "gemma-4-e2b" && dtype === "q4f16") {
+    return {
+      embed_tokens: "q4f16",
+      decoder_model_merged: "q4f16",
+      audio_encoder: "q4f16",
+      vision_encoder: "q4f16"
+    }
+  }
+  return dtype
 }
 
 function setBundledModelRuntime() {
@@ -796,7 +809,7 @@ function requireWebGpu(model, requestId) {
 }
 
 async function resolveWebGpuDtypes(model, requestId) {
-  const preferred = orderWebGpuDtypes(model.dtypeWebgpu)
+  const preferred = orderWebGpuDtypesForModel(model)
   try {
     const available = await transformers.ModelRegistry?.get_available_dtypes?.(
       getRuntimeModelId(model)
@@ -828,6 +841,11 @@ async function resolveWebGpuDtypes(model, requestId) {
 
 function orderWebGpuDtypes(preferredDtype) {
   return unique([preferredDtype, "fp16", "q4", "q4f16"].filter(Boolean))
+}
+
+function orderWebGpuDtypesForModel(model) {
+  if (model.id === "gemma-4-e2b") return [model.dtypeWebgpu]
+  return orderWebGpuDtypes(model.dtypeWebgpu)
 }
 
 function selectAvailableDtypes(preferred, available) {

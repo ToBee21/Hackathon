@@ -28,7 +28,7 @@ describe("AI Deep-Dive local LLM-JSON adapter", () => {
     expect(granite.task).toBe("text-generation")
     expect(granite.dtypeWebgpu).toBe("q4")
     expect(gemma.task).toBe("text-generation")
-    expect(gemma.dtypeWebgpu).toBe("q4")
+    expect(gemma.dtypeWebgpu).toBe("q4f16")
   })
 
   it("tries fp16 immediately after q4 for WebGPU kernel fallback", () => {

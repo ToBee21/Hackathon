@@ -33,6 +33,10 @@ Current runtime modes in this repo:
 | `heuristic+nli` | `src/shared/aiDeepDive/localNli.ts` | Optional local NLI confirmation through Transformers.js. |
 | `heuristic+llm-json` | `src/shared/aiDeepDive/localLlm.ts` | Optional local generative JSON verdict through Transformers.js. |
 
+Context engineering is centralized in
+`src/shared/aiDeepDive/contextEngineering.ts`. Do not hand-roll new prompt text
+inside runtime adapters unless the shared pack cannot express the model class.
+
 The pitch-safe sentence:
 
 > The extension uses a local heuristic by default. Optional local AI can confirm
@@ -128,6 +132,7 @@ Implementation anchors:
 
 | Concern | Current location |
 | --- | --- |
+| context-engineering profiles | `src/shared/aiDeepDive/contextEngineering.ts` |
 | model registry | `src/shared/aiDeepDive/models.ts` |
 | heuristic classifier | `src/shared/aiDeepDive/score.ts` |
 | NLI classifier | `src/shared/aiDeepDive/localNli.ts` |
@@ -143,6 +148,16 @@ Provider rule:
 Protection = deterministic policy
 AI = classification and explanation only
 ```
+
+Supported context profiles:
+
+| Profile | Target |
+| --- | --- |
+| `tiny_nli` | DeBERTa-style zero-shot classifiers and very small local models. |
+| `small_json_llm` | Granite/Gemma-class local models below roughly 1B parameters. |
+| `large_json_llm` | Larger local models with enough budget for stricter evidence. |
+| `localhost_json_llm` | LM Studio, llama.cpp server, Ollama, or OpenAI-compatible localhost routes. |
+| `cloud_schema_llm` | Future opt-in schema-capable remote model path, not a default runtime. |
 
 ## 5. Prompt Contracts
 

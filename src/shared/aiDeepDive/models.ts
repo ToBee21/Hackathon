@@ -67,7 +67,7 @@ export const AI_DEEP_DIVE_MODELS: readonly AiDeepDiveModelOption[] = [
     task: "text-generation",
     modelId: AI_DEEP_DIVE_GEMMA_MODEL_ID,
     localModelId: "gemma-4-e2b",
-    dtypeWebgpu: "q4",
+    dtypeWebgpu: "q4f16",
     dtypeWasm: "q4",
     approxDownloadMb: 3460,
     license: "Apache-2.0 (Gemma 4)",
