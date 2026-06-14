@@ -77,17 +77,16 @@ function findBestTextRoot(): Element {
   const seen = new Set<Element>([fallbackRoot])
 
   for (const selector of CONTENT_ROOT_SELECTORS) {
-    for (const root of Array.from(document.querySelectorAll(selector)).slice(0, 8)) {
+    for (const root of Array.from(document.querySelectorAll(selector)).slice(0, 6)) {
       if (seen.has(root)) continue
       seen.add(root)
 
-      const stats = collectVisibleText(root)
-      const score = scoreTextRootCandidate({
-        selector,
-        textLength: stats.text.length,
-        paragraphCount: stats.paragraphCount,
-        linkTextLength: stats.linkTextLength
-      })
+      // Ranking kandydatów liczymy TANIO (bez TreeWalkera i bez getComputedStyle,
+      // które wymuszają reflow). Pełną, kosztowną ekstrakcję robimy dopiero raz —
+      // na zwycięskim korzeniu — w getVisibleBodyText. Wcześniej liczenie tego dla
+      // każdego kandydata potrafiło zablokować główny wątek na dużych stronach.
+      const stats = cheapRootStats(root)
+      const score = scoreTextRootCandidate({ selector, ...stats })
 
       if (!best || score > best.score) {
         best = { root, score }
@@ -96,6 +95,25 @@ function findBestTextRoot(): Element {
   }
 
   return best?.root ?? fallbackRoot
+}
+
+/** Szybkie metryki korzenia bez przechodzenia drzewa i bez wymuszania reflow. */
+function cheapRootStats(root: Element): {
+  textLength: number
+  paragraphCount: number
+  linkTextLength: number
+} {
+  const textLength = Math.min((root.textContent ?? "").length, MAX_BODY_CHARS * 2)
+  let linkTextLength = 0
+  const anchors = root.querySelectorAll("a")
+  for (let i = 0; i < anchors.length && linkTextLength < 8000; i += 1) {
+    linkTextLength += anchors[i].textContent?.length ?? 0
+  }
+  return {
+    textLength,
+    paragraphCount: countReadableParagraphs(root),
+    linkTextLength
+  }
 }
 
 function collectVisibleText(root: Element): {
@@ -181,12 +199,10 @@ function shouldSkipElement(element: Element): boolean {
   }
   if (hasNoisyClassName(element)) return true
 
-  const style = window.getComputedStyle(element)
-  return (
-    style.display === "none" ||
-    style.visibility === "hidden" ||
-    Number(style.opacity) === 0
-  )
+  // Celowo BEZ getComputedStyle — czytanie stylu wyliczonego per węzeł wymusza
+  // reflow i było główną przyczyną „zamrażania" strony podczas skanu. Ukryte
+  // elementy odsiewamy tańszymi sygnałami (tag/atrybuty/role/klasy powyżej).
+  return false
 }
 
 function hasNoisyClassName(element: Element): boolean {
