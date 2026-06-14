@@ -14,7 +14,16 @@
 
 import { useMemo, useState, type CSSProperties } from "react"
 
+import bohaterModelUrl from "url:../../assets/models/bohater-na-sluzbie.glb"
+import pustelnikModelUrl from "url:../../assets/models/cyfrowy-pustelnik.glb"
+import gamerModelUrl from "url:../../assets/models/gamer.stl"
 import grandmaModelUrl from "url:../../assets/models/grandma.stl"
+import koneserModelUrl from "url:../../assets/models/koneser-luksusu.glb"
+import krolModelUrl from "url:../../assets/models/krol-ruletki.glb"
+import lapaczModelUrl from "url:../../assets/models/lapacz-fal.glb"
+import obywatelkaModelUrl from "url:../../assets/models/obywatelka-swiata.glb"
+import rekinModelUrl from "url:../../assets/models/rekin-finansjery.glb"
+import zaklinaczModelUrl from "url:../../assets/models/zaklinacz-czworonogow.glb"
 
 import {
   AGE_BANDS,
@@ -45,9 +54,23 @@ import {
 } from "../shared/virtualIdentityStudio"
 import type { ProfileBucket } from "../types"
 import { Aperture, Cursor, Fingerprint, Ghost, ShieldCheck } from "./icons"
-import StlModelViewer from "./StlModelViewer"
+import ModelViewer from "./ModelViewer"
 
 const ACCENT = "#2BD4C4"
+
+/** Klucz `Archetype.model3d` → URL pliku modelu (import `url:`). */
+const MODEL_URLS: Record<string, string> = {
+  grandma: grandmaModelUrl,
+  koneser: koneserModelUrl,
+  obywatelka: obywatelkaModelUrl,
+  rekin: rekinModelUrl,
+  bohater: bohaterModelUrl,
+  pustelnik: pustelnikModelUrl,
+  krol: krolModelUrl,
+  zaklinacz: zaklinaczModelUrl,
+  lapacz: lapaczModelUrl,
+  gamer: gamerModelUrl
+}
 
 export interface IdentityDerived {
   bucket: ProfileBucket
@@ -293,11 +316,23 @@ export default function VirtualIdentityStudio({
     })
   }
 
-  const stats = useMemo(() => deriveStats(config), [config])
-  const hw = getHardwareSpec(config.hardware)
-  const origin = getOriginSpec(config.origin)
   const activeArchetype: Archetype | undefined =
     config.archetypeId !== "custom" ? getArchetype(config.archetypeId) : undefined
+  // Statystyki: jawne wartości persony (zgodne ze spec) mają pierwszeństwo przed
+  // heurystyką deriveStats; po ręcznej edycji (custom) wracamy do heurystyki.
+  const stats = useMemo(
+    () => activeArchetype?.stats ?? deriveStats(config),
+    [activeArchetype, config]
+  )
+  const hw = getHardwareSpec(config.hardware)
+  const origin = getOriginSpec(config.origin)
+  // Odcisk trackera w podglądzie: jawne pola archetypu nadpisują wartości z tieru.
+  const fp = activeArchetype?.fingerprint
+  const trackerGpu = fp?.gpu ?? hw.gpu
+  const trackerScreen = fp?.screen ?? hw.screen
+  const modelUrl = activeArchetype?.model3d
+    ? MODEL_URLS[activeArchetype.model3d]
+    : undefined
 
   const presets = ARCHETYPES.filter((a) => a.category === "default")
 
@@ -519,10 +554,10 @@ export default function VirtualIdentityStudio({
           {/* Podgląd postaci */}
           <div className="relative flex items-center justify-center overflow-hidden rounded-xl bg-void/60 ring-1 ring-inset ring-line">
             <div className="console-grid absolute inset-0 opacity-60" />
-            {config.archetypeId === "granny" ? (
-              // Babcia — obracający się model 3D zamiast sylwetki SVG.
+            {modelUrl ? (
+              // Persona z modelem 3D — obracająca się bryła zamiast sylwetki SVG.
               <div className="h-[320px] w-full">
-                <StlModelViewer src={grandmaModelUrl} />
+                <ModelViewer key={modelUrl} src={modelUrl} />
               </div>
             ) : (
               <div className="relative anim-pulse py-3">
@@ -537,7 +572,7 @@ export default function VirtualIdentityStudio({
               {origin.code} · {origin.timezone.split("/")[1]?.replace("_", " ") ?? origin.timezone}
             </span>
             <span className="absolute right-3 top-3 font-mono text-[9px] uppercase tracking-wide text-fg-low">
-              {hw.cores}c · {hw.ramGb}GB
+              {fp?.cores ?? hw.cores}c · {hw.ramGb}GB
             </span>
           </div>
 
@@ -556,14 +591,14 @@ export default function VirtualIdentityStudio({
             <dl className="flex flex-col gap-1 font-mono text-[10px] text-fg-mid">
               <div className="flex justify-between gap-2">
                 <dt className="text-fg-low">GPU</dt>
-                <dd className="truncate" title={hw.gpu}>
-                  {hw.gpu}
+                <dd className="truncate" title={trackerGpu}>
+                  {trackerGpu}
                 </dd>
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-fg-low">Ekran</dt>
                 <dd>
-                  {hw.screen.width}×{hw.screen.height}
+                  {trackerScreen.width}×{trackerScreen.height}
                 </dd>
               </div>
               <div className="flex justify-between gap-2">
