@@ -83,7 +83,9 @@ chrome.storage.local.set({ "cnd:blocklist:update-url": "http://127.0.0.1:8899/bu
 ## Keys & rotation
 
 - Private key: `server/.secrets/signing.key.pem` (gitignored, `chmod 600`). For
-  CI, pass as `BLOCKLIST_PRIVATE_KEY_PEM`. Never on the public server.
+  CI, mount it as a secret file and point `BLOCKLIST_PRIVATE_KEY_FILE` at that
+  path. Never pass PEM bytes through environment variables, shell history, or
+  command-line examples. Never on the public server.
 - Public key(s): baked into `secureUpdater.ts` (`UPDATE_PUBLIC_KEYS_B64`, an
   array). The verifier is **multi-key first-match-wins**, so rotation is in-band:
   add `K_next` to the array and ship an extension update BEFORE you start signing

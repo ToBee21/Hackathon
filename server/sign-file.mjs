@@ -15,13 +15,15 @@ if (!target || !existsSync(target)) {
   process.exit(1)
 }
 
-const pem =
-  process.env.BLOCKLIST_PRIVATE_KEY_PEM ||
-  (existsSync(join(HERE, ".secrets", "signing.key.pem"))
-    ? readFileSync(join(HERE, ".secrets", "signing.key.pem"), "utf8")
-    : null)
+const keyCandidates = [
+  process.env.BLOCKLIST_PRIVATE_KEY_FILE,
+  "/run/secrets/blocklist_private_key",
+  join(HERE, ".secrets", "signing.key.pem")
+].filter(Boolean)
+const keyPath = keyCandidates.find((candidate) => existsSync(candidate))
+const pem = keyPath ? readFileSync(keyPath, "utf8") : null
 if (!pem) {
-  console.error("No signing key (server/.secrets/signing.key.pem or BLOCKLIST_PRIVATE_KEY_PEM).")
+  console.error("No signing key. Run `node server/keygen.mjs` or set BLOCKLIST_PRIVATE_KEY_FILE.")
   process.exit(1)
 }
 

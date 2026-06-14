@@ -30,7 +30,7 @@ const BRIDGE_TO_MAIN = "bridge-to-main"
 const INSTALL_FLAG = "__cloakDaggerBionicBlurInstalled"
 const TELEMETRY_FLUSH_MS = 1200
 const POINTER_EVENTS = new Set(["mousemove", "pointermove", "pointerrawupdate"])
-const KEY_EVENTS = new Set(["keydown", "keyup", "beforeinput", "input"])
+const KEY_EVENTS = new Set(["keydown", "keyup"])
 const SENSOR_EVENTS = new Set(["devicemotion", "deviceorientation"])
 
 type TelemetryAction = "patched" | "blurred" | "blocked" | "configured" | "proof"
@@ -410,8 +410,6 @@ function patchPropertyHandlers(
     ["onpointermove", "pointermove"],
     ["onkeydown", "keydown"],
     ["onkeyup", "keyup"],
-    ["onbeforeinput", "beforeinput"],
-    ["oninput", "input"]
   ]
 
   for (const proto of targets) {

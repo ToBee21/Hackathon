@@ -20,4 +20,20 @@ describe("page DOM / main-world leakage security gate", () => {
     expect(source).toContain("NOT a confidentiality boundary")
     expect(source).toContain('attachShadow({ mode: "open" })')
   })
+
+  it("rejects synthetic page-driven clicks for privileged page-visible actions", () => {
+    const floating = readRepoFile("src/content/floatingWindow.ts")
+    const linkGuard = readRepoFile("src/content/linkGuard.ts")
+    const content = readRepoFile("src/content.ts")
+
+    expect(floating).toContain("function isTrustedActivation(event: Event): boolean")
+    expect(floating).toContain("function isInteractiveDragTarget(target: EventTarget | null): boolean")
+    expect(floating).toContain("event.stopPropagation()")
+    expect(floating).toContain("if (!isTrustedActivation(event)) return")
+    expect(floating).toContain("if (!isTrustedActivation(e)) return")
+    expect(linkGuard).toContain("function isTrustedActivation(event: Event): boolean")
+    expect(linkGuard).toContain("if (!isTrustedActivation(e))")
+    expect(linkGuard).toContain("if (!isTrustedActivation(event)) return")
+    expect(content).toContain("if (!e.isTrusted) return")
+  })
 })

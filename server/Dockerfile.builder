@@ -9,7 +9,7 @@
 # Build context = repo root (needs src/shared/blocklist/baselineBundle.ts):
 #   docker build -f server/Dockerfile.builder -t cnd-blocklist-builder .
 #   docker run --rm -e BUNDLE_VERSION=3 \
-#     -e BLOCKLIST_PRIVATE_KEY_PEM="$(cat server/.secrets/signing.key.pem)" \
+#     --mount type=bind,src="$PWD/server/.secrets/signing.key.pem",target=/run/secrets/blocklist_private_key,readonly \
 #     -v "$PWD/server/out:/app/server/out" cnd-blocklist-builder
 
 FROM node:22-alpine@sha256:9bef0ef1e268f60627da9ba7d7605e8831d5b56ad07487d24d1aa386336d1944

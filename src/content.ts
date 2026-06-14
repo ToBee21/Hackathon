@@ -3,6 +3,7 @@ import type { PlasmoCSConfig } from "plasmo"
 import mainWorldScriptUrl from "url:./contents/bionic-blur-main"
 
 import { initializeAiDeepDiveContent } from "./content/aiDeepDive/contentEntry"
+import { initAdOverlayZapper } from "./content/adOverlayZapper"
 import { initFloatingWindow } from "./content/floatingWindow"
 import { initLinkGuard } from "./content/linkGuard"
 import { initMailGuard } from "./content/mailGuard"
@@ -114,6 +115,7 @@ async function initializeBridge(): Promise<void> {
   initLinkGuard()
   initMailGuard()
   initDataFootprint()
+  initAdOverlayZapper()
 }
 
 async function refreshConfig(): Promise<void> {
@@ -423,6 +425,7 @@ function createShieldButton(input: HTMLInputElement): HTMLButtonElement {
   btn.addEventListener("mouseleave", () => { btn.style.opacity = "0.85" })
 
   btn.addEventListener("click", async (e) => {
+    if (!e.isTrusted) return
     e.preventDefault()
     e.stopPropagation()
     btn.style.opacity = "0.5"

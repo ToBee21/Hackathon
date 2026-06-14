@@ -17,10 +17,12 @@ describe("permission minimization security gate", () => {
         "debugger",
         "scripting",
         "privacy",
+        "downloads",
         "declarativeNetRequest",
         "offscreen"
       ])
     )
+    expect(JSON.stringify(manifest.permissions)).not.toContain("webRequest")
   })
 
   it("keeps web-accessible resources off <all_urls> and confines CSP to extension scripts/WASM", () => {

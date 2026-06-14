@@ -27,7 +27,20 @@ function loadedSnapshot(): Record<string, unknown> {
       list: [{ password: "SECRET_NESTED_2" }]
     },
     // Benign data that MUST survive the redaction untouched.
-    "cnd:state": { privacyScore: 42 }
+    "cnd:state": { privacyScore: 42, activeAliasEmail: "alias-private@example.test" },
+    "cnd:last-analysis": {
+      "7": {
+        page: {
+          url: "https://example.test/reset?token=RAW_URL_TOKEN",
+          meta: "RAW_META_SECRET",
+          og: { description: "RAW_OG_SECRET" },
+          headings: ["RAW_HEADING_SECRET"],
+          visibleText: "RAW_VISIBLE_SECRET",
+          selectedText: "RAW_SELECTION_SECRET"
+        },
+        cards: [{ evidence: ["RAW_EVIDENCE_SECRET"] }]
+      }
+    }
   }
 }
 
@@ -61,7 +74,32 @@ describe("data export never leaks a secret (security gate)", () => {
   it("preserves benign data (privacyScore 42) through redaction", () => {
     const { data } = redactStorageSnapshot(snapshot)
 
-    expect(data["cnd:state"]).toEqual({ privacyScore: 42 })
+    expect(data["cnd:state"]).toEqual({
+      privacyScore: 42,
+      activeAliasEmail: "[redacted]"
+    })
+  })
+
+  it("redacts raw page analysis and plaintext active alias state", () => {
+    const { data, redactedKeys } = redactStorageSnapshot(snapshot)
+    const serialized = JSON.stringify(data)
+
+    for (const raw of [
+      "alias-private@example.test",
+      "RAW_URL_TOKEN",
+      "RAW_META_SECRET",
+      "RAW_OG_SECRET",
+      "RAW_HEADING_SECRET",
+      "RAW_VISIBLE_SECRET",
+      "RAW_SELECTION_SECRET",
+      "RAW_EVIDENCE_SECRET"
+    ]) {
+      expect(serialized).not.toContain(raw)
+    }
+
+    expect(redactedKeys).toContain("cnd:state.activeAliasEmail")
+    expect(redactedKeys).toContain("cnd:last-analysis.7.page.visibleText")
+    expect(redactedKeys).toContain("cnd:last-analysis.7.page.selectedText")
   })
 
   it("strips secrets nested inside objects and arrays", () => {

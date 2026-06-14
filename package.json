@@ -1,7 +1,7 @@
 {
   "name": "privacymyst",
   "displayName": "PrivacyMyst",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Aktywny system ochrony prywatności i suwerenności danych użytkownika w sieci.",
   "author": "Hackathon Signal:Noise Team",
   "scripts": {
@@ -58,6 +58,7 @@
       "debugger",
       "scripting",
       "privacy",
+      "downloads",
       "declarativeNetRequest",
       "declarativeNetRequestFeedback",
       "sidePanel",
@@ -66,7 +67,9 @@
     ],
     "commands": {
       "scan-ad-images": {
-        "suggested_key": { "default": "Alt+Shift+V" },
+        "suggested_key": {
+          "default": "Alt+Shift+V"
+        },
         "description": "PrivacyMyst: skanuj reklamy-obrazki na stronie (AI vision)"
       }
     },

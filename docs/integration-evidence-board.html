@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PrivacyMyst — Tablica dowodowa integracji</title>
+<style>
+  :root{
+    --void:#0a0c0e; --void2:#0d1014; --panel:#14171b; --panel2:#191d22;
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+    --hi:#e8eaed; --mid:#9aa0ab; --low:#5a6068;
+    --teal:#2BD4C4; --red:#E5484D; --green:#46E6A8; --amber:#F5A623;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:
+      radial-gradient(1200px 600px at 80% -10%,rgba(43,212,196,.06),transparent 60%),
+      radial-gradient(900px 500px at -10% 20%,rgba(229,72,77,.05),transparent 55%),
+      var(--void);
+    color:var(--hi);font-family:var(--sans);line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px 96px}
+  code,.mono{font-family:var(--mono)}
+  a{color:var(--teal);text-decoration:none}
+
+  /* ---- header ---- */
+  header.top{
+    position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);
+    background:linear-gradient(180deg,rgba(10,12,14,.92),rgba(10,12,14,.7));
+    border-bottom:1px solid var(--line);
+  }
+  .top .wrap{display:flex;align-items:center;justify-content:space-between;
+    padding-top:14px;padding-bottom:14px}
+  .brand{display:flex;align-items:center;gap:11px}
+  .glyph{width:26px;height:26px;border-radius:7px;border:1px solid var(--line2);
+    display:grid;place-items:center;background:rgba(43,212,196,.08)}
+  .glyph svg{width:15px;height:15px;stroke:var(--teal);fill:none;stroke-width:1.6}
+  .brand b{font-size:13px;letter-spacing:.2px}
+  .brand span{display:block;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--low)}
+  .verdict{font-family:var(--mono);font-size:11px;color:var(--green);
+    border:1px solid rgba(70,230,168,.35);background:rgba(70,230,168,.07);
+    padding:5px 11px;border-radius:999px;white-space:nowrap}
+
+  /* ---- hero ---- */
+  .hero{padding:54px 0 26px}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--teal)}
+  h1{font-size:40px;line-height:1.08;margin:14px 0 8px;letter-spacing:-.5px;font-weight:760}
+  h1 .strike{color:var(--red)}
+  .lede{color:var(--mid);font-size:16px;max-width:760px}
+  .lede b{color:var(--hi)}
+
+  /* ---- scoreboard strip ---- */
+  .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:30px 0 8px}
+  .stat{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:16px 16px 14px}
+  .stat .n{font-family:var(--mono);font-size:26px;font-weight:700;letter-spacing:-1px}
+  .stat .n.g{color:var(--green)} .stat .n.t{color:var(--teal)}
+  .stat .l{font-size:11px;color:var(--mid);margin-top:3px}
+
+  /* ---- section ---- */
+  section{margin-top:54px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--low)}
+  h2{font-size:24px;margin:8px 0 6px;letter-spacing:-.3px}
+  .sub{color:var(--mid);max-width:780px}
+
+  .def{border:1px solid var(--line);border-left:3px solid var(--teal);
+    background:var(--panel);border-radius:0 14px 14px 0;padding:18px 20px;margin-top:18px}
+  .def b{color:var(--teal)}
+
+  /* ---- regression card ---- */
+  .reg{border:1px solid var(--line);border-radius:18px;background:
+      linear-gradient(180deg,rgba(229,72,77,.05),transparent 30%),var(--panel);
+    margin-top:22px;overflow:hidden}
+  .reg-head{display:flex;align-items:flex-start;gap:14px;padding:20px 22px 14px;border-bottom:1px solid var(--line)}
+  .reg-no{font-family:var(--mono);font-size:26px;font-weight:800;color:var(--red);line-height:1;min-width:42px}
+  .reg-head h3{margin:0 0 3px;font-size:18px}
+  .reg-head .file{font-family:var(--mono);font-size:12px;color:var(--amber)}
+  .badges{margin-left:auto;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+  .badge{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--line2);color:var(--mid);white-space:nowrap}
+  .badge.author{color:var(--hi);border-color:var(--line2);background:var(--panel2)}
+  .reg-body{padding:18px 22px 22px}
+  .impact{display:flex;gap:10px;align-items:flex-start;margin-bottom:18px;
+    border:1px solid rgba(229,72,77,.3);background:rgba(229,72,77,.06);border-radius:12px;padding:12px 14px}
+  .impact .tag{font-family:var(--mono);font-size:10px;color:var(--red);border:1px solid rgba(229,72,77,.4);border-radius:5px;padding:2px 6px;white-space:nowrap;margin-top:1px}
+  .impact p{margin:0;color:var(--hi);font-size:14px}
+
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  @media(max-width:760px){.ba{grid-template-columns:1fr}.strip{grid-template-columns:1fr 1fr}}
+  .col{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--void2)}
+  .col.keep{border-color:rgba(70,230,168,.35)}
+  .col.lose{border-color:rgba(229,72,77,.35)}
+  .col-h{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid var(--line);font-size:12px}
+  .col.keep .col-h{background:rgba(70,230,168,.07)}
+  .col.lose .col-h{background:rgba(229,72,77,.07)}
+  .col-h .who{font-family:var(--mono);font-size:10px}
+  .col.keep .who{color:var(--green)} .col.lose .who{color:var(--red)}
+  .col-b{padding:13px}
+
+  /* mini dashboard mock */
+  .dash{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:7px}
+  .dcol{display:flex;flex-direction:column;gap:7px}
+  .cell{font-family:var(--mono);font-size:9.5px;color:var(--mid);background:var(--panel);
+    border:1px solid var(--line);border-radius:7px;padding:7px 8px;min-height:30px;display:flex;align-items:center;gap:5px}
+  .cell.radar{min-height:64px;justify-content:center;color:var(--low)}
+  .cell.flag{color:var(--teal);border-color:rgba(43,212,196,.35);background:rgba(43,212,196,.06)}
+  .cell.flag.kill{color:var(--red);border-color:rgba(229,72,77,.45);background:rgba(229,72,77,.07);
+    text-decoration:line-through;position:relative}
+  .cell.flag.kill::after{content:"USUNIĘTE";position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    font-size:8px;letter-spacing:.1em;color:var(--red);text-decoration:none;font-weight:700}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex:0 0 auto}
+  .dot.r{background:var(--red)} .dot.g{background:var(--green)} .dot.m{background:var(--low)}
+
+  /* flow */
+  .flow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:var(--mono);font-size:10px}
+  .node{border:1px solid var(--line);border-radius:7px;padding:6px 9px;background:var(--panel);color:var(--mid)}
+  .node.ok{color:var(--green);border-color:rgba(70,230,168,.35);background:rgba(70,230,168,.06)}
+  .node.gate{color:var(--red);border-color:rgba(229,72,77,.4);background:rgba(229,72,77,.07)}
+  .node.dead{color:var(--red);border-color:rgba(229,72,77,.4);background:rgba(229,72,77,.07)}
+  .arr{color:var(--low)}
+
+  /* persona tabs */
+  .tabs{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel)}
+  .tab{font-family:var(--mono);font-size:11px;padding:6px 14px;color:var(--mid)}
+  .tab.on{background:rgba(43,212,196,.12);color:var(--teal)}
+  .tab.gone{color:var(--red);text-decoration:line-through;background:rgba(229,72,77,.07)}
+  .persona-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:9px}
+  .pcard{font-family:var(--mono);font-size:9.5px;border:1px solid var(--line);border-radius:7px;padding:8px;color:var(--mid);text-align:center}
+  .pcard.special{border-color:rgba(245,166,35,.4);color:var(--amber)}
+  .pcard.hidden{border-style:dashed;border-color:rgba(229,72,77,.4);color:var(--red);opacity:.85}
+
+  /* code */
+  pre{margin:14px 0 0;background:#06080a;border:1px solid var(--line);border-radius:11px;
+    padding:13px 15px;overflow:auto;font-family:var(--mono);font-size:11.5px;line-height:1.65;color:#b9c0c8}
+  pre .cm{color:#5a6068} pre .add{color:var(--green)} pre .del{color:var(--red)}
+  pre .hl{color:var(--amber)} pre .kw{color:var(--teal)}
+  .src{font-size:10px;color:var(--low);font-family:var(--mono);margin-top:7px}
+
+  /* kept / fairness */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  .kept{border:1px solid rgba(70,230,168,.3);background:linear-gradient(180deg,rgba(70,230,168,.05),transparent 40%),var(--panel);
+    border-radius:14px;padding:16px 18px}
+  .kept h4{margin:0 0 4px;font-size:14px;color:var(--green)}
+  .kept p{margin:0;color:var(--mid);font-size:13px}
+  .kept .f{font-family:var(--mono);font-size:10px;color:var(--low);margin-top:7px}
+
+  /* matrix table */
+  table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13px}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--low);font-weight:600}
+  td.v{font-family:var(--mono);font-size:11px;white-space:nowrap}
+  .pill{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:6px}
+  .pill.keep{color:var(--green);background:rgba(70,230,168,.1);border:1px solid rgba(70,230,168,.3)}
+  .pill.take{color:var(--teal);background:rgba(43,212,196,.1);border:1px solid rgba(43,212,196,.3)}
+  td .file{font-family:var(--mono);font-size:11.5px;color:var(--hi)}
+
+  /* closing */
+  .close{margin-top:60px;border:1px solid var(--line);border-radius:18px;
+    background:linear-gradient(180deg,rgba(43,212,196,.06),transparent 50%),var(--panel);padding:30px 30px 26px}
+  .close h2{margin-top:0}
+  .close .quote{font-size:20px;line-height:1.4;letter-spacing:-.3px;max-width:760px}
+  .close .quote .t{color:var(--teal)}
+  .foot{margin-top:30px;color:var(--low);font-size:11px;font-family:var(--mono);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <span class="glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/></svg>
+      </span>
+      <div><b>PrivacyMyst</b><span>Tablica dowodowa integracji</span></div>
+    </div>
+    <div class="verdict">BUILD OK · 297/297 TESTÓW · GUI NIENARUSZONE</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="kicker">Triage jakości pod presją czasu · 2026-06-14</div>
+    <h1>Trzy zmiany, które <span class="strike">kasują</span> działające demo.<br>Baza Huberta zostaje.</h1>
+    <p class="lede">To nie jest spór o gust. To nie jest „nowsze = lepsze”. Niżej masz <b>twarde dowody z gita</b>:
+      konkretne linie, które usuwają funkcje widoczne dla jury i przywracają błąd, który Hubert świadomie naprawił.
+      Wzięliśmy z waszej gałęzi wszystko, co dokłada wartość — i odrzuciliśmy tylko to, co cofa produkt.</p>
+  </div>
+
+  <div class="strip">
+    <div class="stat"><div class="n g">297</div><div class="l">testów przechodzi (44 pliki, łącznie z suite bezpieczeństwa)</div></div>
+    <div class="stat"><div class="n t">0</div><div class="l">błędów <span class="mono">tsc --noEmit</span> · build chrome-mv3 OK</div></div>
+    <div class="stat"><div class="n g">5/5</div><div class="l">funkcji demo Huberta nadal w dashboardzie</div></div>
+    <div class="stat"><div class="n" style="color:var(--red)">3</div><div class="l">regresje odrzucone z gałęzi <span class="mono">feat/ai-deep-dive-risk</span></div></div>
+  </div>
+
+  <section>
+    <div class="eyebrow">Definicja</div>
+    <h2>Co to jest regresja?</h2>
+    <p class="sub">Zmiana, która <b style="color:var(--hi)">usuwa działającą, widoczną dla jury funkcję</b> albo
+      <b style="color:var(--hi)">przywraca naprawiony błąd</b> — nawet jeśli commit jest świeższy i wygląda jak „poprawka UI”.</p>
+    <div class="def">
+      Świeży commit może być clown-grade. Gałąź <code>feat/ai-deep-dive-risk</code> rozeszła się ze
+      <b>starego</b> dashboardu — więc jej „poprawki UI” nie wiedzą nic o Data Vault, eksportach, redakcji aliasu
+      ani o naprawie bramki AI. Wmerge’owanie ich na ślepo = ciche skasowanie tej pracy. Dlatego: triage per-plik, nie merge gałęzi.
+    </div>
+  </section>
+
+  <!-- ===================== REGRESJA 1 ===================== -->
+  <section>
+    <div class="reg">
+      <div class="reg-head">
+        <div class="reg-no">01</div>
+        <div>
+          <h3>Karta AI Deep-Dive znika z dashboardu</h3>
+          <div class="file">src/tabs/dashboard.tsx</div>
+        </div>
+        <div class="badges">
+          <span class="badge author">commit 89a5c92 · szalik</span>
+          <span class="badge">„poprawione ui”</span>
+        </div>
+      </div>
+      <div class="reg-body">
+        <div class="impact">
+          <span class="tag">IMPACT</span>
+          <p>Usuwa <code>&lt;AiDeepDiveCard/&gt;</code> — kartę z werdyktem lokalnego LLM, która jest na naszym
+            screenie dowodowym <code>03-ai-deepdive-llm-verdict.png</code>. Dodatkowo, bo wyrasta ze starego dashboardu,
+            <b>nie ma</b> przycisku „Eksportuj moje dane (JSON)” (Data Vault), <code>FloatingPanelToggle</code>,
+            normalizacji tożsamości ani redakcji aliasu w logach. Jury patrzy — i flagowej funkcji AI po prostu nie ma.</p>
+        </div>
+
+        <div class="ba">
+          <div class="col keep">
+            <div class="col-h"><span>Baza Huberta — zostaje</span><span class="who">// 1faa511</span></div>
+            <div class="col-b">
+              <div class="dash">
+                <div class="dcol">
+                  <div class="cell"><span class="dot"></span>ScoreChart</div>
+                  <div class="cell"><span class="dot"></span>StatCards</div>
+                  <div class="cell flag"><span class="dot"></span>AiDeepDiveCard</div>
+                  <div class="cell"><span class="dot m"></span>ModuleToggles</div>
+                  <div class="cell flag"><span class="dot"></span>FloatingPanel</div>
+                </div>
+                <div class="dcol">
+                  <div class="cell radar">CyberRadar<br>+ DataGhost</div>
+                </div>
+                <div class="dcol">
+                  <div class="cell"><span class="dot m"></span>Logi</div>
+                  <div class="cell"><span class="dot m"></span>ShadowAudit</div>
+                  <div class="cell"><span class="dot r"></span>PANIC</div>
+                  <div class="cell flag"><span class="dot"></span>Eksport JSON</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col lose">
+            <div class="col-h"><span>Wersja szalika — odrzucona</span><span class="who">// 89a5c92</span></div>
+            <div class="col-b">
+              <div class="dash">
+                <div class="dcol">
+                  <div class="cell"><span class="dot"></span>ScoreChart</div>
+                  <div class="cell"><span class="dot"></span>StatCards</div>
+                  <div class="cell flag kill"><span class="dot r"></span>AiDeepDive</div>
+                  <div class="cell" style="opacity:.4;border-style:dashed">—</div>
+                  <div class="cell" style="opacity:.4;border-style:dashed">—</div>
+                </div>
+                <div class="dcol">
+                  <div class="cell radar">CyberRadar<br>+ DataGhost</div>
+                </div>
+                <div class="dcol">
+                  <div class="cell"><span class="dot m"></span>ModuleToggles</div>
+                  <div class="cell"><span class="dot m"></span>Logi</div>
+                  <div class="cell"><span class="dot m"></span>ShadowAudit</div>
+                  <div class="cell flag kill"><span class="dot r"></span>Eksport JSON</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+<pre><span class="cm">// szalik 89a5c92 — to, co znika z dashboardu:</span>
+<span class="del">- import AiDeepDiveCard from "../components/AiDeepDiveCard"</span>
+<span class="del">- &lt;AiDeepDiveCard</span>
+<span class="del">-   risk={state.aiDeepDiveRisk}</span>
+<span class="del">-   maxCamoActive={state.maxCamoActive}</span>
+<span class="del">-   aiModeEnabled={aiDeepDiveConfig.aiModeEnabled}</span>
+<span class="del">-   onToggleAiMode={handleToggleAiDeepDiveMode} /&gt;</span>
+<span class="del">- &lt;ModuleToggles ... /&gt;</span>   <span class="cm">// przeniesione; karta AI nie wraca NIGDZIE</span>
+<span class="cm">// + brak handleExportData / „Eksportuj moje dane (JSON)” / FloatingPanelToggle</span>
+<span class="cm">//   bo ta wersja wyrasta ze starego dashboardu sprzed Data Vault.</span></pre>
+        <div class="src">git show 89a5c92 -- src/tabs/dashboard.tsx · weryfikacja: grep AiDeepDiveCard w bazie Huberta = 2 trafienia (żyje)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== REGRESJA 2 ===================== -->
+  <section>
+    <div class="reg">
+      <div class="reg-head">
+        <div class="reg-no">02</div>
+        <div>
+          <h3>Wraca bramka, która wycisza dashboard i MaxCamo</h3>
+          <div class="file">src/content/aiDeepDive/contentEntry.ts</div>
+        </div>
+        <div class="badges">
+          <span class="badge author">commit cb3ff23 · Krystian</span>
+          <span class="badge">„szybszy AI Deep-Dive”</span>
+        </div>
+      </div>
+      <div class="reg-body">
+        <div class="impact">
+          <span class="tag">IMPACT</span>
+          <p>Hubert <b>celowo usunął</b> bramkę <code>shouldSendAiDeepDiveReport</code>, bo ona domyślnie blokuje
+            ścieżkę do lokalnego dashboardu i stanu MaxCamo. Krystian wstawia ją z powrotem przed
+            <code>sendRuntimeMessage</code> — czyli przywraca dokładnie ten błąd: werdykt się liczy, ale dashboard
+            zostaje ciemny, a MaxCamo się nie uzbraja. To regresja behawioralna, nie przyspieszenie.</p>
+        </div>
+
+        <div class="ba">
+          <div class="col keep">
+            <div class="col-h"><span>Baza Huberta — sygnał dochodzi</span><span class="who">// fix</span></div>
+            <div class="col-b">
+              <div class="flow">
+                <span class="node">scan</span><span class="arr">→</span>
+                <span class="node">shouldEmit</span><span class="arr">→</span>
+                <span class="node ok">sendRuntimeMessage</span><span class="arr">→</span>
+                <span class="node ok">Dashboard + MaxCamo ON</span>
+              </div>
+            </div>
+          </div>
+          <div class="col lose">
+            <div class="col-h"><span>Wersja Krystiana — sygnał ginie</span><span class="who">// regr.</span></div>
+            <div class="col-b">
+              <div class="flow">
+                <span class="node">scan</span><span class="arr">→</span>
+                <span class="node gate">shouldSendReport? (deny domyślnie)</span><span class="arr">→</span>
+                <span class="node dead">✗ Dashboard ciemny</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+<pre><span class="cm">// Hubert — baza (komentarz wprost mówi, czemu bramki TU nie ma):</span>
+<span class="cm">// shouldSendAiDeepDiveReport intentionally denies page/report emission by</span>
+<span class="cm">// default, but it must not suppress the local dashboard + MaxCamo state path.</span>
+<span class="add">  sendRuntimeMessage(result)</span>
+
+<span class="cm">// Krystian cb3ff23 — wstawia bramkę z powrotem:</span>
+<span class="del">  if (<span class="hl">shouldSendAiDeepDiveReport(heuristic)</span>) {</span>
+<span class="del">    sendRuntimeMessage(heuristic)   // ← dashboard znów zależy od bramki, którą Hubert zdjął</span>
+<span class="del">  }</span></pre>
+        <div class="src">git diff ddfde0c..HEAD -- contentEntry.ts (Hubert) vs git show cb3ff23 -- contentEntry.ts (Krystian)</div>
+        <p class="sub" style="margin-top:14px;font-size:13px">
+          <b style="color:var(--green)">Co z tego WZIĘLIŚMY:</b> pomysł „szybciej” jest dobry — więc wzięliśmy go inną drogą,
+          bez ruszania bramki: <code>scanScheduler.ts</code> (krótsze opóźnienia 600→400, 250→120, idle 1200→500)
+          + ostrzejszy scoring. Efekt „szybszy/precyzyjniejszy” zostaje, błąd — nie.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== REGRESJA 3 ===================== -->
+  <section>
+    <div class="reg">
+      <div class="reg-head">
+        <div class="reg-no">03</div>
+        <div>
+          <h3>Znika zakładka „Specjalne” — i model 3D babci</h3>
+          <div class="file">src/components/VirtualIdentityStudio.tsx</div>
+        </div>
+        <div class="badges">
+          <span class="badge author">commit 89a5c92 · szalik</span>
+          <span class="badge">„poprawione ui”</span>
+        </div>
+      </div>
+      <div class="reg-body">
+        <div class="impact">
+          <span class="tag">IMPACT</span>
+          <p>Usuwa przełącznik <code>Domyślne / Specjalne</code> i na sztywno wymusza <code>category === "default"</code>.
+            Efekt: <b>3 archetypy z kategorii „special” stają się nieosiągalne</b> — w tym babcia z obracającym się
+            modelem 3D (commit ddfde0c), czyli jeden z bardziej efektownych wizualnie momentów demo.
+            Zmiana Huberta w tym pliku to wyłącznie kosmetyka (normalizacja myślnika) — nic nie psuje.</p>
+        </div>
+
+        <div class="ba">
+          <div class="col keep">
+            <div class="col-h"><span>Baza Huberta — obie zakładki</span><span class="who">6 + 3 person</span></div>
+            <div class="col-b">
+              <div class="tabs"><span class="tab on">Domyślne</span><span class="tab">Specjalne</span></div>
+              <div class="persona-grid">
+                <div class="pcard">Persona A</div><div class="pcard">Persona B</div><div class="pcard">Persona C</div>
+                <div class="pcard special">Babcia 3D</div><div class="pcard special">Special 2</div><div class="pcard special">Special 3</div>
+              </div>
+            </div>
+          </div>
+          <div class="col lose">
+            <div class="col-h"><span>Wersja szalika — tylko „default”</span><span class="who">3 ukryte</span></div>
+            <div class="col-b">
+              <div class="tabs"><span class="tab on">Domyślne</span><span class="tab gone">Specjalne</span></div>
+              <div class="persona-grid">
+                <div class="pcard">Persona A</div><div class="pcard">Persona B</div><div class="pcard">Persona C</div>
+                <div class="pcard hidden">Babcia 3D ✗</div><div class="pcard hidden">Special 2 ✗</div><div class="pcard hidden">Special 3 ✗</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+<pre><span class="cm">// szalik 89a5c92:</span>
+<span class="del">- const [tab, setTab] = useState&lt;"default" | "special"&gt;("default")</span>
+<span class="del">- const presets = ARCHETYPES.filter((a) =&gt; a.category === tab)</span>
+<span class="add">+ const presets = ARCHETYPES.filter((a) =&gt; a.category === <span class="hl">"default"</span>)</span>
+<span class="cm">// + usunięty cały przełącznik zakładek Domyślne/Specjalne (3 archetypy „special” = niedostępne)</span></pre>
+        <div class="src">grep category virtualIdentityStudio.ts → 6× "default", 3× "special" · git show 89a5c92 -- VirtualIdentityStudio.tsx</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== UCZCIWOŚĆ: CO WZIĘLIŚMY ===================== -->
+  <section>
+    <div class="eyebrow">To nie jest ego — to triage</div>
+    <h2>Co WZIĘLIŚMY z waszej gałęzi</h2>
+    <p class="sub">Wszystko, co dokłada wartość i nie cofa produktu, wjechało na bazę Huberta. Konkrety:</p>
+    <div class="grid2">
+      <div class="kept">
+        <h4>Krystian — ostrzejszy scoring</h4>
+        <p>Sygnał z adresu strony (host/ścieżka → np. /zdrowie/depresja), niższe progi 22/50/74, nowe terminy
+          (zdrowie psychiczne, nowotwór, uzależnienia) + 3 nowe testy.</p>
+        <div class="f">score.ts · dictionaries.ts · aiDeepDiveScore.test.ts</div>
+      </div>
+      <div class="kept">
+        <h4>Krystian — szybsze skany</h4>
+        <p>Krótsze opóźnienia harmonogramu skanowania — realne „szybszy AI Deep-Dive”, bez ruszania bramki emisji.</p>
+        <div class="f">scanScheduler.ts</div>
+      </div>
+      <div class="kept">
+        <h4>szalik — Cień Cyfrowy</h4>
+        <p>Nowy <code>inferredProfile.ts</code> (kategoryzacja z <code>chrome.history</code>, <b>zero sieci</b>)
+          + rozbudowana karta ShadowAudit z „Entropy Drop”.</p>
+        <div class="f">inferredProfile.ts · ShadowAudit.tsx · icons.tsx · +history perm</div>
+      </div>
+      <div class="kept">
+        <h4>Dowód, że to bezpieczne</h4>
+        <p>Cała suite bezpieczeństwa (no-exfiltration, permission-minimization, page-dom-leakage) przechodzi
+          <b>z</b> nowym uprawnieniem i nowymi plikami.</p>
+        <div class="f">tests/security/* — zielone</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MACIERZ ===================== -->
+  <section>
+    <div class="eyebrow">Pełna macierz decyzji</div>
+    <h2>Plik po pliku</h2>
+    <table>
+      <thead><tr><th>Plik</th><th>Decyzja</th><th>Autor</th><th>Powód</th></tr></thead>
+      <tbody>
+        <tr><td><span class="file">score.ts</span></td><td class="v"><span class="pill take">PORT</span></td><td class="v">Krystian</td><td>Sygnał z URL + ostrzejsze progi. Additive.</td></tr>
+        <tr><td><span class="file">dictionaries.ts</span></td><td class="v"><span class="pill take">PORT</span></td><td class="v">Krystian</td><td>Nowe terminy wrażliwe. Additive.</td></tr>
+        <tr><td><span class="file">scanScheduler.ts</span></td><td class="v"><span class="pill take">PORT</span></td><td class="v">Krystian</td><td>Szybsze skany. Additive.</td></tr>
+        <tr><td><span class="file">aiDeepDiveScore.test.ts</span></td><td class="v"><span class="pill take">PORT</span></td><td class="v">Krystian</td><td>+3 testy. Additive.</td></tr>
+        <tr><td><span class="file">inferredProfile.ts</span></td><td class="v"><span class="pill take">PORT</span></td><td class="v">szalik</td><td>Nowy, lokalny, zero sieci.</td></tr>
+        <tr><td><span class="file">ShadowAudit.tsx</span></td><td class="v"><span class="pill take">PORT</span></td><td class="v">szalik</td><td>Drop-in, ulepszony Cień Cyfrowy.</td></tr>
+        <tr><td><span class="file">icons.tsx</span></td><td class="v"><span class="pill take">PORT</span></td><td class="v">szalik</td><td>+ChevronDown. Additive.</td></tr>
+        <tr><td><span class="file">package.json</span></td><td class="v"><span class="pill take">PORT 1 linia</span></td><td class="v">szalik</td><td>Tylko uprawnienie „history”.</td></tr>
+        <tr><td><span class="file">contentEntry.ts</span></td><td class="v"><span class="pill keep">KEEP Hubert</span></td><td class="v">Krystian</td><td>Przywraca bramkę wyciszającą dashboard + MaxCamo.</td></tr>
+        <tr><td><span class="file">dashboard.tsx</span></td><td class="v"><span class="pill keep">KEEP Hubert</span></td><td class="v">szalik</td><td>Kasuje AiDeepDiveCard + gubi Data Vault/eksport.</td></tr>
+        <tr><td><span class="file">VirtualIdentityStudio.tsx</span></td><td class="v"><span class="pill keep">KEEP Hubert</span></td><td class="v">szalik</td><td>Usuwa zakładkę „Specjalne” (3 persony + babcia 3D).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ===================== CLOSING ===================== -->
+  <div class="close">
+    <div class="eyebrow">Zasada</div>
+    <h2>To nie demokracja commitów</h2>
+    <p class="quote">Hackathon wygrywa <span class="t">demo, które działa</span> — nie graf gita wyglądający jak
+      makaron po wypadku. Najpierw chronimy demo, potem integrujemy, na końcu polerujemy.
+      Wzięliśmy wszystko, co dokłada wartość. Odrzuciliśmy tylko to, co kasuje funkcje jury.</p>
+    <div class="foot">
+      <span>branch: integration/glazowanypager-priority-safe-merge @ a7d1a79 · parent 1faa511 (Hubert)</span>
+      <span>weryfikacja: tsc 0 · vitest 297/297 · plasmo build OK · manifest valid</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

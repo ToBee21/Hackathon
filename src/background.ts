@@ -1,7 +1,7 @@
 // src/background.ts  -  Module A: DataGhost (Noise Engine)
 //
 // Required Plasmo/manifest permissions:
-//   "alarms", "storage"
+//   "alarms", "storage", "downloads"
 // Required host_permissions (in package.json → manifest.host_permissions):
 //   "https://en.wikipedia.org/*"
 //   "https://html.duckduckgo.com/*"
@@ -12,6 +12,11 @@ import { initCookieShredder } from "./shared/cookieShredder"
 import { initTargetingShield } from "./shared/targetingShield"
 import { initBlocklist, initBlocklistUpdates } from "./shared/blocklist"
 import { buildKeywordBatchCore, sanitizeTopics } from "./shared/dataGhost/keywordBatch"
+import {
+  assessDownloadRisk,
+  buildDownloadGuardDnrRules,
+  downloadGuardRuleIds
+} from "./shared/downloadGuardPolicy"
 import { generateAlias } from "./shared/emailAlias"
 import type {
   BackgroundInboundMessage,
@@ -23,7 +28,7 @@ import { handleAiDeepDiveRiskResult } from "./background/aiDeepDive/handleRiskRe
 import { registerAiDeepDiveTabCoverage } from "./background/aiDeepDive/tabCoverage"
 import { classifyHeuristic } from "./shared/aiDeepDive/score"
 import type { AiDeepDiveRiskResult } from "./shared/aiDeepDive/types"
-import { isCndMessage } from "./shared/messages"
+import { isCndMessage, type PageAnalysis } from "./shared/messages"
 import { panicButton } from "./shared/storage"
 import { sanitizeOffscreenLogEntry } from "./security/privacyGuards"
 
@@ -44,6 +49,12 @@ void initBlocklist()
 // Okresowy, podpisany update bundla z command-centre (signature + anti-rollback
 // + last-known-good). No-op bez chrome.alarms / klucza publicznego.
 initBlocklistUpdates()
+
+// Download Guard - druga warstwa po Link Guardzie. Content script może zatrzymać
+// klik, ale service worker musi jeszcze anulować pobranie, jeśli strona lub
+// redirect mimo wszystko doprowadzi do zapisu pliku.
+void initDownloadGuardDnr()
+initDownloadGuard()
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -95,6 +106,41 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function sanitizeUrlForStorage(raw: unknown): string {
+  if (typeof raw !== "string" || raw.length === 0) return ""
+  try {
+    const url = new URL(raw)
+    return `${url.origin}${url.pathname}`
+  } catch {
+    return ""
+  }
+}
+
+function sanitizeStoredAnalysis(analysis: PageAnalysis): PageAnalysis {
+  return {
+    ...analysis,
+    page: {
+      ...analysis.page,
+      url: sanitizeUrlForStorage(analysis.page.url),
+      title: analysis.page.title.slice(0, 160),
+      meta: "",
+      og: {},
+      headings: [],
+      visibleText: "",
+      selectedText: ""
+    },
+    cards: analysis.cards.slice(0, 32).map((card) => ({
+      featureId: card.featureId,
+      title: card.title,
+      level: card.level,
+      score: card.score,
+      action: card.action,
+      source: card.source,
+      lines: []
+    }))
+  }
+}
+
 function sendRuntimeMessage(message: BackgroundOutboundMessage | Record<string, unknown>): void {
   try {
     const response = chrome.runtime.sendMessage(message)
@@ -103,6 +149,49 @@ function sendRuntimeMessage(message: BackgroundOutboundMessage | Record<string, 
     }
   } catch {
     // Popup can be closed. Runtime messages are best-effort.
+  }
+}
+
+function initDownloadGuard(): void {
+  try {
+    if (!chrome.downloads?.onCreated || !chrome.downloads.cancel) return
+    chrome.downloads.onCreated.addListener((item) => {
+      const verdict = assessDownloadRisk({
+        url: item.url,
+        finalUrl: item.finalUrl,
+        filename: item.filename,
+        mime: item.mime,
+        danger: item.danger
+      })
+      if (!verdict.block) return
+
+      chrome.downloads.cancel(item.id, () => void chrome.runtime.lastError)
+      chrome.downloads.erase?.({ id: item.id }, () => void chrome.runtime.lastError)
+
+      sendRuntimeMessage({
+        type: "LOG_EVENT",
+        entry: {
+          timestamp: Date.now(),
+          source: "linkGuard",
+          message: `Download Guard: zablokowano ${verdict.label} (${verdict.reasons.join(", ")})`,
+          count: 1
+        }
+      })
+    })
+  } catch {
+    // API zależy od przeglądarki/uprawnień. Bez niego Link Guard nadal działa.
+  }
+}
+
+async function initDownloadGuardDnr(): Promise<void> {
+  try {
+    if (!chrome.declarativeNetRequest?.updateDynamicRules) return
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: downloadGuardRuleIds(),
+      addRules: buildDownloadGuardDnrRules()
+    })
+  } catch (err) {
+    console.error("[DownloadGuard] DNR install failed:", err)
   }
 }
 
@@ -886,7 +975,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     chrome.storage.local.get({ [STORAGE_KEY_LAST_ANALYSIS]: {} }).then((res) => {
       const all = (res[STORAGE_KEY_LAST_ANALYSIS] ?? {}) as Record<string, unknown>
-      all[String(tabId)] = message.analysis
+      all[String(tabId)] = sanitizeStoredAnalysis(message.analysis)
       chrome.storage.local.set({ [STORAGE_KEY_LAST_ANALYSIS]: all })
       sendResponse({ ok: true })
     })

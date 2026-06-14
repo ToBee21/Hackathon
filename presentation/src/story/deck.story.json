@@ -2,8 +2,8 @@
   "meta": {
     "id": "cloak-dagger-deck",
     "title": "PrivacyMyst",
-    "subtitle": "Suwerenność danych liczona lokalnie",
-    "author": "Zespół Signal:Noise",
+    "subtitle": "Lokalny mikroskop prywatności dla przeglądarki",
+    "author": "Kacper · Bartek · Hubert · Krystian",
     "language": "pl",
     "scrollSnap": false
   },
@@ -21,12 +21,12 @@
       "layout": "center",
       "durationHint": 14,
       "layers": [
-        { "id": "hero-eyebrow", "kind": "eyebrow", "text": "PrivacyMyst — kinowa analiza techniczna", "enter": { "anim": "fade" } },
-        { "id": "hero-display", "kind": "display", "text": "Prywatność liczona\nlokalnie.", "enter": { "anim": "blurIn", "delay": 120 } },
+        { "id": "hero-eyebrow", "kind": "eyebrow", "text": "PrivacyMyst — Prywatność i Suwerenność Danych", "enter": { "anim": "fade" } },
+        { "id": "hero-display", "kind": "display", "text": "Nie magia.\nMikroskop.", "enter": { "anim": "blurIn", "delay": 120 } },
         {
           "id": "hero-lead",
           "kind": "lead",
-          "text": "Rozszerzenie do przeglądarki, w którym każdy werdykt AI, każda maska odcisku palca i każda blokada zagrożenia działa w 100% na urządzeniu. Żaden tekst strony, obraz ani zrzut ekranu nigdy nie opuszcza przeglądarki.",
+          "text": "Nie sprzedajemy magicznej anonimizacji. Sprzedajemy lokalny mikroskop prywatności, który pokazuje dowody i odpala konkretne, bezpieczne mechanizmy ochrony.",
           "enter": { "anim": "slide", "delay": 320 }
         },
         {
@@ -34,50 +34,76 @@
           "kind": "kpis",
           "enter": { "anim": "slide", "delay": 520 },
           "items": [
-            { "value": "27", "unit": "×", "label": "szybciej niż 9-przebiegowe NLI w skanie wrażliwości strony" },
-            { "value": "4", "label": "modele AI uruchamiane lokalnie, 0 zdalnych wywołań inferencji" },
-            { "value": "0", "label": "ukrytych połączeń sieciowych — domyślnie cisza w sieci" }
+            { "value": "LOCAL", "label": "cała analiza prywatności dzieje się w przeglądarce, nic nie wychodzi na zewnątrz", "evidence": "zero-network, on-device" },
+            { "value": "SHIELDS", "label": "ochrona to konkretne tarcze: DNR/blocklist, strip parametrów, cookie hygiene, privacy guards, fingerprint", "evidence": "deterministyczna polityka" },
+            { "value": "PROOF", "label": "UI pokazuje, co wykryto i jaka tarcza zareagowała", "evidence": "radar, panel, logi, eksport" }
           ]
         }
       ],
-      "narration": "PrivacyMyst udowadnia, że lokalne, zdestylowane modele dają inteligencję prywatności w czasie rzeczywistym — bez chmury.",
-      "presenterNotes": "Otwórz mocno: jedno zdanie tezy. Nie czytaj KPI — wskaż 27×."
+      "narration": "PrivacyMyst to nie obietnica niewidzialności. To lokalna warstwa dowodowa i zestaw deterministycznych zabezpieczeń w przeglądarce.",
+      "presenterNotes": "Hubert otwiera: jedno zdanie tezy. Powiedz ELI5: to jak okulary UV do internetu — pokazują plamy, których normalnie nie widzisz, i zasłaniają najbardziej ryzykowne miejsca. Nie mów „pełna anonimizacja”."
     },
     {
-      "id": "problem",
-      "title": "Problem",
+      "id": "explain-like-five",
+      "title": "ELI5",
       "type": "problem",
       "bg": "bg1",
       "layout": "split-left",
-      "durationHint": 16,
+      "durationHint": 15,
       "layers": [
-        { "id": "p-eyebrow", "kind": "eyebrow", "text": "01 — Problem", "enter": { "anim": "fade" } },
-        { "id": "p-head", "kind": "heading", "text": "Każda strona to cichy wywiad.", "enter": { "anim": "slide" } },
+        { "id": "eli-eyebrow", "kind": "eyebrow", "text": "01 — Explain like I am 5", "enter": { "anim": "fade" } },
+        { "id": "eli-head", "kind": "heading", "text": "Strona chce zbudować\nTwój cień cyfrowy.", "enter": { "anim": "slide" } },
         {
-          "id": "p-lead",
+          "id": "eli-lead",
           "kind": "lead",
-          "text": "Nowoczesny web nie czyta Twoich treści — profiluje Ciebie. Skrypty śledzące, formularze głodne danych i modele targetujące budują Twój cień cyfrowy szybciej, niż zdążysz kliknąć „Akceptuję”.",
+          "text": "Wyobraź sobie sklep, w którym każdy produkt patrzy, co oglądasz, zapisuje karteczki do kieszeni i zgaduje, kim jesteś. PrivacyMyst świeci latarką na te karteczki i zdejmuje część z nich, zanim polecą dalej.",
           "enter": { "anim": "slide", "delay": 120 }
         },
         {
-          "id": "p-list",
+          "id": "eli-list",
           "kind": "list",
-          "enter": { "anim": "slide", "delay": 240 },
+          "enter": { "anim": "slide", "delay": 260 },
           "items": [
-            "Parametry atrybucji: gclid, fbclid, utm_* — 23 śledzone parametry doklejane do każdej nawigacji.",
-            "Rodziny trackerów: Google Analytics, Meta, TikTok, Hotjar, DoubleClick — identyfikatory w cookies i URL.",
-            "Formularze proszące o 8 kategorii PII: e-mail, telefon, adres, data urodzenia, dokument, karta, hasło.",
-            "Powierzchnia odcisku palca: canvas, WebGL, strefa czasowa, ekran, rdzenie CPU."
+            "Widzimy sygnały: parametry URL, trackery, głód danych w formularzach, fingerprinting, podejrzane linki, maile i pliki.",
+            "Pokazujemy dowody: co dokładnie znaleźliśmy, z jakiego modułu i jak wysoki jest risk score.",
+            "Odpalamy tarcze: usuwanie parametrów atrybucji, DNR/blocklist, cookie hygiene, privacy guards, spójny fingerprint, panic cleanup.",
+            "Wszystko działa lokalnie i deterministycznie — to Twoja przeglądarka decyduje, nie żadna chmura."
           ]
         },
         {
-          "id": "p-callout",
+          "id": "eli-callout",
           "kind": "callout",
-          "text": "Klasyczne rozwiązanie wysyła wszystko do chmury, by chmura powiedziała Ci, że jesteś śledzony. My robimy dokładnie odwrotnie.",
-          "enter": { "anim": "slide", "delay": 360 }
+          "text": "Najprościej: najpierw lokalnie patrzymy, potem pokazujemy dowód, potem bezpieczna polityka robi ochronę.",
+          "enter": { "anim": "slide", "delay": 380 }
         }
       ],
-      "presenterNotes": "Postaw napięcie: chmura jako rozwiązanie jest sprzecznością. To wprowadza tezę lokalności."
+      "presenterNotes": "Kacper mówi spokojnie. To jest slajd dla jury nietechnicznego. Nie wchodź jeszcze w modele — najpierw analogia i trzy słowa: zobacz, zrozum, zabezpiecz."
+    },
+    {
+      "id": "truth-table",
+      "title": "Czym jest / czym nie jest",
+      "type": "features",
+      "bg": "bg2",
+      "layout": "center",
+      "durationHint": 16,
+      "layers": [
+        { "id": "tt-eyebrow", "kind": "eyebrow", "text": "02 — Uczciwe pozycjonowanie", "enter": { "anim": "fade" } },
+        { "id": "tt-head", "kind": "heading", "text": "Co sprzedajemy —\ni czego nie obiecujemy.", "enter": { "anim": "slide" } },
+        {
+          "id": "tt-features",
+          "kind": "features",
+          "enter": { "anim": "slide", "delay": 160 },
+          "items": [
+            { "id": "JEST", "name": "Lokalny mikroskop ryzyka", "oneLiner": "Analizuje widoczny kontekst strony, linki, formularze i sygnały trackerów w przeglądarce; wynik wraca do panelu jako dowód." },
+            { "id": "JEST", "name": "Deterministyczna tarcza", "oneLiner": "Ochrona działa przez konkretne mechanizmy: DNR/blocklist, Targeting Shield, Cookie Shredder, privacy guards, panic cleanup." },
+            { "id": "JEST", "name": "Wyjaśnialne UI", "oneLiner": "Side Panel, popup, CyberRadar, Virtual Identity i logi pokazują użytkownikowi, co się stało i dlaczego." },
+            { "id": "NIE", "name": "Nie pełna anonimizacja", "oneLiner": "Nie twierdzimy, że użytkownik znika z internetu albo że blokujemy wszystkie trackery świata." },
+            { "id": "NIE", "name": "Nie agent sterujący przeglądarką", "oneLiner": "Model nie zmienia DNR, cookies, requestów ani DOM-u. Wynik AI jest nieufny, walidowany i używany do wyjaśniania." },
+            { "id": "NIE", "name": "Nie chmurowa wyrocznia", "oneLiner": "Domyślna ścieżka to lokalna heurystyka; lokalne NLI/LLM są opcjonalne. Jeżeli kiedyś pojawi się remote feed/model, musi być jawny i opt-in." }
+          ]
+        }
+      ],
+      "presenterNotes": "Bartek: to jest slajd wiarygodności. Jury ma poczuć: oni znają granice własnego systemu. To buduje zaufanie mocniej niż bajka o byciu niewidzialnym."
     },
     {
       "id": "architecture",
@@ -85,49 +111,124 @@
       "type": "architecture",
       "bg": "bg0",
       "layout": "stage",
-      "durationHint": 22,
+      "durationHint": 24,
       "stageLayerId": "arch-mermaid",
       "camera": [
-        { "id": "cam-wide", "shot": "wide", "zoom": 1, "at": 0.0, "label": "Pełny przepływ skanu strony" },
-        { "id": "cam-content", "targetId": "content", "shot": "closeup", "zoom": 1.9, "at": 0.22, "label": "Content script — tylko widoczny tekst, cienki klient" },
-        { "id": "cam-bg", "targetId": "bg", "shot": "closeup", "zoom": 1.9, "at": 0.42, "label": "Background — hub wiadomości + polityka" },
-        { "id": "cam-offscreen", "targetId": "offscreen", "shot": "closeup", "zoom": 1.85, "at": 0.6, "label": "Offscreen — transformers.js, ONNX, WASM/WebGPU" },
-        { "id": "cam-models", "targetId": "llm", "shot": "diagramFocus", "zoom": 1.8, "at": 0.78, "label": "Modele lokalne — werdykt powstaje na urządzeniu" },
-        { "id": "cam-reset", "shot": "wide", "zoom": 1, "at": 0.95, "label": "Werdykt wraca do UI — nic nie wyszło na zewnątrz" }
+        { "id": "cam-wide", "shot": "wide", "zoom": 1, "at": 0.0, "label": "Pełny przepływ: strona → dowód → polityka → tarcze → UI" },
+        { "id": "cam-content", "targetId": "content", "shot": "closeup", "zoom": 1.9, "at": 0.18, "label": "Content script — tylko ograniczony kontekst strony" },
+        { "id": "cam-bg", "targetId": "bg", "shot": "closeup", "zoom": 1.85, "at": 0.36, "label": "Background — rdzeń, storage, reguły, granice" },
+        { "id": "cam-policy", "targetId": "policy", "shot": "closeup", "zoom": 1.85, "at": 0.56, "label": "Deterministic Policy — tu dzieje się ochrona prywatności" },
+        { "id": "cam-shield", "targetId": "shield", "shot": "diagramFocus", "zoom": 1.8, "at": 0.74, "label": "Targeting Shield + Blocklist — strip, block, blackout" },
+        { "id": "cam-reset", "shot": "wide", "zoom": 1, "at": 0.95, "label": "UI pokazuje dowód; policy odpala tarcze" }
       ],
       "layers": [
-        { "id": "a-eyebrow", "kind": "eyebrow", "text": "02 — Architektura", "enter": { "anim": "fade" } },
-        { "id": "a-head", "kind": "subhead", "text": "Wszystko zostaje na urządzeniu.", "enter": { "anim": "slide" } },
+        { "id": "a-eyebrow", "kind": "eyebrow", "text": "03 — Architektura", "enter": { "anim": "fade" } },
+        { "id": "a-head", "kind": "subhead", "text": "Granice są ważniejsze niż hype.", "enter": { "anim": "slide" } },
         {
           "id": "arch-mermaid",
           "kind": "mermaid",
-          "a11y": "Diagram przepływu skanu strony: content script wysyła ograniczony tekst do background, który po walidacji kieruje go do dokumentu offscreen z modelami NLI, LLM i wizji; werdykt wraca do UI.",
-          "source": "flowchart LR\n  content[\"Content Script<br/>ekstrakcja widocznego tekstu\"] -->|CND_DEEP_SCAN| bg[\"Background<br/>hub wiadomosci + polityka\"]\n  bg --> validate{{\"Walidator CND_*<br/>allowlist + granice + zaufany nadawca\"}}\n  bg -->|CND_OFFSCREEN_INFER| offscreen[\"Offscreen Document<br/>transformers.js / ONNX\"]\n  offscreen --> nli[\"NLI DeBERTa-small<br/>zero-shot, WASM\"]\n  offscreen --> llm[\"Gemma 3 1B / Qwen3.5 0.8B<br/>LLM-JSON, WebGPU\"]\n  offscreen --> vision[\"SmolVLM-256M<br/>wizja reklam, WebGPU\"]\n  offscreen -->|tylko werdykt| bg\n  bg -->|CND_ANALYSIS_UPDATED| panel[\"Side Panel + Floating Window\"]"
+          "a11y": "Diagram: strona przechodzi przez content script, background, walidator, heurystykę, politykę ochrony, opcjonalne lokalne AI i UI.",
+          "source": "flowchart LR\n  content[\"Page + Content Script<br/>widoczny tekst, linki, formularze\"] -->|bounded context| bg[\"Background SW<br/>rdzeń, storage, registry\"]\n  bg --> validate{{\"Walidator CND_*<br/>allowlist, limity, sender.id\"}}\n  validate --> heur[\"Heurystyki lokalne<br/>risk, kategorie, dowody\"]\n  heur --> policy[\"Deterministic Policy<br/>DNR, cookies, privacy guards\"]\n  policy --> shield[\"Targeting Shield + Blocklist<br/>strip, block, blackout\"]\n  bg -. opcjonalnie .-> offscreen[\"Offscreen Document<br/>Transformers.js / ONNX\"]\n  offscreen -. lokalnie .-> nli[\"NLI<br/>drugi werdykt\"]\n  offscreen -. lokalnie .-> llm[\"LLM-JSON<br/>wyjaśnienie dowodów\"]\n  nli --> fusion[\"Fusion + validation\"]\n  llm --> fusion\n  fusion -. tylko etykiety .-> bg\n  bg --> panel[\"Popup + Side Panel + Floating UI<br/>dowód i stan tarcz\"]"
         },
         {
           "id": "a-note",
           "kind": "note",
-          "text": "Granica zaufania: cały tekst strony jest serializowany i waliduje się przy każdym przejściu content → background → offscreen. Logi są sanityzowane — 20 zakazanych pól, redakcja e-maili i tokenów.",
+          "text": "Najważniejsza granica: Protection = deterministic policy. AI = classification and explanation only. Model output jest traktowany jako nieufny i walidowany przed UI.",
           "enter": { "anim": "fade", "delay": 200 }
         }
       ],
-      "narration": "Przewiń, aby kamera przeszła przez kolejne granice runtime: content, background, offscreen, modele.",
-      "presenterNotes": "Scrolluj powoli — kamera sama prowadzi przez węzły. Podkreśl: werdykt wraca, surowy tekst nie wychodzi."
+      "narration": "Kamera prowadzi przez granice: content, background, walidator, heurystyka, opcjonalny offscreen AI i UI.",
+      "presenterNotes": "Hubert scrolluje powoli. Przy offscreen powiedz wyraźnie: AI nie jest pilotem. To lokalny konsultant od wyjaśniania dowodów. Ochrona jest w policy i DNR."
+    },
+    {
+      "id": "runtime-flow",
+      "title": "Runtime",
+      "type": "graph",
+      "bg": "bg0",
+      "layout": "stage",
+      "durationHint": 18,
+      "stageLayerId": "runtime-graph",
+      "layers": [
+        { "id": "g-eyebrow", "kind": "eyebrow", "text": "04 — Runtime flow", "enter": { "anim": "fade" } },
+        { "id": "g-head", "kind": "subhead", "text": "Jeden skan. Dwa tory. Zero zaufania do wejścia.", "enter": { "anim": "slide" } },
+        {
+          "id": "runtime-graph",
+          "kind": "graph",
+          "a11y": "Interaktywny graf runtime pokazujący skan strony od content script przez walidator i rdzeń do offscreen oraz panelu.",
+          "tracePath": ["content", "security", "core", "offscreen", "model", "core", "panel"],
+          "nodes": [
+            { "id": "content", "label": "Content: visible text + forms", "kind": "content", "x": 20, "y": 220 },
+            { "id": "popup", "label": "Popup: toggles + score", "kind": "popup", "x": 20, "y": 390 },
+            { "id": "security", "label": "Message boundary", "kind": "security", "x": 245, "y": 95 },
+            { "id": "core", "label": "Background: policy hub", "kind": "background", "x": 255, "y": 245 },
+            { "id": "offscreen", "label": "Offscreen local inference", "kind": "offscreen", "x": 515, "y": 160 },
+            { "id": "model", "label": "NLI / LLM-JSON optional", "kind": "model", "x": 770, "y": 160 },
+            { "id": "panel", "label": "Side Panel: evidence", "kind": "panel", "x": 525, "y": 385 }
+          ],
+          "edges": [
+            { "from": "content", "to": "security", "label": "CND_DEEP_SCAN" },
+            { "from": "popup", "to": "core", "label": "state" },
+            { "from": "security", "to": "core", "label": "known + bounded" },
+            { "from": "core", "to": "offscreen", "label": "optional infer" },
+            { "from": "offscreen", "to": "model", "label": "local" },
+            { "from": "model", "to": "core", "label": "validated JSON" },
+            { "from": "core", "to": "panel", "label": "evidence" }
+          ]
+        },
+        {
+          "id": "g-note",
+          "kind": "note",
+          "text": "Kliknij „Trasuj skan”. To pokazuje przepływ demo: strona → walidacja → rdzeń → opcjonalna inferencja → dowód w UI. Tarcze polityki działają niezależnie od dostępności modelu.",
+          "enter": { "anim": "fade", "delay": 200 }
+        }
+      ],
+      "presenterNotes": "Krystian klika trasowanie. Jeśli model nie zdąży się załadować w demo: powiedz plan B — heurystyka i policy dalej działają, AI jest dodatkiem do wyjaśnień."
+    },
+    {
+      "id": "visual-ui",
+      "title": "UI i demo",
+      "type": "features",
+      "bg": "bg1",
+      "layout": "center",
+      "durationHint": 18,
+      "layers": [
+        { "id": "ui-eyebrow", "kind": "eyebrow", "text": "05 — UI, persony, 3D", "enter": { "anim": "fade" } },
+        { "id": "ui-head", "kind": "heading", "text": "To ma wyglądać efektownie,\nale mówić prawdę.", "enter": { "anim": "slide" } },
+        {
+          "id": "ui-features",
+          "kind": "features",
+          "enter": { "anim": "slide", "delay": 140 },
+          "items": [
+            { "id": "Radar", "name": "CyberRadar", "oneLiner": "Canvas 2D pokazuje realne HONEYPOT_ATTACK events i DataGhost pulses; brak losowych fake blipów. To wizualizacja dowodów, nie dekoracja bez danych.", "files": "src/components/CyberRadar.tsx" },
+            { "id": "Persona", "name": "Virtual Identity Studio", "oneLiner": "Kreator w stylu RPG/The Sims buduje spójny bucket: locale, timezone, platform, screen, CPU, RAM, WebGL vendor/renderer i tematy szumu.", "files": "src/components/VirtualIdentityStudio.tsx · src/shared/virtualIdentityStudio.ts" },
+            { "id": "3D", "name": "Babcia STL / Three.js", "oneLiner": "Model 3D ładowany leniwie tylko dla archetypu Babcia; WebGLRenderer, STLLoader, obrót z poszanowaniem prefers-reduced-motion.", "files": "src/components/StlModelViewer.tsx · assets/models/grandma.stl" },
+            { "id": "Profile", "name": "Bionic Blur presets", "oneLiner": "Gaming Windows, Office Windows, Creative macOS, Dev Linux + custom/auto. Cel: spójność sygnałów fingerprint, nie obietnica pełnej niewykrywalności.", "files": "src/shared/bionicBlurCore.ts" },
+            { "id": "Panel", "name": "Popup / Side Panel / Floating", "oneLiner": "Miejsce dla privacy score, toggli, dowodów AI Deep-Dive, logów, panic cleanup i stanu tarcz." , "files": "src/popup.tsx · src/sidepanel.tsx · src/content/floatingWindow.ts" }
+          ]
+        },
+        {
+          "id": "ui-callout",
+          "kind": "callout",
+          "text": "Demo angle: pokazujemy ładne persony i radar, ale narracja brzmi: to są interfejsy kontroli i dowodów, nie generator niewidzialności.",
+          "enter": { "anim": "slide", "delay": 360 }
+        }
+      ],
+      "presenterNotes": "Bartek/Krystian: tu macie efekt wow. Pokażcie personę, Babcię 3D i radar. Powtarzajcie: spójny profil ogranicza chaos fingerprintu, ale nie gwarantuje anonimowości."
     },
     {
       "id": "data",
-      "title": "Dowód",
+      "title": "Dowód techniczny",
       "type": "data",
       "bg": "bg2",
       "layout": "split-right",
       "durationHint": 18,
       "layers": [
-        { "id": "d-eyebrow", "kind": "eyebrow", "text": "03 — Dowód", "enter": { "anim": "fade" } },
-        { "id": "d-head", "kind": "heading", "text": "27× szybciej.\nBez serwera.", "enter": { "anim": "slide" } },
+        { "id": "d-eyebrow", "kind": "eyebrow", "text": "06 — Dowód", "enter": { "anim": "fade" } },
+        { "id": "d-head", "kind": "heading", "text": "Lokalnie musi być\nszybko i tanio.", "enter": { "anim": "slide" } },
         {
           "id": "d-body",
           "kind": "body",
-          "text": "9-przebiegowe zero-shot NLI ocenia wrażliwość strony dokładnie, ale wolno. Zdestylowaliśmy ten sygnał do jednoprzebiegowego klasyfikatora MiniLM (22,7 mln parametrów, int8) — jeden przebieg zamiast dziewięciu, ta sama detekcja, ułamek kosztu.",
+          "text": "Dlatego ciężki 9-przebiegowy sygnał NLI został użyty jako nauczyciel, a ścieżka runtime może działać jako szybki jednoprzebiegowy klasyfikator. Sens: dowód ma pojawić się przy normalnej nawigacji, nie po minucie czekania.",
           "enter": { "anim": "slide", "delay": 120 }
         },
         {
@@ -135,15 +236,15 @@
           "kind": "chart",
           "variant": "bars",
           "lowerIsBetter": true,
-          "title": "Skan wrażliwości strony: destylacja 1-przebieg vs 9-przebiegowe NLI",
-          "question": "O ile szybciej lokalny model ocenia wrażliwość strony — na jedną nawigację?",
+          "title": "Skan wrażliwości strony: 1 przebieg vs 9-przebiegowe NLI",
+          "question": "O ile szybciej lokalny klasyfikator ocenia wrażliwość strony?",
           "source": "Pomiar transformers.js int8 CPU — training/README.md, scripts/bench-sensitivity.mjs",
           "annotation": "≈ 27× mniej czasu na stronę",
-          "a11y": "Wykres słupkowy: nauczyciel 9-przebiegowe NLI 119 ms na stronę, uczeń zdestylowany 4,4 ms na stronę.",
+          "a11y": "Wykres słupkowy: nauczyciel 9-przebiegowe NLI 119 ms na stronę, uczeń 4,4 ms na stronę.",
           "enter": { "anim": "scale", "delay": 240 },
           "series": [
-            { "name": "9-przebiegowe NLI (nauczyciel, 140M, int8)", "value": 119, "unit": "ms/stronę" },
-            { "name": "Zdestylowany MiniLM (uczeń, 1 przebieg, 22.7M, int8)", "value": 4.4, "unit": "ms/stronę" }
+            { "name": "9-przebiegowe NLI (teacher)", "value": 119, "unit": "ms/stronę" },
+            { "name": "1-przebiegowy klasyfikator (runtime)", "value": 4.4, "unit": "ms/stronę" }
           ]
         },
         {
@@ -151,112 +252,13 @@
           "kind": "kpis",
           "enter": { "anim": "slide", "delay": 360 },
           "items": [
-            { "value": "297", "label": "testów przechodzi (44 pliki, w tym 12 zestawów bezpieczeństwa)", "evidence": "tests/ · vitest" },
-            { "value": "111", "label": "plików źródłowych TypeScript / TSX", "evidence": "src/" },
-            { "value": "14", "label": "jawnie zadeklarowanych uprawnień manifestu", "evidence": "package.json" }
+            { "value": "297", "label": "testów przechodziło w audycie repo", "evidence": "tests/ · vitest" },
+            { "value": "111", "label": "plików TS/TSX w źródłach rozszerzenia", "evidence": "src/" },
+            { "value": "14", "label": "jawnych uprawnień manifestu — pokazujemy koszt możliwości", "evidence": "package.json" }
           ]
         }
       ],
-      "presenterNotes": "Wykres robi robotę. Powiedz: ta sama jakość detekcji, 27× taniej. To umożliwia skan przy każdej nawigacji."
-    },
-    {
-      "id": "engine",
-      "title": "Silnik",
-      "type": "graph",
-      "bg": "bg0",
-      "layout": "stage",
-      "durationHint": 18,
-      "stageLayerId": "engine-graph",
-      "layers": [
-        { "id": "g-eyebrow", "kind": "eyebrow", "text": "04 — Silnik", "enter": { "anim": "fade" } },
-        { "id": "g-head", "kind": "subhead", "text": "Jeden rdzeń, dziewięć tarcz.", "enter": { "anim": "slide" } },
-        {
-          "id": "engine-graph",
-          "kind": "graph",
-          "a11y": "Interaktywny graf runtime: content script i popup łączą się z rdzeniem background; rdzeń poprzez granicę bezpieczeństwa kieruje do offscreen, który uruchamia modele LLM i wizji; wynik wraca do paneli.",
-          "tracePath": ["content", "core", "offscreen", "llm", "panel"],
-          "nodes": [
-            { "id": "content", "label": "Content Script", "kind": "content", "x": 20, "y": 200 },
-            { "id": "popup", "label": "Popup / Dashboard", "kind": "popup", "x": 20, "y": 360 },
-            { "id": "security", "label": "Walidator wiadomości", "kind": "security", "x": 250, "y": 40 },
-            { "id": "core", "label": "Background — rdzeń + rejestr funkcji", "kind": "background", "x": 250, "y": 200 },
-            { "id": "offscreen", "label": "Offscreen — transformers.js", "kind": "offscreen", "x": 500, "y": 200 },
-            { "id": "llm", "label": "Gemma 3 / Qwen3.5 (WebGPU)", "kind": "model", "x": 740, "y": 110 },
-            { "id": "vision", "label": "SmolVLM-256M (WebGPU)", "kind": "model", "x": 740, "y": 300 },
-            { "id": "panel", "label": "Side Panel + Floating", "kind": "panel", "x": 500, "y": 380 }
-          ],
-          "edges": [
-            { "from": "content", "to": "core", "label": "CND_DEEP_SCAN" },
-            { "from": "popup", "to": "core", "label": "STATE_UPDATE" },
-            { "from": "core", "to": "security", "label": "isCndMessage" },
-            { "from": "core", "to": "offscreen", "label": "CND_OFFSCREEN_INFER" },
-            { "from": "offscreen", "to": "llm", "label": "LLM-JSON" },
-            { "from": "offscreen", "to": "vision", "label": "wizja" },
-            { "from": "offscreen", "to": "core", "label": "werdykt" },
-            { "from": "core", "to": "panel", "label": "CND_ANALYSIS_UPDATED" }
-          ]
-        },
-        {
-          "id": "g-note",
-          "kind": "note",
-          "text": "Wszystkie funkcje — Link Guard, MailGuard, Data Footprint, FileInspect, Wizja, Bionic Blur — są rejestrowane na tym samym rdzeniu poprzez registry sterowane danymi. Naciśnij „Trasuj skan”, aby prześledzić żądanie.",
-          "enter": { "anim": "fade", "delay": 200 }
-        }
-      ],
-      "presenterNotes": "Kliknij „Trasuj skan” na żywo. Pokaż, że wszystkie moduły wiszą na jednym rdzeniu i jednej granicy zaufania."
-    },
-    {
-      "id": "code",
-      "title": "Granica zaufania",
-      "type": "code",
-      "bg": "bg1",
-      "layout": "split-left",
-      "durationHint": 16,
-      "layers": [
-        { "id": "c-eyebrow", "kind": "eyebrow", "text": "05 — Granica zaufania", "enter": { "anim": "fade" } },
-        { "id": "c-head", "kind": "heading", "text": "Zaufanie egzekwowane w kodzie.", "enter": { "anim": "slide" } },
-        {
-          "id": "c-body",
-          "kind": "body",
-          "text": "Każda wiadomość przekraczająca granicę jest sprawdzana wobec ścisłej allowlisty typów i twardych limitów rozmiaru. Nieznany typ albo zbyt duży ładunek jest odrzucany, zanim dotknie modelu.",
-          "enter": { "anim": "slide", "delay": 120 }
-        },
-        {
-          "id": "c-code",
-          "kind": "code",
-          "filename": "src/security/validateMessage.ts",
-          "a11y": "Fragment kodu walidatora wiadomości CND.",
-          "enter": { "anim": "slide", "delay": 220 },
-          "activeLines": [6, 7, 8, 12],
-          "lines": [
-            "const CND_MESSAGE_TYPES = [",
-            "  \"CND_DEEP_SCAN\", \"CND_OFFSCREEN_INFER\", \"CND_VISION_INFER\",",
-            "  \"CND_ANALYSIS_UPDATED\", \"CND_DEEP_SCAN_STATUS\", /* ... */",
-            "] as const",
-            "",
-            "export function isKnownCndMessage(m: unknown): m is CndMessage {",
-            "  if (!m || typeof m !== \"object\") return false",
-            "  const type = (m as any).type",
-            "  if (!CND_MESSAGE_TYPES.includes(type)) return false",
-            "",
-            "  // twarde granice rozmiaru — żadnych nieograniczonych ładunków",
-            "  return isAiDeepDiveInput((m as any).input)",
-            "}",
-            "",
-            "function isAiDeepDiveInput(i: unknown): boolean {",
-            "  return isBoundedString(i?.body, 16_000)",
-            "      && isBoundedString(i?.title, 512)",
-            "}"
-          ]
-        },
-        {
-          "id": "c-callout",
-          "kind": "callout",
-          "text": "12 typów wiadomości na allowliście. 20 zakazanych pól w logach. Nadawca walidowany przez sender.id === chrome.runtime.id.",
-          "enter": { "anim": "slide", "delay": 360 }
-        }
-      ],
-      "presenterNotes": "Podświetlone linie 7–9 i 13: allowlista + granice. To nie polityka w dokumencie, to bramka w kodzie."
+      "presenterNotes": "Kacper: nie sprzedawaj benchmarku jako absolutnej prawdy na każdym komputerze. Mów: w repo mamy pomiar i kierunek optymalizacji — lokalna analiza musi być tania, więc projektujemy ją pod niskie opóźnienie."
     },
     {
       "id": "features",
@@ -264,34 +266,28 @@
       "type": "features",
       "bg": "bg2",
       "layout": "center",
-      "durationHint": 18,
+      "durationHint": 20,
       "layers": [
-        { "id": "f-eyebrow", "kind": "eyebrow", "text": "06 — Zakres", "enter": { "anim": "fade" } },
-        { "id": "f-head", "kind": "heading", "text": "Co realnie działa.", "enter": { "anim": "slide" } },
+        { "id": "f-eyebrow", "kind": "eyebrow", "text": "07 — Zakres funkcji", "enter": { "anim": "fade" } },
+        { "id": "f-head", "kind": "heading", "text": "Dziewięć tarcz,\njedna filozofia.", "enter": { "anim": "slide" } },
         {
           "id": "f-features",
           "kind": "features",
           "enter": { "anim": "slide", "delay": 120 },
           "items": [
-            { "id": "ai-deep-dive", "name": "AI Deep-Dive", "oneLiner": "Łączy lokalne heurystyki z opcjonalną inferencją NLI/LLM na urządzeniu — ocenia ryzyko profilowania 0–100 i sam uzbraja Max Camo na krytycznych stronach.", "files": "src/shared/aiDeepDive/score.ts, runModel.ts" },
-            { "id": "link-guard", "name": "Link Guard", "oneLiner": "W 100% lokalna, zerowo-sieciowa ocena ryzyka URL przy najechaniu: hosty-IP, punycode, homoglify, słowa-klucze poświadczeń, podszywanie pod marki.", "files": "src/shared/linkSafety/urlHeuristics.ts" },
-            { "id": "mail-guard", "name": "MailGuard", "oneLiner": "Analiza zagrożeń webmaila bez I/O — klasyfikuje modus operandi phishingu (kradzież poświadczeń, spoofing marki, presja czasu) z samego DOM.", "files": "src/shared/mailGuard/evaluate.ts, moClassifier.ts" },
-            { "id": "data-footprint", "name": "Data Footprint", "oneLiner": "Kategoryzuje żądane PII w 8 typach pól i ocenia „głód danych” strony — nigdy nie czyta wartości pól.", "files": "src/shared/dataFootprint/piiFieldHeuristics.ts" },
-            { "id": "file-inspect", "name": "FileInspect", "oneLiner": "Inspekcja bajtów pliku lokalnie: polyglity, makra, niezgodność typu — 4 moduły, bez sieci i bez uprawnienia downloads.", "files": "src/shared/fileInspect/inspectFile.ts" },
-            { "id": "vision-ad-blur", "name": "Wizja Ad-Blur", "oneLiner": "Wykrywa i rozmywa obrazy reklam lokalnym klasyfikatorem SmolVLM-256M w offscreen — obrazy renderowane do dataURL, nigdy pobierane z sieci.", "files": "src/contents/vision-ad-blur.ts" },
-            { "id": "bionic-blur", "name": "Bionic Blur", "oneLiner": "Maskuje powierzchnie odcisku palca (canvas, WebGL, UA, strefa, ekran, sprzęt) — 6 person, auto-rotacja per-witryna lub tryb własny.", "files": "src/shared/bionicBlurCore.ts" },
-            { "id": "blocklist-signed", "name": "Podpisany Blocklist", "oneLiner": "Wbudowana lista DNR malware/phishing z aktualizacjami podpisanymi Ed25519, anty-rollback i schematem ograniczonym wyłącznie do blokowania domen.", "files": "src/shared/blocklist/secureUpdater.ts" },
-            { "id": "panic-export", "name": "Panic + Eksport Danych", "oneLiner": "Jedna akcja czyści cookies/cache/storage i zeruje liczniki; Eksport zbiera cały lokalny stan do JSON z usuniętymi sekretami.", "files": "src/shared/dataExport/buildExport.ts" }
+            { "id": "Deep", "name": "AI Deep-Dive", "oneLiner": "Lokalna heurystyka jako baseline; opcjonalne NLI/LLM-JSON wyjaśnia i potwierdza dowody, bez wykonywania akcji.", "files": "src/shared/aiDeepDive/* · docs/AI_ROLE_AND_PROMPT_ARCHITECTURE.md" },
+            { "id": "URL", "name": "Link Guard", "oneLiner": "Ocena ryzyka URL lokalnie: IP-hosty, punycode, homoglify, słowa logowania, podszywanie pod marki.", "files": "src/shared/linkSafety/urlHeuristics.ts" },
+            { "id": "Mail", "name": "MailGuard", "oneLiner": "DOM-only ocena phishingu w webmailu: presja czasu, spoofing marki, credential theft, ryzyko załącznika.", "files": "src/shared/mailGuard/*" },
+            { "id": "PII", "name": "Data Footprint", "oneLiner": "Wykrywa, o jakie kategorie PII prosi formularz; nie czyta wartości wpisanych przez użytkownika.", "files": "src/shared/dataFootprint/*" },
+            { "id": "File", "name": "FileInspect", "oneLiner": "Lokalna inspekcja bajtów: magic bytes, PDF, makra, polygloty, mismatch typu.", "files": "src/shared/fileInspect/*" },
+            { "id": "Vision", "name": "Vision Ad-Blur", "oneLiner": "Opcjonalna lokalna wizja reklam w offscreen; wynik służy do rozmycia elementów reklamowych w UI.", "files": "src/contents/vision-ad-blur.ts · src/shared/vision/adImageScan.ts" },
+            { "id": "FP", "name": "Bionic Blur", "oneLiner": "Spójne persony fingerprintu: canvas/WebGL/UA/screen/timezone/hardware. Uczciwy cel: ograniczenie powierzchni sygnału, nie absolutna niewykrywalność.", "files": "src/contents/bionic-blur-main.ts · src/shared/bionicBlurCore.ts" },
+            { "id": "Feed", "name": "Signed Blocklist", "oneLiner": "Wbudowana lista DNR i aktualizacje podpisane Ed25519 z anty-rollback; serwer, jeśli użyty, dystrybuuje feed, nie analizuje użytkownika.", "files": "src/shared/blocklist/secureUpdater.ts" },
+            { "id": "Panic", "name": "Panic + Export", "oneLiner": "Jedna akcja czyści wybrane dane przeglądarki; eksport zbiera lokalny stan do JSON z redakcją sekretów.", "files": "src/shared/dataExport/* · src/components/PanicButton.tsx" }
           ]
-        },
-        {
-          "id": "f-note",
-          "kind": "note",
-          "text": "Każda funkcja ma pokrycie testowe i ścieżkę dowodową w repozytorium. Higiena licencyjna: GPL-3.0 HaGeZi jako agregacja, warunki Gemma (nie-OSS) przekazane użytkownikowi.",
-          "enter": { "anim": "fade", "delay": 320 }
         }
       ],
-      "presenterNotes": "Nie czytaj wszystkich 9 — wskaż 3 najmocniejsze (Vision, MailGuard, Bionic Blur) i powiedz „reszta jest tu i przetestowana”."
+      "presenterNotes": "Nie czytaj wszystkiego. Wybierz 4: AI Deep-Dive, Data Footprint, Bionic Blur, Signed Blocklist. Resztę nazwij pokryciem powierzchni ataku."
     },
     {
       "id": "team",
@@ -299,35 +295,60 @@
       "type": "features",
       "bg": "bg1",
       "layout": "center",
-      "durationHint": 14,
+      "durationHint": 16,
       "layers": [
-        { "id": "t-eyebrow", "kind": "eyebrow", "text": "07 — Zespół", "enter": { "anim": "fade" } },
-        { "id": "t-head", "kind": "heading", "text": "Cztery strumienie,\njedno rozszerzenie.", "enter": { "anim": "slide" } },
-        {
-          "id": "t-lead",
-          "kind": "lead",
-          "text": "Cztery równoległe moduły (A / C / D + warstwa AI) zostały scalone w jedno działające rozszerzenie. Każda osoba odpowiada za swój obszar i potrafi go obronić przy kodzie.",
-          "enter": { "anim": "slide", "delay": 120 }
-        },
+        { "id": "t-eyebrow", "kind": "eyebrow", "text": "08 — Kto mówi co", "enter": { "anim": "fade" } },
+        { "id": "t-head", "kind": "heading", "text": "Cztery role.\nJedna historia.", "enter": { "anim": "slide" } },
         {
           "id": "t-features",
           "kind": "features",
-          "enter": { "anim": "slide", "delay": 240 },
+          "enter": { "anim": "slide", "delay": 180 },
           "items": [
-            { "id": "Hubert", "name": "Architektura · AI · lokalny runtime", "oneLiner": "AI Deep-Dive, runtime offscreen (transformers.js/ONNX), Bionic Blur, wizja reklam, guardraile bezpieczeństwa i podpisany blocklist (Ed25519), warstwa legal/atrybucje.", "files": "git: GlazowanyPager · assets/offscreen/offscreen.js, src/shared/aiDeepDive/*, src/security/*, src/shared/blocklist/secureUpdater.ts" },
-            { "id": "Kacper", "name": "Moduł D — Secure Core · Cyber Radar", "oneLiner": "Szyfrowanie AES-GCM + PBKDF2 i Panic Button (crypto.ts / storage.ts), generator aliasów e-mail (SimpleLogin + fallback), oraz Cyber Radar — wizualizacja zagrożeń.", "files": "git: Makaren337 · src/shared/crypto.ts, storage.ts, emailAlias.ts, components/CyberRadar.tsx" },
-            { "id": "Krystian", "name": "Honeypot · anty-tracking · demo", "oneLiner": "Honeypot Trap z declarativeNetRequest (zatruwanie parametrów profilujących), Wirtualna Tożsamość + DataGhost (Moduł C), dowód na żywo.", "files": "git: Krystian · src/shared/honeypot.ts, virtualIdentityStudio.ts, dataGhost/*" },
-            { "id": "Bartosz", "name": "Moduł A · prezentacja · backup demo", "oneLiner": "Zatruwanie cookies, dashboard/menu, pełnoekranowy Cyber Radar wpięty w zdarzenia honeypota, odcinanie trackerów na wrażliwych stronach; strona prezentacji, flow i plan awaryjny.", "files": "git: szalik · src/shared/cookieShredder.ts, src/tabs/dashboard.tsx, Cyber Radar UI" }
+            { "id": "Hubert", "name": "Architektura i prawda techniczna", "oneLiner": "Otwiera tezą, prowadzi architekturę, tłumaczy granicę AI: model jest lokalnym drugim werdyktem, nie sterownikiem ochrony." },
+            { "id": "Kacper", "name": "Problem, bezpieczeństwo i dane", "oneLiner": "Wyjaśnia ELI5, mówi o storage/crypto/panic/export i o tym, że suwerenność danych oznacza kontrolę oraz jawny koszt uprawnień." },
+            { "id": "Bartek", "name": "UI, prezentacja i demo backup", "oneLiner": "Pokazuje panel, score, radar, flow prezentacji i prowadzi fallback, gdy model lub strona demo ładuje się wolno." },
+            { "id": "Krystian", "name": "Demo anty-trackingu i person", "oneLiner": "Pokazuje Targeting Shield, Honeypot/DataGhost jako demo sygnałów, Virtual Identity, profile i Babcię 3D — uczciwie jako warstwę kontroli i edukacji." }
           ]
         },
         {
           "id": "t-note",
           "kind": "note",
-          "text": "Mapowanie autorów git → osoby: GlazowanyPager → Hubert, Makaren337 → Kacper, szalik → Bartosz, Krystian → Krystian. Nicki w historii commitów to nie osobni ludzie.",
-          "enter": { "anim": "fade", "delay": 400 }
+          "text": "Pełny skrypt mówiony, Q&A i fallback demo są w presentation/PRESENTATION_EXPLANATION_PACKAGE.md.",
+          "enter": { "anim": "fade", "delay": 420 }
         }
       ],
-      "presenterNotes": "Krótko: kto za co odpowiada. Podkreśl, że to cztery równoległe strumienie scalone w jedno."
+      "presenterNotes": "Ten slajd jest dla was. Każdy ma mieć 60–90 sekund i jedno zdanie graniczne, którego nie przekracza."
+    },
+    {
+      "id": "demo-flow",
+      "title": "Demo",
+      "type": "features",
+      "bg": "bg0",
+      "layout": "center",
+      "durationHint": 16,
+      "layers": [
+        { "id": "df-eyebrow", "kind": "eyebrow", "text": "09 — Demo flow", "enter": { "anim": "fade" } },
+        { "id": "df-head", "kind": "heading", "text": "Pięć ruchów,\nbez chaosu.", "enter": { "anim": "slide" } },
+        {
+          "id": "df-list",
+          "kind": "list",
+          "enter": { "anim": "slide", "delay": 160 },
+          "items": [
+            "Otwórz stronę testową z trackerami/parametrami URL i pokaż, co zniknęło lub zostało oznaczone.",
+            "Pokaż Side Panel: risk score, evidence, aktywne tarcze, bez surowych sekretów w UI.",
+            "Kliknij Link Guard albo MailGuard: lokalna ocena sygnału i czytelny powód ostrzeżenia.",
+            "Pokaż Virtual Identity: wybór persony, spójne parametry fingerprintu, Babcia 3D jako efekt wow.",
+            "Zakończ Panic/Export albo CyberRadar: użytkownik widzi kontrolę i dowody zamiast obietnicy magii."
+          ]
+        },
+        {
+          "id": "df-callout",
+          "kind": "callout",
+          "text": "Fallback line: nawet jeśli model lokalny nie zdąży się załadować, rdzeń ochrony działa, bo podstawą jest heurystyka i deterministic policy.",
+          "enter": { "anim": "slide", "delay": 340 }
+        }
+      ],
+      "presenterNotes": "Bartek pilnuje czasu. Krystian prowadzi kliknięcia. Kacper/Hubert dopowiadają tylko wtedy, gdy jury pyta. Nie debugujcie na scenie — przełączcie się na screenshot/board."
     },
     {
       "id": "pitch",
@@ -337,12 +358,12 @@
       "layout": "center",
       "durationHint": 12,
       "layers": [
-        { "id": "pi-eyebrow", "kind": "eyebrow", "text": "08 — Teza", "enter": { "anim": "fade" } },
-        { "id": "pi-display", "kind": "display", "text": "Lokalne modele.\nRealna ochrona.\nZero chmury.", "enter": { "anim": "blurIn", "delay": 120 } },
+        { "id": "pi-eyebrow", "kind": "eyebrow", "text": "10 — Zamknięcie", "enter": { "anim": "fade" } },
+        { "id": "pi-display", "kind": "display", "text": "Zobacz.\nZrozum.\nZabezpiecz.", "enter": { "anim": "blurIn", "delay": 120 } },
         {
           "id": "pi-lead",
           "kind": "lead",
-          "text": "PrivacyMyst pokazuje, że zdestylowane, lokalne modele potrafią dostarczać inteligencję prywatności w czasie rzeczywistym, przy każdej nawigacji — bez wysyłania czegokolwiek do chmury.",
+          "text": "PrivacyMyst daje użytkownikowi lokalną świadomość ryzyka i konkretne przełączniki ochrony. To jest suwerenność danych w praktyce: mniej ślepego zaufania, więcej dowodów po stronie użytkownika.",
           "enter": { "anim": "slide", "delay": 320 }
         },
         {
@@ -350,14 +371,14 @@
           "kind": "kpis",
           "enter": { "anim": "slide", "delay": 480 },
           "items": [
-            { "value": "100", "unit": "%", "label": "przetwarzania na urządzeniu — domyślnie" },
-            { "value": "27", "unit": "×", "label": "przyspieszenie skanu wrażliwości po destylacji" },
-            { "value": "0", "label": "telemetrii, analityki, zdalnego logowania" }
+            { "value": "1", "label": "lokalna historia: analiza i wyjaśnienie w przeglądarce" },
+            { "value": "9", "label": "modułów pokrywających trackery, PII, linki, maile, pliki, fingerprint i cleanup" },
+            { "value": "0", "label": "magicznych obietnic: mówimy, co działa i gdzie są granice" }
           ]
         },
-        { "id": "pi-note", "kind": "note", "text": "PrivacyMyst — Zespół Signal:Noise. Prezentacja sterowana plikiem deck.story.json.", "enter": { "anim": "fade", "delay": 640 } }
+        { "id": "pi-note", "kind": "note", "text": "PrivacyMyst — Kacper · Bartek · Hubert · Krystian. Pełny pakiet: presentation/PRESENTATION_EXPLANATION_PACKAGE.md", "enter": { "anim": "fade", "delay": 640 } }
       ],
-      "presenterNotes": "Zamknij na tezie. Cisza po „Zero chmury”. Potem zaproszenie do demo rozszerzenia."
+      "presenterNotes": "Ostatnie zdanie: Nie chcemy, żeby użytkownik musiał wierzyć rozszerzeniu. Chcemy, żeby widział dowód i sam decydował, jaką tarczę włącza. Pauza."
     }
   ]
 }

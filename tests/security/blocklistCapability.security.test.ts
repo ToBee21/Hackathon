@@ -16,6 +16,7 @@ import type {
   BlocklistEntry,
   SignedBlocklistBundle
 } from "../../src/shared/blocklist/types"
+import { readRepoFile } from "./helpers"
 
 const okEntry: BlocklistEntry = {
   domain: "tracker.example.com",
@@ -100,6 +101,56 @@ describe("blocklist capability constraint (adversary-resistant input)", () => {
     expect(clean.entries.length).toBeLessThanOrEqual(MAX_BUNDLE_ENTRIES)
     expect(dropped.duplicate).toBeGreaterThanOrEqual(1)
     expect(dropped.overflow).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe("blocklist build and runtime hardening gates", () => {
+  it("installs every escalated blocklist chunk per origin", () => {
+    const source = readRepoFile("src/shared/blocklist/riskAdaptiveBlocking.ts")
+
+    expect(source).toContain("MAX_ESCALATION_RULES_PER_ORIGIN")
+    expect(source).toContain("index * MAX_ESCALATION_RULES_PER_ORIGIN")
+    expect(source).toContain("rules.push(...built.slice(0, MAX_ESCALATION_RULES_PER_ORIGIN))")
+    expect(source).not.toContain("if (built[0]) rules.push(built[0])")
+  })
+
+  it("fails closed on feed errors and applies the never-block allowlist during compile", () => {
+    const source = readRepoFile("scripts/compile-blocklists.mjs")
+
+    expect(source).toContain("const ALLOWLIST_TS")
+    expect(source).toContain("function isAllowlisted(domain)")
+    expect(source).toContain("if (isAllowlisted(domain)) continue")
+    expect(source).toContain("process.argv.includes(\"--allow-partial\")")
+    expect(source).toContain("refusing partial baseline")
+  })
+
+  it("never prints a private signing key in legacy compiler keygen", () => {
+    const source = readRepoFile("scripts/compile-blocklists.mjs")
+
+    expect(source).toContain("Private PEM is never printed to stdout.")
+    expect(source).toContain("writeFileSync(PRIVATE_KEY_PATH, privPem")
+    expect(source).not.toContain("console.log(privPem)")
+  })
+
+  it("signing builder reads private keys from files instead of PEM environment values", () => {
+    const builder = readRepoFile("server/build-bundle.mjs")
+    const compiler = readRepoFile("scripts/compile-blocklists.mjs")
+    const signFile = readRepoFile("server/sign-file.mjs")
+    const dockerfile = readRepoFile("server/Dockerfile.builder")
+    const readme = readRepoFile("server/README.md")
+
+    expect(builder).toContain("BLOCKLIST_PRIVATE_KEY_FILE")
+    expect(builder).toContain("/run/secrets/blocklist_private_key")
+    expect(builder).not.toContain("process.env.BLOCKLIST_PRIVATE_KEY_PEM")
+    expect(compiler).toContain("BLOCKLIST_PRIVATE_KEY_FILE")
+    expect(compiler).not.toContain("process.env.BLOCKLIST_PRIVATE_KEY_PEM")
+    expect(signFile).toContain("BLOCKLIST_PRIVATE_KEY_FILE")
+    expect(signFile).toContain("/run/secrets/blocklist_private_key")
+    expect(signFile).not.toContain("process.env.BLOCKLIST_PRIVATE_KEY_PEM")
+    expect(dockerfile).toContain("target=/run/secrets/blocklist_private_key")
+    expect(dockerfile).not.toContain("BLOCKLIST_PRIVATE_KEY_PEM")
+    expect(readme).toContain("BLOCKLIST_PRIVATE_KEY_FILE")
+    expect(readme).not.toContain("BLOCKLIST_PRIVATE_KEY_PEM")
   })
 })
 

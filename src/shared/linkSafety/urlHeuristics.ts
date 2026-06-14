@@ -65,7 +65,7 @@ const MULTI_SUFFIXES = new Set([
 export const KNOWN_BRANDS = [
   "paypal", "apple", "icloud", "google", "gmail", "microsoft", "outlook",
   "amazon", "facebook", "instagram", "whatsapp", "netflix", "spotify",
-  "binance", "coinbase", "metamask", "steam", "linkedin", "dropbox",
+  "binance", "coinbase", "metamask", "steam", "linkedin", "dropbox", "opera",
   "allegro", "olx", "vinted", "inpost", "paczkomat", "dhl", "dpd", "fedex", "ups",
   "pko", "mbank", "ing", "santander", "millennium", "pekao", "blik",
   "orlen", "gov", "epuap", "profilzaufany"
@@ -78,6 +78,15 @@ const CREDENTIAL_KEYWORDS = [
   "recovery", "unlock", "suspend", "suspended", "validate", "authenticate",
   "auth", "session", "password", "weryfikacja", "potwierdz", "logowanie",
   "platnosc", "doplata", "doplac"
+]
+
+const DOWNLOAD_LURE_KEYWORDS = [
+  "setup", "installer", "install", "download", "update", "browser", "chrome",
+  "opera", "edge", "firefox", "exe", "msi", "application", "setupfile"
+]
+
+const EXECUTABLE_EXTENSIONS = [
+  ".exe", ".msi", ".bat", ".cmd", ".scr", ".com", ".ps1", ".vbs", ".js", ".jar"
 ]
 
 // TLD nadreprezentowane w kampaniach phishingowych / malware.
@@ -222,6 +231,28 @@ export function analyzeLink(
       id: "url-shortener",
       weight: 30,
       reason: "Skrócony link — realny cel jest ukryty aż do kliknięcia."
+    })
+  }
+
+  // 6b) Fake installer / executable download lure. This is the "OperaSetup
+  // from a random .xyz" class: the URL itself often carries setup/install
+  // campaign terms before the browser shows an application save dialog.
+  const executableExt = EXECUTABLE_EXTENSIONS.find(
+    (ext) => path.endsWith(ext) || path.includes(`${ext}?`) || path.includes(`${ext}&`)
+  )
+  if (executableExt) {
+    signals.push({
+      id: "executable-download",
+      weight: 68,
+      reason: `Link wygląda na pobranie pliku wykonywalnego (${executableExt}).`
+    })
+  }
+  const downloadWord = DOWNLOAD_LURE_KEYWORDS.find((kw) => path.includes(kw))
+  if (downloadWord && (SUSPICIOUS_TLDS.has(tld) || executableExt || brandHit)) {
+    signals.push({
+      id: "download-lure",
+      weight: 45,
+      reason: `Adres wygląda jak wabik na instalator/pobranie (słowo: "${downloadWord}").`
     })
   }
 

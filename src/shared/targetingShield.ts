@@ -22,10 +22,20 @@ const PARAM_STRIP_RULE_ID = 43001
 const BLOCK_RULE_ID_BASE = 43100
 const MAX_BLOCKED_ORIGINS = 30
 
-// Włącz logi diagnostyczne w konsoli service workera.
-const DEBUG = true
+// Keep diagnostics off by default; matched request URLs can contain attribution
+// tokens and search/profile data.
+const DEBUG = false
 function log(...args: unknown[]): void {
   if (DEBUG) console.info("[TargetingShield]", ...args)
+}
+
+function safeUrlLabel(raw: string): string {
+  try {
+    const url = new URL(raw)
+    return `${url.hostname}${url.pathname ? "/..." : ""}`
+  } catch {
+    return "[invalid-url]"
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -348,7 +358,7 @@ function attachMatchListener(): void {
     const ruleId = info.rule.ruleId
     if (ruleId === PARAM_STRIP_RULE_ID) {
       if (urlHasTrackingParam(info.request.url)) {
-        log("strip:", info.request.url)
+        log("strip:", safeUrlLabel(info.request.url))
         pendingParams += 1
         scheduleFlush()
       }
@@ -356,7 +366,7 @@ function attachMatchListener(): void {
       ruleId >= BLOCK_RULE_ID_BASE &&
       ruleId < BLOCK_RULE_ID_BASE + MAX_BLOCKED_ORIGINS
     ) {
-      log("block:", info.request.url)
+      log("block:", safeUrlLabel(info.request.url))
       pendingBlocked += 1
       scheduleFlush()
     }

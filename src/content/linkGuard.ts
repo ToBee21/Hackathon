@@ -57,6 +57,10 @@ let modalOpen = false
 // Linki, na które użytkownik świadomie wyraził zgodę mimo ryzyka (per sesja).
 const allowedHrefs = new Set<string>()
 
+function isTrustedActivation(event: Event): boolean {
+  return event.isTrusted
+}
+
 export function initLinkGuard(): void {
   if (window.top !== window) return
   mountHost()
@@ -251,6 +255,12 @@ function onClickCapture(e: MouseEvent): void {
   // Twarde wstrzymanie nawigacji — strona NIE dostaje tego kliknięcia.
   e.preventDefault()
   e.stopImmediatePropagation()
+  if (!isTrustedActivation(e)) {
+    recordBlock()
+    notifyPanel()
+    logEvent(`Zablokowano syntetyczny klik w link wysokiego ryzyka: ${verdict.registrableDomain}`)
+    return
+  }
   hideTip()
   openModal(anchor, verdict)
 }
@@ -317,7 +327,10 @@ function buildBlockStage(
   const proceed = document.createElement("button")
   proceed.className = "btn ghost"
   proceed.textContent = "Chcę otworzyć mimo to"
-  proceed.addEventListener("click", () => buildConfirmStage(ftr, anchor, verdict, scrim))
+  proceed.addEventListener("click", (event) => {
+    if (!isTrustedActivation(event)) return
+    buildConfirmStage(ftr, anchor, verdict, scrim)
+  })
 
   row.append(block, proceed)
   ftr.appendChild(row)
@@ -366,7 +379,8 @@ function buildConfirmStage(
   }
   tick()
 
-  confirm.addEventListener("click", () => {
+  confirm.addEventListener("click", (event) => {
+    if (!isTrustedActivation(event)) return
     const href = anchor.getAttribute("href") ?? ""
     allowedHrefs.add(href)
     recordOverride()

@@ -60,6 +60,10 @@ const STORAGE_KEY_NOISE_TOPICS = "cnd:dataghost:topics"
 const MAX_LOG_ENTRIES = 50
 const LOG_COLLAPSE_WINDOW_MS = 8000
 
+function persistablePrivacyState(state: PrivacyState, privacyScore: number): PrivacyState {
+  return { ...state, privacyScore, activeAliasEmail: null }
+}
+
 const DEFAULT_TOGGLES: ModuleToggleState = {
   dataGhost: true,
   mouseJitter: true,
@@ -194,7 +198,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!hydrated || !ext?.storage?.local) return
-    ext.storage.local.set({ [STORAGE_KEY_STATE]: { ...state, privacyScore: score } })
+    ext.storage.local.set({
+      [STORAGE_KEY_STATE]: persistablePrivacyState(state, score)
+    })
   }, [hydrated, score, state])
 
   const handleToggle = useCallback((module: ModuleId, enabled: boolean) => {

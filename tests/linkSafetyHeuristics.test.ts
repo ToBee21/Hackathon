@@ -82,6 +82,14 @@ describe("Link Safety — analyzeLink", () => {
     expect(v!.signals.some((s) => s.id === "active-scheme")).toBe(true)
   })
 
+  it("blokuje fake-installer download lure z podejrzanej domeny", () => {
+    const v = analyzeLink("https://insecthoney.xyz/?affId=2905&o=519&title=SETUP%20FILE")
+    expect(v).not.toBeNull()
+    expect(["high", "critical"]).toContain(v!.level)
+    expect(v!.signals.some((s) => s.id === "suspicious-tld")).toBe(true)
+    expect(v!.signals.some((s) => s.id === "download-lure")).toBe(true)
+  })
+
   it("flaguje punycode / IDN", () => {
     const v = analyzeLink("https://xn--pypal-4ve.com/login")
     expect(v!.signals.some((s) => s.id === "punycode-idn")).toBe(true)

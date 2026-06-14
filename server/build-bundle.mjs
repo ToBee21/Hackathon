@@ -8,7 +8,8 @@
 // Usage:
 //   BUNDLE_VERSION=2 node server/build-bundle.mjs            # sign baseline seed
 //   node server/build-bundle.mjs path/to/compiled-bundle.json
-// Key source (in order): $BLOCKLIST_PRIVATE_KEY_PEM, else server/.secrets/signing.key.pem
+// Key source (in order): $BLOCKLIST_PRIVATE_KEY_FILE, /run/secrets/blocklist_private_key,
+// else server/.secrets/signing.key.pem. Never pass PEM bytes through env.
 
 import { createHash, createPrivateKey, sign as edSign } from "node:crypto"
 import {
@@ -28,14 +29,16 @@ const OUT = join(HERE, "out")
 const BASELINE_TS = join(ROOT, "src", "shared", "blocklist", "baselineBundle.ts")
 
 function loadPrivateKey() {
-  const pem =
-    process.env.BLOCKLIST_PRIVATE_KEY_PEM ||
-    (existsSync(join(HERE, ".secrets", "signing.key.pem"))
-      ? readFileSync(join(HERE, ".secrets", "signing.key.pem"), "utf8")
-      : null)
+  const candidates = [
+    process.env.BLOCKLIST_PRIVATE_KEY_FILE,
+    "/run/secrets/blocklist_private_key",
+    join(HERE, ".secrets", "signing.key.pem")
+  ].filter(Boolean)
+  const keyPath = candidates.find((candidate) => existsSync(candidate))
+  const pem = keyPath ? readFileSync(keyPath, "utf8") : null
   if (!pem) {
     console.error(
-      "No signing key. Run `node server/keygen.mjs` or set BLOCKLIST_PRIVATE_KEY_PEM."
+      "No signing key. Run `node server/keygen.mjs` or set BLOCKLIST_PRIVATE_KEY_FILE."
     )
     process.exit(1)
   }

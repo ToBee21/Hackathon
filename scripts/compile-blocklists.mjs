@@ -8,14 +8,14 @@
 // Usage:
 //   npm i -D @adguard/hostlist-compiler
 //   node scripts/compile-blocklists.mjs            # compile baseline bundle
-//   node scripts/compile-blocklists.mjs --keygen   # print a fresh Ed25519 keypair
+//   node scripts/compile-blocklists.mjs --keygen   # write a fresh Ed25519 keypair
 //   node scripts/compile-blocklists.mjs --sign <bundle.json>  # sign for server
 //
 // The signing private key must live OFF the public update server. Generate it
 // with --keygen, paste the PUBLIC key into secureUpdater.ts (UPDATE_PUBLIC_KEY_B64),
 // keep the PRIVATE key in CI/secret storage, and sign released bundles off-box.
 
-import { writeFileSync, readFileSync } from "node:fs"
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join, resolve } from "node:path"
 import {
@@ -27,6 +27,8 @@ import {
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const OUT_TS = join(ROOT, "src", "shared", "blocklist", "baselineBundle.ts")
+const ALLOWLIST_TS = join(ROOT, "src", "shared", "blocklist", "allowlist.ts")
+const PRIVATE_KEY_PATH = join(ROOT, "server", ".secrets", "signing.key.pem")
 
 // Keep parity with bundleSchema.ts MAX_BUNDLE_ENTRIES (dynamic-rule budget).
 const MAX_ENTRIES = 25_000
@@ -89,6 +91,29 @@ const FEEDS = [
 ]
 
 const DOMAIN_RE = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/
+const ALLOWLIST_SOURCE = readFileSync(ALLOWLIST_TS, "utf8")
+const NEVER_BLOCK = new Set(readStringLiteralsFromConst("NEVER_BLOCK"))
+const NEVER_BLOCK_SUFFIXES = readStringLiteralsFromConst("NEVER_BLOCK_SUFFIXES")
+
+function readStringLiteralsFromConst(name) {
+  const start = ALLOWLIST_SOURCE.indexOf(`const ${name}`)
+  if (start === -1) throw new Error(`Missing allowlist const ${name}`)
+  const end = ALLOWLIST_SOURCE.indexOf("])", start)
+  if (end === -1) throw new Error(`Malformed allowlist const ${name}`)
+  return Array.from(ALLOWLIST_SOURCE.slice(start, end).matchAll(/"([^"]+)"/g), (m) => m[1])
+}
+
+function isAllowlisted(domain) {
+  const host = domain.toLowerCase().replace(/\.$/, "")
+  if (NEVER_BLOCK.has(host)) return true
+  for (const allowed of NEVER_BLOCK) {
+    if (host === allowed || host.endsWith(`.${allowed}`)) return true
+  }
+  for (const suffix of NEVER_BLOCK_SUFFIXES) {
+    if (host === suffix.slice(1) || host.endsWith(suffix)) return true
+  }
+  return false
+}
 
 async function loadCompiler() {
   try {
@@ -116,6 +141,7 @@ function rulesToDomains(rules) {
 
 async function compileBaseline() {
   const compile = await loadCompiler()
+  const allowPartial = process.argv.includes("--allow-partial")
   const seen = new Set()
   const entries = []
 
@@ -129,12 +155,18 @@ async function compileBaseline() {
         transformations: ["RemoveComments", "Compress", "Deduplicate"]
       })
     } catch (err) {
-      console.log(`FAILED (${err?.message || err}) — skipping`)
+      console.log(`FAILED (${err?.message || err})`)
+      if (!allowPartial) {
+        console.error("Feed compilation failed — refusing partial baseline. Use --allow-partial only for explicit recovery builds.")
+        process.exit(1)
+      }
+      console.warn("Continuing because --allow-partial was explicitly set.")
       continue
     }
     let added = 0
     for (const domain of rulesToDomains(rules)) {
       if (added >= feed.cap || entries.length >= MAX_ENTRIES) break
+      if (isAllowlisted(domain)) continue
       if (seen.has(domain)) continue
       seen.add(domain)
       entries.push({
@@ -209,10 +241,12 @@ function keygen() {
   const pubRaw = publicKey.export({ format: "jwk" }).x // base64url, 32 bytes
   const pubB64 = Buffer.from(pubRaw, "base64url").toString("base64")
   const privPem = privateKey.export({ format: "pem", type: "pkcs8" })
+  mkdirSync(dirname(PRIVATE_KEY_PATH), { recursive: true })
+  writeFileSync(PRIVATE_KEY_PATH, privPem, { mode: 0o600 })
   console.log("PUBLIC KEY (paste into secureUpdater.ts UPDATE_PUBLIC_KEY_B64):")
   console.log(pubB64)
-  console.log("\nPRIVATE KEY (keep OFF the update server — CI secret only):")
-  console.log(privPem)
+  console.log(`\nPRIVATE KEY written to ${PRIVATE_KEY_PATH}`)
+  console.log("Private PEM is never printed to stdout.")
 }
 
 // Canonical form must match bundleSchema.ts canonicalizeBundle().
@@ -233,10 +267,19 @@ function canonicalize(bundle) {
   })
 }
 
+function loadPrivateKeyPem() {
+  const keyPath = process.env.BLOCKLIST_PRIVATE_KEY_FILE || PRIVATE_KEY_PATH
+  try {
+    return readFileSync(keyPath, "utf8")
+  } catch {
+    return null
+  }
+}
+
 function signBundle(bundlePath) {
-  const privPem = process.env.BLOCKLIST_PRIVATE_KEY_PEM
+  const privPem = loadPrivateKeyPem()
   if (!privPem) {
-    console.error("Set BLOCKLIST_PRIVATE_KEY_PEM (pkcs8 PEM) to sign.")
+    console.error("No signing key. Run `node scripts/compile-blocklists.mjs --keygen` or set BLOCKLIST_PRIVATE_KEY_FILE.")
     process.exit(1)
   }
   const bundle = JSON.parse(readFileSync(bundlePath, "utf8"))

@@ -27,6 +27,7 @@ const BASELINE_MAX_RULES = 200 // chunks of domains; plenty for v0 dynamic budge
 const ESCALATION_RULE_ID_BASE = 60_000
 const MAX_ESCALATED_ORIGINS = 20
 const DOMAINS_PER_RULE = 1_000
+const MAX_ESCALATION_RULES_PER_ORIGIN = 25
 
 const BLOCK_RESOURCE_TYPES = [
   "script",
@@ -129,7 +130,9 @@ function baselineRuleIds(): number[] {
 function escalationRuleIds(): number[] {
   const ids: number[] = []
   for (let i = 0; i < MAX_ESCALATED_ORIGINS; i += 1) {
-    ids.push(ESCALATION_RULE_ID_BASE + i)
+    for (let j = 0; j < MAX_ESCALATION_RULES_PER_ORIGIN; j += 1) {
+      ids.push(ESCALATION_RULE_ID_BASE + i * MAX_ESCALATION_RULES_PER_ORIGIN + j)
+    }
   }
   return ids
 }
@@ -222,15 +225,16 @@ export async function escalateBlocklistForOrigin(
     .map((e) => e.domain)
   if (escalatedDomains.length === 0) return
 
-  // One packed rule per escalated origin (re-id deterministically).
+  // Install every chunk per escalated origin. One packed rule is not enough once
+  // the escalated tier crosses DOMAINS_PER_RULE.
   const rules: chrome.declarativeNetRequest.Rule[] = []
   escalatedOrigins.forEach((originHost, index) => {
     const built = buildBlockRules(
       escalatedDomains,
-      ESCALATION_RULE_ID_BASE + index,
+      ESCALATION_RULE_ID_BASE + index * MAX_ESCALATION_RULES_PER_ORIGIN,
       originHost
     )
-    if (built[0]) rules.push(built[0])
+    rules.push(...built.slice(0, MAX_ESCALATION_RULES_PER_ORIGIN))
   })
 
   await updateRules("escalation", escalationRuleIds(), rules)

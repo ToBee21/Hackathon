@@ -34,6 +34,10 @@ import "./style.css"
 const STORAGE_KEY_TOGGLES = "cnd:toggles"
 const STORAGE_KEY_STATE = "cnd:state"
 
+function persistablePrivacyState(state: PrivacyState, privacyScore: number): PrivacyState {
+  return { ...state, privacyScore, activeAliasEmail: null }
+}
+
 const DEFAULT_TOGGLES: ModuleToggleState = {
   dataGhost: true,
   mouseJitter: true,
@@ -168,7 +172,9 @@ export default function Popup() {
 
   useEffect(() => {
     if (!hydrated || !ext?.storage?.local) return
-    ext.storage.local.set({ [STORAGE_KEY_STATE]: { ...state, privacyScore: score } })
+    ext.storage.local.set({
+      [STORAGE_KEY_STATE]: persistablePrivacyState(state, score)
+    })
   }, [hydrated, score, state])
 
   // --- Akcje użytkownika ---

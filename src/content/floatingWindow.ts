@@ -1211,7 +1211,7 @@ function makeDraggable(handle: HTMLElement, moving: HTMLElement): void {
   let moved = false
 
   handle.addEventListener("pointerdown", (e: PointerEvent) => {
-    if (e.button !== 0 || !isTrustedActivation(e)) return
+    if (e.button !== 0 || !isTrustedActivation(e) || isInteractiveDragTarget(e.target)) return
     dragging = true
     moved = false
     const widget = moving.classList.contains("widget")
@@ -1254,6 +1254,13 @@ function makeDraggable(handle: HTMLElement, moving: HTMLElement): void {
       }
     }
   })
+}
+
+function isInteractiveDragTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  return Boolean(
+    target.closest("button,a,input,select,textarea,[role='button']")
+  )
 }
 
 function clampX(x: number): number {
@@ -1420,7 +1427,12 @@ function iconButton(
   btn.textContent = label
   btn.setAttribute("aria-label", aria)
   btn.title = aria
+  btn.addEventListener("pointerdown", (event) => {
+    event.stopPropagation()
+  })
   btn.addEventListener("click", (event) => {
+    event.preventDefault()
+    event.stopPropagation()
     if (!isTrustedActivation(event)) return
     onClick()
   })

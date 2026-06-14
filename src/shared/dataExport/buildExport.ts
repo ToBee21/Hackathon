@@ -39,9 +39,19 @@ const REDACTED = "[redacted]"
 // "cnd:crypto-session-key") via the token / api-key / crypto / \bkey\b alternatives.
 const SECRET_KEY_PATTERN =
   /(token|secret|password|passphrase|signing|private[-_]?key|crypto|api[-_]?key|\bkey\b)/i
+const RAW_PAGE_CONTEXT_KEY_PATTERN =
+  /^(url|meta|og|headings|visibleText|selectedText|evidence)$/i
+const PLAINTEXT_ALIAS_KEY_PATTERN = /^activeAliasEmail$/i
 
 function isSecretKey(key: string): boolean {
   return SECRET_KEY_PATTERN.test(key)
+}
+
+function isPrivacySensitiveKey(path: string, key: string): boolean {
+  return (
+    PLAINTEXT_ALIAS_KEY_PATTERN.test(key) ||
+    (path.startsWith("cnd:last-analysis") && RAW_PAGE_CONTEXT_KEY_PATTERN.test(key))
+  )
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -77,7 +87,7 @@ export function redactStorageSnapshot(raw: Record<string, unknown>): {
     const out: Record<string, unknown> = {}
     for (const key of Object.keys(obj)) {
       const path = prefix ? `${prefix}.${key}` : key
-      if (isSecretKey(key)) {
+      if (isSecretKey(key) || isPrivacySensitiveKey(path, key)) {
         out[key] = REDACTED
         redactedKeys.push(path)
         continue
