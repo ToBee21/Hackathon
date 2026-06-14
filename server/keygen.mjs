@@ -21,7 +21,7 @@ mkdirSync(SECRETS, { recursive: true })
 writeFileSync(join(SECRETS, "signing.key.pem"), privPem, { mode: 0o600 })
 
 // Self-test: sign with node, verify with WebCrypto raw-key import (client path).
-const msg = new TextEncoder().encode("cloak-and-dagger-presmoke")
+const msg = new TextEncoder().encode("privacymyst-presmoke")
 const sig = edSign(null, Buffer.from(msg), privateKey)
 const rawPub = Buffer.from(pubB64, "base64")
 const key = await webcrypto.subtle.importKey(

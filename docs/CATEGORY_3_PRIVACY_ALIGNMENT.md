@@ -1,4 +1,4 @@
-# Category 3 Privacy Alignment  -  Cloak & Dagger
+# Category 3 Privacy Alignment  -  PrivacyMyst
 
 > Czy ten kod naprawdę pasuje do kategorii hackathonu? Ocena wyłącznie wg kodu.
 > Powiązane: [HACKATHON_REPO_TRUTH_AUDIT.md](./HACKATHON_REPO_TRUTH_AUDIT.md), [SLOP_KILL_LIST.md](./SLOP_KILL_LIST.md).

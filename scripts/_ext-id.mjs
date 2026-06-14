@@ -1,4 +1,4 @@
-// scripts/_ext-id.mjs — resolve the LIVE Cloak & Dagger extension id from a
+// scripts/_ext-id.mjs — resolve the LIVE PrivacyMyst extension id from a
 // remote-debugged browser. Never hardcode the id: it changes on every fresh
 // unpacked load, so a baked-in id always points at a stale/dead install.
 //

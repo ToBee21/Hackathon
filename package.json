@@ -1,6 +1,6 @@
 {
-  "name": "cloak-and-dagger",
-  "displayName": "Cloak & Dagger",
+  "name": "privacymyst",
+  "displayName": "PrivacyMyst",
   "version": "0.1.0",
   "description": "Aktywny system ochrony prywatności i suwerenności danych użytkownika w sieci.",
   "author": "Hackathon Signal:Noise Team",
@@ -66,7 +66,7 @@
     "commands": {
       "scan-ad-images": {
         "suggested_key": { "default": "Alt+Shift+V" },
-        "description": "Cloak & Dagger: skanuj reklamy-obrazki na stronie (AI vision)"
+        "description": "PrivacyMyst: skanuj reklamy-obrazki na stronie (AI vision)"
       }
     },
     "host_permissions": [

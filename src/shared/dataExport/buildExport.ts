@@ -22,7 +22,7 @@ export interface DataExportInput {
 export interface DataExportBundle {
   schema: "cloak-dagger/data-export"
   schemaVersion: 1
-  app: "Cloak & Dagger"
+  app: "PrivacyMyst"
   appVersion: string
   exportedAt: string
   browser?: Record<string, unknown>
@@ -111,7 +111,7 @@ export function buildDataExport(input: DataExportInput): DataExportBundle {
   const bundle: DataExportBundle = {
     schema: "cloak-dagger/data-export",
     schemaVersion: 1,
-    app: "Cloak & Dagger",
+    app: "PrivacyMyst",
     appVersion: input.appVersion,
     exportedAt: new Date(input.now).toISOString(),
     storage: data,

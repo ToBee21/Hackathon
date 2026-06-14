@@ -1,6 +1,6 @@
 # Disclaimer & Limitation of Liability
 
-**Product:** Cloak & Dagger (Chrome MV3 browser extension)
+**Product:** PrivacyMyst (Chrome MV3 browser extension)
 **Provider:** [PROVIDER / LEGAL ENTITY], author "Hackathon Signal:Noise Team".
 **Effective date:** [EFFECTIVE DATE]
 
@@ -9,7 +9,7 @@
 
 ## 1. AI output is best-effort and may be wrong
 
-Cloak & Dagger uses small, local AI models (a page-sensitivity/risk classifier, a
+PrivacyMyst uses small, local AI models (a page-sensitivity/risk classifier, a
 natural-language inference classifier, and a vision ad-image detector built on
 SmolVLM-256M). These models are **small and best-effort**. Their outputs:
 

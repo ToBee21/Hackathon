@@ -3,7 +3,7 @@
 > AI is not the shield. AI is a local second verdict that explains why the
 > shield was raised.
 
-This document defines the only acceptable role for AI in Cloak & Dagger. It is
+This document defines the only acceptable role for AI in PrivacyMyst. It is
 not a product manifesto and not a promise that a model "protects privacy" by
 itself. The protection layer is deterministic: Targeting Shield, Cookie
 Shredder, DNR rules, and local storage policy. AI Deep-Dive is interpretation,
@@ -543,14 +543,14 @@ Forbidden demo claims:
 | Claim | Why it is unsafe |
 | --- | --- |
 | "AI blocks trackers." | AI does not execute DNR. |
-| "Cloak & Dagger fully anonymizes the user." | Not proven by current code. |
+| "PrivacyMyst fully anonymizes the user." | Not proven by current code. |
 | "The model diagnoses the user." | Privacy and trust failure. |
 | "All tracking is gone." | False; known-host blocking is partial. |
 | "No network is ever used." | Model assets and optional integrations can involve network paths. |
 
 The shortest honest pitch:
 
-> Cloak & Dagger reads the current page locally, recognizes sensitive profiling
+> PrivacyMyst reads the current page locally, recognizes sensitive profiling
 > context, and raises deterministic browser protections. Optional local AI does
 > not make decisions; it gives a second verdict and explains the evidence in
 > structured JSON.

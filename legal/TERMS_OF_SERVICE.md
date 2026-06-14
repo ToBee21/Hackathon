@@ -1,11 +1,11 @@
 # Terms of Service
 
-**Product:** Cloak & Dagger (Chrome MV3 browser extension)
+**Product:** PrivacyMyst (Chrome MV3 browser extension)
 **Provider:** [PROVIDER / LEGAL ENTITY] ("we", "us"), author "Hackathon Signal:Noise Team".
 **Effective date:** [EFFECTIVE DATE]
 **Contact:** [CONTACT EMAIL]
 
-These Terms of Service ("Terms") govern your use of Cloak & Dagger (the
+These Terms of Service ("Terms") govern your use of PrivacyMyst (the
 "Software"). They incorporate by reference the [EULA](EULA.md), the
 [Privacy Policy](PRIVACY_POLICY.md), and the
 [Disclaimer & Limitation of Liability](DISCLAIMER_AND_LIABILITY.md). By installing
@@ -13,7 +13,7 @@ or using the Software you accept these Terms. If you do not agree, do not use it
 
 ## 1. The Software
 
-Cloak & Dagger is a free, privacy-focused browser extension that performs local
+PrivacyMyst is a free, privacy-focused browser extension that performs local
 privacy protection — risk classification of pages, a local AI vision ad-image
 detector, tracker/cookie hardening, email aliasing, and honeypot tests. **All
 processing runs on your device; nothing is transmitted off-device** (see the
@@ -58,7 +58,7 @@ The Software (excluding third-party components) is owned by the Provider and its
 contributors. Third-party models, runtimes, libraries, and data are the property of
 their respective owners and are used under their licenses with full attribution in
 [`THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md) and the in-extension
-"Licenses" screen. **Cloak & Dagger is not affiliated with, authorized by, or
+"Licenses" screen. **PrivacyMyst is not affiliated with, authorized by, or
 endorsed by Google, Hugging Face, Alibaba, Microsoft, Meta, or any other named
 rights-holder;** their names and the names of their models (e.g., "Gemma") are used
 solely for factual attribution as required by the applicable licenses.

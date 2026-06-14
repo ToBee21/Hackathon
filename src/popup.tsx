@@ -244,7 +244,7 @@ export default function Popup() {
             </span>
             <div className="leading-tight">
               <h1 className="text-[13px] font-semibold tracking-tight text-fg-hi">
-                Cloak <span className="text-fg-low">&amp;</span> Dagger
+                PrivacyMyst
               </h1>
               <p className="text-[9px] uppercase tracking-[0.16em] text-fg-low">
                 Active Privacy Defense

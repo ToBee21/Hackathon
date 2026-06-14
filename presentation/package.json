@@ -1,0 +1,34 @@
+{
+  "name": "cloak-dagger-deck",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Kinowy silnik prezentacji (deck.story.json) dla projektu PrivacyMyst",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4317 --strictPort",
+    "capture": "node scripts/capture-sections.mjs",
+    "test:visual": "playwright test"
+  },
+  "dependencies": {
+    "@observablehq/plot": "^0.6.16",
+    "@xyflow/react": "^12.3.5",
+    "d3": "^7.9.0",
+    "framer-motion": "^11.11.17",
+    "gsap": "^3.13.0",
+    "mermaid": "^11.4.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "@types/d3": "^7.4.3",
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.1"
+  }
+}

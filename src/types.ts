@@ -371,7 +371,7 @@ export interface RuntimeMessage<T = unknown> {
 
 /**
  * Klucze używane w chrome.storage — centralna definicja zapobiega kolizjom.
- * Wszystkie moduły dzielą jedną przestrzeń nazw "cnd:" (Cloak & Dagger), więc
+ * Wszystkie moduły dzielą jedną przestrzeń nazw "cnd:" (PrivacyMyst), więc
  * Moduł D (storage/crypto/alias) operuje na tych samych danych co żywa aplikacja
  * (background/content/popup). PRIVACY_STATE celowo wskazuje na współdzielony
  * "cnd:state". CRYPTO_KEY trzymany jest w chrome.storage.session (pamięć), nigdy

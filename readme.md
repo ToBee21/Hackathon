@@ -1,4 +1,4 @@
-cloak-and-dagger/
+privacymyst/
 ├── .gitignore                  <-- [Osoba D] Konfiguracja gita (ignorowanie node_modules itp.)
 ├── package.json                <-- [Osoba D] Zależności (Plasmo, React, Tailwind)
 ├── tsconfig.json               <-- [Osoba D] Konfiguracja kompilatora TypeScript
@@ -25,12 +25,12 @@ cloak-and-dagger/
 
 
 
-        🗡️ Cloak & Dagger
+        🗡️ PrivacyMyst
 Aktywny system ochrony prywatności i suwerenności danych użytkownika w sieci.
 Projekt stworzony w ramach hackathonu Signal:Noise dla Kategorii 3: Prywatność i Suwerenność Danych (na podstawie wytycznych z pliku image.png).
 📌 O Projekcie
 Współczesny internet opiera się na agresywnym targetowaniu i masowej inwigilacji. Zwykłe wtyczki blokujące reklamy (adblockery) to za mało – skrypty śledzące potrafią identyfikować użytkowników na podstawie ich sprzętu oraz biometrii behawioralnej (sposobu poruszania myszką, tempa pisania), tworząc tzw. Shadow Profiles (cienie cyfrowe).
-Cloak & Dagger łączy obronę z transparentnością. Rozszerzenie stosuje trzy uzupełniające się warstwy:
+PrivacyMyst łączy obronę z transparentnością. Rozszerzenie stosuje trzy uzupełniające się warstwy:
 Audytuje Twój „cień cyfrowy" — pasywnie mierzy i pokazuje, jak unikalny jest Twój fingerprint przeglądarki.
 Maskuje fingerprint w sposób WEWNĘTRZNIE SPÓJNY (User-Agent zgodny z podstawianą platformą i GPU), aby samo maskowanie nie stało się sygnałem rozpoznawczym.
 Daje kontrolę nad danymi: lokalne szyfrowanie (klucz wyłącznie w pamięci sesji, nigdy na dysku) oraz Panic Button czyszczący ciasteczka, cache i storage. Dodatkowo generuje anonimowy ruch-wabik jako warstwę pomocniczą.

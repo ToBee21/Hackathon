@@ -23,6 +23,6 @@ for in-browser (WebGPU) inference.
 USE RESTRICTIONS (Gemma Terms Section 3.2, passed through to all users): use of
 the Gemma weights is subject to the Gemma Prohibited Use Policy, which prohibits,
 among other uses, any unauthorized tracking, monitoring, or surveillance of
-individuals without their consent. Cloak & Dagger uses local models solely for
+individuals without their consent. PrivacyMyst uses local models solely for
 the consenting user's own privacy self-defense; users must not repurpose them in
 violation of the Policy.

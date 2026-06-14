@@ -1,4 +1,4 @@
-# Slop Kill List  -  Cloak & Dagger
+# Slop Kill List  -  PrivacyMyst
 
 > Ten dokument istnieje, żeby zespół nie polerował śmieci. Każda pozycja oparta na
 > kodzie (plik:linia). Powiązane: [HACKATHON_REPO_TRUTH_AUDIT.md](./HACKATHON_REPO_TRUTH_AUDIT.md).
@@ -41,7 +41,7 @@ Coś jest slopem, jeśli:
 | `reportPolicy.shouldSendAiDeepDiveReport` | `reportPolicy.ts:3` | **REPAIR** | Zawsze `true`, ignoruje argument; udaje politykę | Usuń lub zaimplementuj realną politykę |
 | `manipulationRisk` w LLM insight | `llmView.ts:100-104` | **REPAIR** | Magic-number `score*conf*0.35` pokazany jako wniosek modelu | Pokaż tylko gdy model realnie zwróci, albo usuń wiersz |
 | Toast „Max Camo aktywny" | `pageAlert.ts:83` | **REPAIR** | Twierdzi aktywację, którą decyduje dopiero background | Pokazuj po potwierdzeniu z backgroundu |
-| `cloak-and-dagger-preview.html` | `demo/...:800-819` | **DEMO ONLY / DO NOT MENTION** | Statyczny mock, `NOISE=128/TRACKERS=37` zahardkodowane; nie shipowany | Nigdy nie pokazuj jako „żywy popup" |
+| `privacymyst-preview.html` | `demo/...:800-819` | **DEMO ONLY / DO NOT MENTION** | Statyczny mock, `NOISE=128/TRACKERS=37` zahardkodowane; nie shipowany | Nigdy nie pokazuj jako „żywy popup" |
 | `build/llm-*-profile/**` | repo | **KILL** | Profile przeglądarki = bloat + nośnik tokenu | `.gitignore` + usuń z historii |
 | Model picker w dashboardzie | `AiDeepDiveCard.tsx:142-162` @ `dashboard.tsx:287` | **REPAIR** | `disabled` na zawsze (brak `onSelectModel`) | Przekaż handler albo ukryj |
 | `debugger` permission | `package.json` | **DEMO ONLY** | Żółty banner; maksymalny trust; wartość Kat. 3 znikoma | Rozważ usunięcie na demo |

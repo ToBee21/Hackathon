@@ -1,6 +1,6 @@
 # End-User License Agreement (EULA)
 
-**Product:** Cloak & Dagger — a privacy and data-sovereignty browser extension (Chrome MV3).
+**Product:** PrivacyMyst — a privacy and data-sovereignty browser extension (Chrome MV3).
 **Provider:** [PROVIDER / LEGAL ENTITY] ("Provider", "we", "us"), author "Hackathon Signal:Noise Team".
 **Effective date:** [EFFECTIVE DATE]
 **Contact:** [CONTACT EMAIL]
@@ -14,7 +14,7 @@
 
 ## 1. Acceptance
 
-By installing or using Cloak & Dagger (the "Software") you agree to this EULA, the
+By installing or using PrivacyMyst (the "Software") you agree to this EULA, the
 [Terms of Service](TERMS_OF_SERVICE.md), the [Privacy Policy](PRIVACY_POLICY.md),
 and the [Disclaimer & Limitation of Liability](DISCLAIMER_AND_LIABILITY.md). If you
 do not agree, do not install or use the Software.
@@ -62,7 +62,7 @@ have been **modified** from the original `google/gemma-3-1b-it` checkpoint —
 quantized to q4f16 and exported to ONNX — as noted in the shipped notices. Google
 may restrict (remotely or otherwise) usage of Gemma that Google reasonably
 believes violates the Gemma Terms of Use or the Gemma Prohibited Use Policy or any
-applicable law. Cloak & Dagger is not affiliated with, authorized by, or endorsed
+applicable law. PrivacyMyst is not affiliated with, authorized by, or endorsed
 by Google; "Gemma" and "Google" are named here solely for factual attribution.
 
 ### 4.2 HaGeZi DNS blocklist data (GPL-3.0)
@@ -107,7 +107,7 @@ model derivative to:**
    educational, documentary, or artistic purposes.
 
 These restrictions are in addition to, and do not limit, any other acceptable-use
-terms in the [Terms of Service](TERMS_OF_SERVICE.md). Cloak & Dagger's own
+terms in the [Terms of Service](TERMS_OF_SERVICE.md). PrivacyMyst's own
 features (local risk classification and ad-image detection) are designed for the
 consenting user's self-protection and must not be repurposed in violation of the
 above.

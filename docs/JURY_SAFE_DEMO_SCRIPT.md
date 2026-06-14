@@ -1,4 +1,4 @@
-# Jury-Safe Demo Script  -  Cloak & Dagger
+# Jury-Safe Demo Script  -  PrivacyMyst
 
 > Sprzedaj projekt bez kłamstwa. Każde zdanie poniżej jest poparte kodem
 > (zob. [HACKATHON_REPO_TRUTH_AUDIT.md](./HACKATHON_REPO_TRUTH_AUDIT.md)).
@@ -8,7 +8,7 @@
 
 ## 20-Second Pitch
 
-> „Cloak & Dagger to **lokalna warstwa świadomości prywatności**. Czyta bieżącą stronę na Twoim urządzeniu, rozpoznaje treści podatne na profilowanie  -  zdrowie psychiczne, długi, sprawy medyczne  -  i na takich stronach **realnie odcina agresywny tracking**: zdejmuje parametry atrybucji `gclid/fbclid/utm`, zatruwa ciasteczka śledzące i blokuje hosty reklamowe dla tej strony. Treść strony **nigdy nie opuszcza przeglądarki**."
+> „PrivacyMyst to **lokalna warstwa świadomości prywatności**. Czyta bieżącą stronę na Twoim urządzeniu, rozpoznaje treści podatne na profilowanie  -  zdrowie psychiczne, długi, sprawy medyczne  -  i na takich stronach **realnie odcina agresywny tracking**: zdejmuje parametry atrybucji `gclid/fbclid/utm`, zatruwa ciasteczka śledzące i blokuje hosty reklamowe dla tej strony. Treść strony **nigdy nie opuszcza przeglądarki**."
 
 ---
 

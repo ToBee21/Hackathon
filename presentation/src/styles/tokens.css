@@ -1,0 +1,82 @@
+/* ============================================================
+   PrivacyMyst — Design Tokens
+   Style: black / white / deep red, editorial, high-contrast.
+   No gradients-as-decoration, no emoji, no glow slop.
+   ============================================================ */
+:root {
+  /* --- surfaces (near-black, layered) --- */
+  --bg-0: #07080a;
+  --bg-1: #0c0e12;
+  --bg-2: #12151b;
+  --bg-3: #191d25;
+  --surface-line: #232831;
+  --surface-line-strong: #333a46;
+
+  /* --- ink --- */
+  --ink-0: #f3f1ea; /* primary warm white */
+  --ink-1: #c7c9ce; /* secondary */
+  --ink-2: #8b9099; /* muted */
+  --ink-3: #5b616b; /* faint / captions */
+
+  /* --- accent: deep red --- */
+  --red: #d8352b;
+  --red-bright: #ff4a3d;
+  --red-deep: #8f1f1a;
+  --red-wash: rgba(216, 53, 43, 0.12);
+
+  /* --- restrained secondary (steel) for comparison series only --- */
+  --steel: #6f8fa6;
+  --steel-dim: #41525f;
+
+  /* --- chart palette --- */
+  --c-primary: var(--red);
+  --c-secondary: var(--steel);
+  --c-grid: #20242c;
+  --c-axis: #4a505b;
+
+  /* --- typography --- */
+  --font-display: "Georgia", "Times New Roman", "Iowan Old Style", serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Menlo", monospace;
+
+  /* type scale (editorial, modular ~1.28) */
+  --t-display: clamp(2.8rem, 7vw, 6.2rem);
+  --t-h1: clamp(2.1rem, 4.6vw, 3.6rem);
+  --t-h2: clamp(1.5rem, 2.8vw, 2.2rem);
+  --t-h3: 1.28rem;
+  --t-body: 1.05rem;
+  --t-small: 0.9rem;
+  --t-micro: 0.74rem;
+
+  /* spacing scale (8px base) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+
+  /* borders / radius */
+  --radius-0: 0px;
+  --radius-1: 2px;
+  --radius-2: 6px;
+  --border-hair: 1px solid var(--surface-line);
+  --border-strong: 1px solid var(--surface-line-strong);
+
+  /* shadows (used sparingly, as depth not decoration) */
+  --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.6);
+  --shadow-2: 0 18px 50px -22px rgba(0, 0, 0, 0.85);
+
+  /* easing tokens */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-cinema: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* layout */
+  --maxw: 1180px;
+  --gutter: clamp(20px, 5vw, 88px);
+}

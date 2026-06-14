@@ -1,5 +1,5 @@
 // scripts/verify-tracker-block.mjs
-// DOWÓD NA WIZJĘ: pokazuje, że Cloak & Dagger REALNIE odcina grube ryby
+// DOWÓD NA WIZJĘ: pokazuje, że PrivacyMyst REALNIE odcina grube ryby
 // (DoubleClick / Google Analytics / Meta Pixel / Amazon Ads / TikTok / Hotjar …),
 // a nie tylko "udaje" w UI. Mechanizm: declarativeNetRequest action:"block" →
 // żądanie kończy się `net::ERR_BLOCKED_BY_CLIENT`. To samo CDP/Network widzi jury.
@@ -55,7 +55,7 @@ const HOSTS = [
 ]
 
 const PROBE_PAGE = `<!doctype html><html lang="pl"><head><meta charset="utf-8"/>
-<title>Cloak & Dagger — dowód odcięcia trackerów</title>
+<title>PrivacyMyst — dowód odcięcia trackerów</title>
 <style>
   body{margin:0;background:#070a0d;color:#eef4f8;font:14px -apple-system,Segoe UI,Roboto,sans-serif;padding:28px}
   h1{font-size:18px;margin:0 0 4px} .sub{color:#6e7a85;font-size:12px;margin-bottom:18px}
@@ -65,7 +65,7 @@ const PROBE_PAGE = `<!doctype html><html lang="pl"><head><meta charset="utf-8"/>
   .dot{width:9px;height:9px;border-radius:50%;background:#5b6670}
 </style></head><body>
 <h1>🛰️ Strona-dowód — strzela pikselami do 15 hostów reklamowych</h1>
-<div class="sub">Cloak &amp; Dagger blokuje je regułą declarativeNetRequest (action:"block"). Status uzupełniany z warstwy sieciowej (CDP).</div>
+<div class="sub">PrivacyMyst blokuje je regułą declarativeNetRequest (action:"block"). Status uzupełniany z warstwy sieciowej (CDP).</div>
 <div id="list"></div>
 <script>
   const HOSTS=${JSON.stringify(HOSTS)};
@@ -207,7 +207,7 @@ if (before && after) {
   }).join("")
   const blockedAfter = Object.values(after).filter((v) => v.s === "BLOCKED").length
   const html = `<!doctype html><html lang="pl"><head><meta charset="utf-8"/>
-<title>Dowód: Cloak & Dagger odcina grube ryby</title><style>
+<title>Dowód: PrivacyMyst odcina grube ryby</title><style>
   body{margin:0;background:#070a0d;color:#eef4f8;font:14px -apple-system,Segoe UI,Roboto,sans-serif}
   .wrap{max-width:1000px;margin:0 auto;padding:34px}
   h1{font-size:24px;margin:0 0 6px} .sub{color:#6e7a85;margin-bottom:18px}
@@ -223,7 +223,7 @@ if (before && after) {
   .meta b{color:#b8c5cf}
   img{max-width:100%;border:1px solid #1b2733;border-radius:10px;margin-top:18px}
 </style></head><body><div class="wrap">
-  <h1>🗡️ Cloak &amp; Dagger — dowód odcięcia śledzenia (na żywo, CDP)</h1>
+  <h1>🗡️ PrivacyMyst — dowód odcięcia śledzenia (na żywo, CDP)</h1>
   <div class="sub">Te same żądania, dwa stany. Mechanizm: <code>declarativeNetRequest action:"block"</code> → <code>net::ERR_BLOCKED_BY_CLIENT</code>.</div>
   <div class="verdict">${ok ? "✓ PEWNIK POTWIERDZONY" : "⚠ WYNIK NIEPEŁNY (sprawdź sieć/demo)"} — PO: ${blockedAfter}/${HOSTS.length} hostów ODCIĘTYCH</div>
   <table><thead><tr><th>Tracker</th><th>Host</th><th>PRZED (zwykła strona)</th><th>PO (strona wrażliwa)</th><th>Dowód sieciowy</th></tr></thead>

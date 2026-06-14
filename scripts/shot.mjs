@@ -1,4 +1,4 @@
-// scripts/shot.mjs — screenshot the running Cloak & Dagger popup for verification.
+// scripts/shot.mjs — screenshot the running PrivacyMyst popup for verification.
 // The extension id is auto-resolved from the live install (never hardcoded).
 // Usage: node scripts/shot.mjs [extId] [port]   (both optional)
 import { createRequire } from "node:module"

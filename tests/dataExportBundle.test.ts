@@ -23,7 +23,7 @@ describe("buildDataExport — bundle shape", () => {
     const bundle = buildDataExport(baseInput())
     expect(bundle.schema).toBe("cloak-dagger/data-export")
     expect(bundle.schemaVersion).toBe(1)
-    expect(bundle.app).toBe("Cloak & Dagger")
+    expect(bundle.app).toBe("PrivacyMyst")
     expect(bundle.appVersion).toBe("1.2.3")
   })
 

@@ -98,7 +98,7 @@ function Licenses() {
           Licencje i atrybucje
         </h1>
         <p style={{ color: "#8aa0a0", fontSize: 13, lineHeight: 1.6, marginTop: 8 }}>
-          Cloak &amp; Dagger uruchamia całą analizę lokalnie i dystrybuuje
+          PrivacyMyst uruchamia całą analizę lokalnie i dystrybuuje
           poniższe komponenty stron trzecich (modele AI, runtime, biblioteki,
           listy blokujące) zgodnie z ich licencjami. Pełny dokument:{" "}
           <span
@@ -252,7 +252,7 @@ function Licenses() {
             (SmolVLM, Transformers.js), Alibaba (Qwen), Microsoft (ONNX Runtime,
             DeBERTa), Meta (React), zespoły three.js / Plasmo / Tailwind, autorzy
             list HaGeZi i Phishing.Database oraz autorzy korpusów MultiNLI i SNLI.
-            Cloak &amp; Dagger nie jest powiązane z, autoryzowane ani wspierane przez
+            PrivacyMyst nie jest powiązane z, autoryzowane ani wspierane przez
             żadną z tych organizacji — ich nazwy podano wyłącznie jako rzetelną
             atrybucję wymaganą przez licencje.
           </p>

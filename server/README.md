@@ -1,6 +1,6 @@
 # Blocklist command-centre (update server)
 
-Self-hosted, signed update channel for the Cloak & Dagger blocklist data layer.
+Self-hosted, signed update channel for the PrivacyMyst blocklist data layer.
 The server is a **dumb static host** for two files — `bundle.signed.json` and
 `manifest.json`. All trust lives in the **Ed25519 signature** the client checks,
 not in the server. The signing key never touches the public box.

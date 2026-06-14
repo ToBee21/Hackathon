@@ -91,7 +91,7 @@ export default function SidePanel() {
     <div style={wrap}>
       <header style={{ borderBottom: "1px solid #1c2b36", paddingBottom: 10, marginBottom: 12 }}>
         <div style={{ fontSize: 11, letterSpacing: "0.18em", color: "#2BD4C4", textTransform: "uppercase" }}>
-          Cloak &amp; Dagger
+          PrivacyMyst
         </div>
         <div style={{ fontSize: 15, fontWeight: 600, color: "#E6EDF3" }}>Page Audit</div>
         <div style={{ fontSize: 11, color: "#6b7a85", marginTop: 2 }}>

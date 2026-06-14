@@ -363,7 +363,7 @@ function buildBubble(): HTMLElement {
   bubble.setAttribute("tabindex", "0")
   bubble.setAttribute(
     "aria-label",
-    `Cloak & Dagger  -  ${lastRisk ? `ryzyko ${lastRisk.score}` : "otwórz panel"}`
+    `PrivacyMyst  -  ${lastRisk ? `ryzyko ${lastRisk.score}` : "otwórz panel"}`
   )
   bubble.textContent = lastRisk ? String(lastRisk.score) : "CD"
   const open = () => {
@@ -387,7 +387,7 @@ function buildPanel(): HTMLElement {
   panel.className = "panel"
   panel.setAttribute("data-cloak-dagger", "panel")
   panel.setAttribute("role", "dialog")
-  panel.setAttribute("aria-label", "Cloak & Dagger panel")
+  panel.setAttribute("aria-label", "PrivacyMyst panel")
 
   const page = lastPage
   const header = document.createElement("div")
@@ -395,7 +395,7 @@ function buildPanel(): HTMLElement {
   header.innerHTML = `
     <span class="dot" style="background:${LEVEL_COLOR[currentLevel()]}"></span>
     <span class="grow">
-      <span class="ttl">Cloak &amp; Dagger</span><br/>
+      <span class="ttl">PrivacyMyst</span><br/>
       <span class="sub">${escapeHtml(page ? describePage(page) : "skanuję…")}</span>
     </span>`
   const minBtn = iconButton("-", "Minimalizuj", () => {

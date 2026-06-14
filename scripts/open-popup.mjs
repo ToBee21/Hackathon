@@ -1,5 +1,5 @@
 // scripts/open-popup.mjs — attach to a running (remote-debugged) browser and open
-// Cloak & Dagger's popup. The extension id is auto-resolved from the live install
+// PrivacyMyst's popup. The extension id is auto-resolved from the live install
 // (never hardcoded — a baked-in id points at a stale/dead extension after rebuild).
 // Usage: node scripts/open-popup.mjs [extId] [port]   (both optional)
 import { createRequire } from "node:module"

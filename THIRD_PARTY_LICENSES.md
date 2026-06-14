@@ -1,8 +1,8 @@
 # Third-Party Licenses and Attributions
 
-**Product:** Cloak & Dagger — a privacy and data-sovereignty browser extension (Chrome MV3, built with Plasmo).
+**Product:** PrivacyMyst — a privacy and data-sovereignty browser extension (Chrome MV3, built with Plasmo).
 
-Cloak & Dagger is publicly distributed and **redistributes the third-party components listed below** (bundled local AI model weights, ML runtimes, JavaScript libraries, DNS/phishing blocklist data, and build tooling whose output ships inside the package). For every component we **comply with the applicable license terms**: we retain all required copyright, attribution, and notice texts; we ship a copy of (or a durable link to) each governing license; where a component was modified (e.g. ONNX quantization) we mark it as a change; and we pass through every redistribution condition imposed by the upstream license. The exact required notice text for each component is reproduced verbatim below.
+PrivacyMyst is publicly distributed and **redistributes the third-party components listed below** (bundled local AI model weights, ML runtimes, JavaScript libraries, DNS/phishing blocklist data, and build tooling whose output ships inside the package). For every component we **comply with the applicable license terms**: we retain all required copyright, attribution, and notice texts; we ship a copy of (or a durable link to) each governing license; where a component was modified (e.g. ONNX quantization) we mark it as a change; and we pass through every redistribution condition imposed by the upstream license. The exact required notice text for each component is reproduced verbatim below.
 
 Three obligations deserve special attention up front:
 
@@ -48,7 +48,7 @@ All four shipped model artifacts are **q4f16 / int8 ONNX** weights bundled insid
   Gemma is provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms
   ```
 
-- **Gemma Terms of Use — redistribution obligations (Section 3.1).** Because Cloak & Dagger Distributes Gemma (other than via a Hosted Service), all four conditions apply:
+- **Gemma Terms of Use — redistribution obligations (Section 3.1).** Because PrivacyMyst Distributes Gemma (other than via a Hosted Service), all four conditions apply:
   1. **§3.1.1** — Include the Section 3.2 use restrictions as an enforceable provision in our governing agreement / ToS, AND give downstream users notice that they apply.
   2. **§3.1.2** — Provide every recipient a copy of the Gemma Terms of Use ("the Agreement").
   3. **§3.1.3** — Cause any modified files to carry prominent notices that they were modified. (The q4f16 ONNX conversion is a modification and is marked as such.)
@@ -107,13 +107,13 @@ All four shipped model artifacts are **q4f16 / int8 ONNX** weights bundled insid
 
 ### sensitivity-distil-minilm (page-sensitivity classifier — first-party model, derived from Apache-2.0 upstreams)
 
-- **Source / version:** First-party model trained by the Cloak & Dagger team (`training/`); int8 ONNX under `assets/models/sensitivity-distil-minilm/`. A single-pass MiniLM-L6 multi-label classifier produced by **knowledge distillation**. **Student/base model:** `sentence-transformers/all-MiniLM-L6-v2` (Apache-2.0). **Teacher (soft labels distilled into the weights):** `cross-encoder/nli-deberta-v3-small` (Apache-2.0; same MNLI/SNLI lineage as the NLI entry above).
-- **SPDX license:** First-party weights, distributed under the Cloak & Dagger product license; the inherited upstream obligations are `Apache-2.0` (base) with the MNLI/SNLI attribution/share-alike chain propagating through the teacher's soft labels.
+- **Source / version:** First-party model trained by the PrivacyMyst team (`training/`); int8 ONNX under `assets/models/sensitivity-distil-minilm/`. A single-pass MiniLM-L6 multi-label classifier produced by **knowledge distillation**. **Student/base model:** `sentence-transformers/all-MiniLM-L6-v2` (Apache-2.0). **Teacher (soft labels distilled into the weights):** `cross-encoder/nli-deberta-v3-small` (Apache-2.0; same MNLI/SNLI lineage as the NLI entry above).
+- **SPDX license:** First-party weights, distributed under the PrivacyMyst product license; the inherited upstream obligations are `Apache-2.0` (base) with the MNLI/SNLI attribution/share-alike chain propagating through the teacher's soft labels.
 - **Source URLs:** https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2 · https://huggingface.co/cross-encoder/nli-deberta-v3-small
 - **Required attribution / notice (verbatim):**
 
   ```
-  sensitivity-distil-minilm — first-party single-pass page-sensitivity classifier (int8 ONNX), trained by the Cloak & Dagger team via knowledge distillation.
+  sensitivity-distil-minilm — first-party single-pass page-sensitivity classifier (int8 ONNX), trained by the PrivacyMyst team via knowledge distillation.
 
   Base / student model (Apache License 2.0): "sentence-transformers/all-MiniLM-L6-v2". Licensed under the Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0). Source: https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
   Teacher model whose soft labels were distilled into these weights (Apache License 2.0): "cross-encoder/nli-deberta-v3-small". Source: https://huggingface.co/cross-encoder/nli-deberta-v3-small

@@ -80,7 +80,7 @@ export const ATTRIBUTIONS: readonly Attribution[] = [
     name: "sensitivity-distil-minilm",
     component: "Local AI model (first-party page-sensitivity classifier, int8 ONNX)",
     category: "Local AI models",
-    license: "First-party (Cloak & Dagger); derived from Apache-2.0 upstreams",
+    license: "First-party (PrivacyMyst); derived from Apache-2.0 upstreams",
     spdx: "Apache-2.0 AND MIT AND CC-BY-SA-4.0 AND CC-BY-SA-3.0 AND CC-BY-3.0",
     url: "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2",
     attribution:

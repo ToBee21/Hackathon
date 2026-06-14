@@ -1,19 +1,19 @@
 # Privacy Policy
 
-**Product:** Cloak & Dagger (Chrome MV3 browser extension)
+**Product:** PrivacyMyst (Chrome MV3 browser extension)
 **Provider:** [PROVIDER / LEGAL ENTITY] ("we", "us"), author "Hackathon Signal:Noise Team".
 **Effective date:** [EFFECTIVE DATE]
 **Contact:** [CONTACT EMAIL]
 
 > A posted privacy policy is **mandatory** for any Chrome Web Store extension that
 > "handles" user data, where Google defines "handle" as *collecting, transmitting,
-> using, OR sharing* — so this policy applies even though Cloak & Dagger processes
+> using, OR sharing* — so this policy applies even though PrivacyMyst processes
 > everything locally and transmits nothing. (Chrome Web Store User Data FAQ /
 > Privacy / Disclosure Requirements policies.)
 
 ## 1. Summary (the short version)
 
-**Cloak & Dagger does not collect, transmit, sell, rent, or share any of your data.**
+**PrivacyMyst does not collect, transmit, sell, rent, or share any of your data.**
 It has **no servers and no telemetry.** Everything the extension does — risk
 classification, the AI vision ad-image detector, tracker/cookie hardening, email
 aliasing, honeypot tests — runs **entirely on your own device**, inside your
@@ -54,7 +54,7 @@ The "nothing leaves your device" guarantee depends on the absence of any
 off-device transmission. Under EU ePrivacy Directive Art. 5(3) (as interpreted by
 EDPB Guidelines 2/2023, §3.2), purely local production of information is **out of
 scope**, but *sending any result back over the network to a server* would
-constitute "gaining of access" and re-engage the law. Cloak & Dagger is
+constitute "gaining of access" and re-engage the law. PrivacyMyst is
 architected to never make that transmission. The optional, signed **blocklist
 update** mechanism (if enabled) only downloads a public, signed blocklist file
 from its source; it does **not** upload anything about you. We will update this
@@ -73,10 +73,10 @@ for no other purpose.
 
 The use of any information accessed by this extension adheres to the
 [Chrome Web Store User Data Policy](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq),
-including the Limited Use requirements. Cloak & Dagger uses information solely to
+including the Limited Use requirements. PrivacyMyst uses information solely to
 provide and improve its single user-facing purpose (local privacy protection) and
 does not transfer, sell, or use such information for any unrelated purpose,
-advertising, or creditworthiness/lending. (Cloak & Dagger uses **no** Google APIs;
+advertising, or creditworthiness/lending. (PrivacyMyst uses **no** Google APIs;
 this statement is provided for completeness and to satisfy the Limited Use
 disclosure obligation that attaches to handling page content.)
 

@@ -1,6 +1,6 @@
 # Chrome Web Store — publishing & compliance checklist
 
-Use this when submitting Cloak & Dagger to the Chrome Web Store. Every item below
+Use this when submitting PrivacyMyst to the Chrome Web Store. Every item below
 is grounded in a cited Chrome Web Store program policy (see `build/legal-research.md`).
 
 ## 1. Privacy policy (MANDATORY)
@@ -32,7 +32,7 @@ is grounded in a cited Chrome Web Store program policy (see `build/legal-researc
       privacy policy (it is included in [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md) §6):
       *"The use of information received from Google APIs will adhere to the Chrome
       Web Store User Data Policy, including the Limited Use requirements."*
-      (Cloak & Dagger uses no Google APIs; the statement is published for
+      (PrivacyMyst uses no Google APIs; the statement is published for
       completeness because the extension handles page content.)
 
 ## 4. Permissions — narrowest necessary, with justifications
@@ -57,7 +57,7 @@ justification in the listing or an "about page").
 
 - [ ] Name Google, Gemma, Hugging Face, Alibaba, Microsoft, Meta, etc. **only
       factually for attribution** (as the licenses require). Do **not** imply that
-      Cloak & Dagger is authorized, endorsed, or produced by Google or any of them
+      PrivacyMyst is authorized, endorsed, or produced by Google or any of them
       (CWS Impersonation policy). Avoid "official", "powered by Google", or logos
       used as endorsement. A factual "Built with Google Gemma (under the Gemma
       Terms of Use)" line is fine.

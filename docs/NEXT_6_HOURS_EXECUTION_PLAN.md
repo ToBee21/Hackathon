@@ -1,4 +1,4 @@
-# Next 6 Hours Execution Plan  -  Cloak & Dagger
+# Next 6 Hours Execution Plan  -  PrivacyMyst
 
 > Cel: zmaksymalizować realną wartość dla jury Kategorii 3, NIE objętość kodu.
 > Wejście: [HACKATHON_REPO_TRUTH_AUDIT.md](./HACKATHON_REPO_TRUTH_AUDIT.md) · [SLOP_KILL_LIST.md](./SLOP_KILL_LIST.md).
@@ -46,7 +46,7 @@ Musi pozostać stabilne (NIE dotykać bez testu):
 * **Entropy Drop:** albo napraw mount (`<ShadowAudit profileId={profileId} customBucket={customBucket} />`), albo ukryj „po masce", zostaw tylko realny odczyt. (`dashboard.tsx:344`)
 * **Toast „Max Camo aktywny":** zmień copy na „Ryzyko wysokie  -  wzmocniono obronę" (nie twierdź aktywacji). (`pageAlert.ts:83`)
 * **Etykiety StatCard / `trackersBlockedCount`:** nie nazywaj „zablokowane"; rozdziel poison vs blok lub etykieta neutralna „zdarzenia obronne". (`StatCards.tsx`)
-* **Nie pokazuj** `cloak-and-dagger-preview.html` jako żywego popupu; nie otwieraj `chrome://`/`file://` (debugger banner).
+* **Nie pokazuj** `privacymyst-preview.html` jako żywego popupu; nie otwieraj `chrome://`/`file://` (debugger banner).
 * **(Opcjonalnie, niskie ryzyko) skasuj martwy kod** dla higieny prezentacji: `src/shared/aiDeepDive/{runModel,localLlm,localNli}.ts`, martwe API w `storage.ts`. *Tylko jeśli zostanie czas i po `tsc --noEmit`.*
 
 ### Priority 0-bis (BLOKUJĄCE, zrób NAJPIERW): token SimpleLogin

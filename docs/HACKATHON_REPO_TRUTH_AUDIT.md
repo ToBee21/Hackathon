@@ -1,4 +1,4 @@
-# Hackathon Repo Truth Audit  -  Cloak & Dagger
+# Hackathon Repo Truth Audit  -  PrivacyMyst
 
 > Autopsja repozytorium przed demem dla jury. Tylko kod, runtime, build, testy.
 > Data: 2026-06-14 · Branch: `feat/ai-deep-dive-risk` · HEAD: `21fc3c5`
@@ -72,7 +72,7 @@
 | Duplikat silnika AI | `runModel/localLlm/localNli` w `src/shared/aiDeepDive/` | nieimportowane | **DEAD_CODE** | Duplikat `offscreen.js`; sugeruje (błędnie) inferencję w content-script |
 | Build system | `plasmo build` → `build/chrome-mv3-prod` | exit 0 | **REAL** | `build/llm-*-profile` = śmieci (profile przeglądarki + token w cache) |
 | Testy | 60/60 vitest; Playwright specs | wykonano | **REAL** | Testy nie pokrywają montażu ShadowAudit (fałszywie zielone) |
-| Demo HTML | `cloak-and-dagger-preview.html` (mock), `bionic-blur-proof.html` (realny) | `demo/*` | **MOCKED / REAL** | Preview: `NOISE=128, TRACKERS=37` zahardkodowane; nie shipowany |
+| Demo HTML | `privacymyst-preview.html` (mock), `bionic-blur-proof.html` (realny) | `demo/*` | **MOCKED / REAL** | Preview: `NOISE=128, TRACKERS=37` zahardkodowane; nie shipowany |
 | Token API (leak) | `saveApiToken("simplelogin","bkfwey…")` | `src/background.ts:1003` (HEAD) | **BROKEN / LEAK** | Patrz „Technical Risk" |
 
 ---
@@ -161,4 +161,4 @@
 * **The real project is:** lokalna warstwa świadomości prywatności + realne odcinanie trackerów  -  czyta bieżącą stronę on-device, rozpoznaje kontekst podatny na profilowanie i na wrażliwych stronach **strippuje parametry atrybucji, zatruwa ciasteczka trackerów i blokuje hosty reklamowe per-origin**, z opcjonalnym lokalnym re-rankiem AI. Wszystko bez wysyłania treści strony poza przeglądarkę.
 * **The fake project is:** „AI-powered system anonimizacji, który zatruwa Twój profil reklamowy, maskuje biometrię behawioralną i mierzy Twoją prywatność wynikiem"  -  Privacy Score, DataGhost-jako-anonimizacja, keystroke-masking i działające aliasy e-mail to teatr lub półprawdy.
 * **The highest-value salvage path:** wyciąć/ukryć fałszywe metryki, podpiąć guard pod auto-skaner, naprawić token, i postawić demo na Flow 1 (wykrycie → odcięcie trackerów) + Flow 4 (strip/cookie) + opcjonalnie Flow 2 (lokalny NLI) jako „wisienka".
-* **The one sentence pitch:** *„Cloak & Dagger to lokalna warstwa świadomości prywatności: czyta bieżącą stronę na urządzeniu, rozpoznaje treści podatne na profilowanie i na wrażliwych stronach realnie odcina trackery  -  strip parametrów atrybucji, zatrucie ciasteczek śledzących i blackout hostów reklamowych  -  bez wysyłania treści strony poza przeglądarkę."*
+* **The one sentence pitch:** *„PrivacyMyst to lokalna warstwa świadomości prywatności: czyta bieżącą stronę na urządzeniu, rozpoznaje treści podatne na profilowanie i na wrażliwych stronach realnie odcina trackery  -  strip parametrów atrybucji, zatrucie ciasteczek śledzących i blackout hostów reklamowych  -  bez wysyłania treści strony poza przeglądarkę."*

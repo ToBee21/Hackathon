@@ -287,7 +287,7 @@ export default function Dashboard() {
       const appVersion = ext?.runtime?.getManifest?.().version ?? "0.1.0"
       const bundle = await collectDataExport({ shadowAudit, appVersion })
       const stamp = bundle.exportedAt.slice(0, 19).replace(/[:T]/g, "-")
-      downloadJson(`cloak-and-dagger-moje-dane-${stamp}.json`, serializeDataExport(bundle))
+      downloadJson(`privacymyst-moje-dane-${stamp}.json`, serializeDataExport(bundle))
       const n = bundle.redactedKeys.length
       addLog({
         timestamp: Date.now(),
@@ -324,7 +324,7 @@ export default function Dashboard() {
             </span>
             <div className="leading-tight">
               <h1 className="text-[15px] font-semibold tracking-tight text-fg-hi">
-                Cloak <span className="text-fg-low">&amp;</span> Dagger
+                PrivacyMyst
               </h1>
               <p className="text-[9px] uppercase tracking-[0.16em] text-fg-low">
                 Privacy Intelligence Dashboard
