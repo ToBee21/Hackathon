@@ -22,7 +22,19 @@ export type AgeBand = "teen" | "young-adult" | "adult" | "senior"
 export type HardwareTier = "budget" | "office" | "powerhouse"
 
 /** Cyfrowe pochodzenie — steruje strefą czasową i językami przeglądarki. */
-export type OriginId = "us" | "uk" | "pl" | "de" | "jp" | "br"
+export type OriginId =
+  | "us"
+  | "uk"
+  | "pl"
+  | "de"
+  | "jp"
+  | "br"
+  | "ch"
+  | "th"
+  | "ro"
+  | "mt"
+  | "pt"
+  | "kr"
 
 /** Obszary tematyczne szumu sieciowego (tagi zainteresowań). */
 export type InterestId =
@@ -35,18 +47,19 @@ export type InterestId =
   | "sport"
   | "travel"
   | "gambling"
+  | "automotive"
 
 export type ArchetypeId =
-  // Domyślne
-  | "nomad"
-  | "shark"
-  | "gamer"
   | "granny"
-  // Specjalne
-  | "ghost"
-  | "influencer"
-  | "hacker"
-  | "everyman"
+  | "connoisseur"
+  | "worldcitizen"
+  | "shark"
+  | "hero"
+  | "hermit"
+  | "roulette"
+  | "petwhisperer"
+  | "wavecatcher"
+  | "gamer"
 
 /** Pełna konfiguracja wirtualnej tożsamości — jedyne źródło prawdy UI. */
 export interface VirtualIdentityConfig {
@@ -206,6 +219,63 @@ export const ORIGINS: readonly OriginSpec[] = [
     languages: ["pt-BR", "pt", "en"],
     timezone: "America/Sao_Paulo",
     timezoneOffsetMinutes: 180
+  },
+  {
+    id: "ch",
+    label: "Szwajcaria · Zurych",
+    code: "CH",
+    locale: "de-CH",
+    languages: ["de-CH", "de", "en"],
+    timezone: "Europe/Zurich",
+    timezoneOffsetMinutes: -60
+  },
+  {
+    id: "th",
+    label: "Tajlandia",
+    code: "TH",
+    // Anglojęzyczna ekspatka — locale en-US, choć strefa azjatycka.
+    locale: "en-US",
+    languages: ["en-US", "en"],
+    timezone: "Asia/Bangkok",
+    timezoneOffsetMinutes: -420
+  },
+  {
+    id: "ro",
+    label: "Rumunia · węzeł Tor/VPN",
+    code: "RO",
+    // Wymuszony en-US dla anonimowości (Tor Browser).
+    locale: "en-US",
+    languages: ["en-US", "en"],
+    timezone: "Europe/Bucharest",
+    timezoneOffsetMinutes: -120
+  },
+  {
+    id: "mt",
+    label: "Malta",
+    code: "MT",
+    // Polski gracz operujący z Malty — język pozostaje pl-PL.
+    locale: "pl-PL",
+    languages: ["pl-PL", "pl", "en"],
+    timezone: "Europe/Malta",
+    timezoneOffsetMinutes: -60
+  },
+  {
+    id: "pt",
+    label: "Portugalia",
+    code: "PT",
+    locale: "pt-PT",
+    languages: ["pt-PT", "pt", "en"],
+    timezone: "Europe/Lisbon",
+    timezoneOffsetMinutes: 0
+  },
+  {
+    id: "kr",
+    label: "Korea Południowa",
+    code: "KR",
+    locale: "ko-KR",
+    languages: ["ko-KR", "ko", "en"],
+    timezone: "Asia/Seoul",
+    timezoneOffsetMinutes: -540
   }
 ] as const
 
@@ -275,8 +345,32 @@ export const INTERESTS: readonly InterestSpec[] = [
     label: "Hazard",
     noiseCategories: ["finance"],
     weight: { wealth: 8 }
+  },
+  {
+    id: "automotive",
+    label: "Motoryzacja",
+    noiseCategories: ["technology", "hobbies"],
+    weight: { tech: 8, mobility: 10 }
   }
 ] as const
+
+/**
+ * Jawny odcisk sprzętowy nadpisujący wartości pochodne z tieru/origin. Pozwala
+ * odwzorować dokładny „Profil dla trackerów" ze specyfikacji (GPU/ekran/platforma),
+ * bez rozbijania trzystopniowego suwaka sprzętu. Pola opcjonalne — brak = wartość z tieru.
+ */
+export interface FingerprintOverride {
+  /** Czytelna nazwa GPU pokazywana w podglądzie. */
+  gpu: string
+  webglVendor: string
+  webglRenderer: string
+  screen: { width: number; height: number }
+  /** navigator.platform — np. "MacIntel", "Linux x86_64", "Linux armv8l". */
+  platform?: string
+  cores?: number
+  deviceMemory?: number
+  maxTouchPoints?: number
+}
 
 export interface Archetype {
   id: ArchetypeId
@@ -284,112 +378,244 @@ export interface Archetype {
   tagline: string
   category: "default" | "special"
   config: Omit<VirtualIdentityConfig, "archetypeId">
+  /** Klucz modelu 3D mapowany na URL w warstwie React (brak → sylwetka SVG). */
+  model3d?: string
+  /** Jawny odcisk trackera (GPU/ekran/platforma) ze specyfikacji. */
+  fingerprint?: FingerprintOverride
+  /** Jawne statystyki pochodne (0–100) zamiast heurystyki deriveStats. */
+  stats?: IdentityStats
 }
 
-/** Gotowe postacie. „default" = realistyczne, „special" = ekstremalne/taktyczne. */
+/**
+ * Galeria 10 profili person ze specyfikacji „Ślad cyfrowy i jego zaciemnianie".
+ * Każdy ma model 3D (poza Hardcore Gamerem — sylwetka SVG), jawny odcisk trackera
+ * oraz docelowe statystyki Zamożność/Technika/Mobilność.
+ */
 export const ARCHETYPES: readonly Archetype[] = [
-  {
-    id: "nomad",
-    name: "Cyfrowy Nomada",
-    tagline: "Freelancer w ciągłej podróży",
-    category: "default",
-    config: {
-      gender: "female",
-      ageBand: "young-adult",
-      hardware: "office",
-      origin: "uk",
-      interests: ["travel", "tech", "cooking"]
-    }
-  },
-  {
-    id: "shark",
-    name: "Rekin Finansjery",
-    tagline: "Inwestor z apetytem na luksus",
-    category: "default",
-    config: {
-      gender: "male",
-      ageBand: "adult",
-      hardware: "powerhouse",
-      origin: "us",
-      interests: ["finance", "luxury", "travel"]
-    }
-  },
-  {
-    id: "gamer",
-    name: "Hardcore Gamer",
-    tagline: "Nastolatek przy maszynie do gier",
-    category: "default",
-    config: {
-      gender: "male",
-      ageBand: "teen",
-      hardware: "powerhouse",
-      origin: "de",
-      interests: ["gaming", "tech", "sport"]
-    }
-  },
   {
     id: "granny",
     name: "Babcia w Sieci",
     tagline: "Emerytka na starym laptopie",
     category: "default",
+    model3d: "grandma",
+    stats: { wealth: 48, tech: 12, mobility: 24 },
     config: {
       gender: "female",
       ageBand: "senior",
       hardware: "budget",
       origin: "pl",
-      interests: ["cooking", "pets", "finance"]
+      interests: ["finance", "cooking", "pets"]
     }
   },
   {
-    id: "ghost",
-    name: "Widmo",
-    tagline: "Maksymalny szum, zero wzorca",
-    category: "special",
+    id: "connoisseur",
+    name: "Milioner",
+    tagline: "Koneser luksusu",
+    category: "default",
+    model3d: "koneser",
+    stats: { wealth: 99, tech: 60, mobility: 85 },
+    fingerprint: {
+      gpu: "Apple M3 Max",
+      webglVendor: "Apple",
+      webglRenderer: "ANGLE (Apple, Apple M3 Max, OpenGL 4.1)",
+      screen: { width: 3456, height: 2234 },
+      platform: "MacIntel",
+      cores: 16,
+      deviceMemory: 8
+    },
     config: {
       gender: "male",
       ageBand: "adult",
-      hardware: "office",
-      origin: "jp",
-      interests: ["finance", "tech", "luxury", "gaming", "sport", "travel", "gambling"]
+      hardware: "powerhouse",
+      origin: "ch",
+      interests: ["luxury", "finance", "travel"]
     }
   },
   {
-    id: "influencer",
-    name: "Influencer Lux",
-    tagline: "Życie w blasku fleszy",
-    category: "special",
+    id: "worldcitizen",
+    name: "Podróżniczka",
+    tagline: "Z laptopem pod azjatyckimi palmami",
+    category: "default",
+    model3d: "obywatelka",
+    stats: { wealth: 65, tech: 80, mobility: 95 },
+    fingerprint: {
+      gpu: "Intel Iris Xe Graphics",
+      webglVendor: "Google Inc. (Intel)",
+      webglRenderer:
+        "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0)",
+      screen: { width: 1920, height: 1080 }
+    },
     config: {
       gender: "female",
       ageBand: "young-adult",
-      hardware: "powerhouse",
-      origin: "us",
-      interests: ["luxury", "travel", "sport"]
+      hardware: "office",
+      origin: "th",
+      interests: ["travel", "tech", "sport"]
     }
   },
   {
-    id: "hacker",
-    name: "Haker z Piwnicy",
-    tagline: "Linux, kawa i terminal",
-    category: "special",
-    config: {
-      gender: "male",
-      ageBand: "young-adult",
-      hardware: "powerhouse",
-      origin: "de",
-      interests: ["tech", "gaming", "finance"]
-    }
-  },
-  {
-    id: "everyman",
-    name: "Zwykły Kowalski",
-    tagline: "Najczęstszy profil — rozpływa się w tłumie",
+    id: "shark",
+    name: "Inwestor",
+    tagline: "Inwestor z apetytem na luksus",
     category: "default",
+    model3d: "rekin",
+    stats: { wealth: 90, tech: 85, mobility: 20 },
+    fingerprint: {
+      gpu: "NVIDIA RTX A4000",
+      webglVendor: "Google Inc. (NVIDIA)",
+      webglRenderer:
+        "ANGLE (NVIDIA, NVIDIA RTX A4000 Direct3D11 vs_5_0 ps_5_0)",
+      screen: { width: 3840, height: 2160 },
+      cores: 16,
+      deviceMemory: 8
+    },
     config: {
       gender: "male",
       ageBand: "adult",
+      hardware: "powerhouse",
+      origin: "uk",
+      interests: ["finance", "tech", "gambling"]
+    }
+  },
+  {
+    id: "hero",
+    name: "Strażak",
+    tagline: "Zawsze w gotowości, żyje w biegu",
+    category: "default",
+    model3d: "bohater",
+    stats: { wealth: 55, tech: 45, mobility: 80 },
+    fingerprint: {
+      gpu: "Adreno 730",
+      webglVendor: "Qualcomm",
+      webglRenderer: "Adreno (TM) 730",
+      screen: { width: 1080, height: 2400 },
+      platform: "Linux armv8l",
+      cores: 8,
+      deviceMemory: 8,
+      maxTouchPoints: 5
+    },
+    config: {
+      gender: "male",
+      ageBand: "young-adult",
       hardware: "office",
-      origin: "us",
-      interests: ["cooking", "sport", "finance"]
+      origin: "pl",
+      interests: ["sport", "automotive", "tech"]
+    }
+  },
+  {
+    id: "hermit",
+    name: "Jaskiniowiec",
+    tagline: "Człowiek z jaskini",
+    category: "default",
+    model3d: "pustelnik",
+    stats: { wealth: 30, tech: 98, mobility: 10 },
+    fingerprint: {
+      gpu: "llvmpipe (WebGL zablokowany)",
+      webglVendor: "Mesa",
+      webglRenderer: "llvmpipe (LLVM 15.0.6, 256 bits)",
+      screen: { width: 1366, height: 768 },
+      platform: "Linux x86_64",
+      cores: 4,
+      deviceMemory: 4
+    },
+    config: {
+      gender: "male",
+      ageBand: "adult",
+      hardware: "budget",
+      origin: "ro",
+      interests: ["tech"]
+    }
+  },
+  {
+    id: "roulette",
+    name: "Król Ruletki",
+    tagline: "Nocny łowca jackpotów i darmowych spinów",
+    category: "default",
+    model3d: "krol",
+    stats: { wealth: 40, tech: 60, mobility: 40 },
+    fingerprint: {
+      gpu: "AMD Radeon RX 580",
+      webglVendor: "Google Inc. (AMD)",
+      webglRenderer:
+        "ANGLE (AMD, AMD Radeon RX 580 Direct3D11 vs_5_0 ps_5_0)",
+      screen: { width: 1920, height: 1080 }
+    },
+    config: {
+      gender: "male",
+      ageBand: "young-adult",
+      hardware: "office",
+      origin: "mt",
+      interests: ["gambling", "finance", "sport"]
+    }
+  },
+  {
+    id: "petwhisperer",
+    name: "Miłośniczka Zwierząt",
+    tagline: "Algorytm zasypany słodkimi kotkami",
+    category: "default",
+    model3d: "zaklinacz",
+    stats: { wealth: 45, tech: 35, mobility: 60 },
+    fingerprint: {
+      gpu: "Intel UHD Graphics 620",
+      webglVendor: "Google Inc. (Intel)",
+      webglRenderer:
+        "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0)",
+      screen: { width: 1536, height: 864 }
+    },
+    config: {
+      gender: "female",
+      ageBand: "young-adult",
+      hardware: "budget",
+      origin: "pl",
+      interests: ["pets", "cooking", "travel"]
+    }
+  },
+  {
+    id: "wavecatcher",
+    name: "Surfer",
+    tagline: "Wyluzowany poszukiwacz dobrego wiatru",
+    category: "default",
+    model3d: "lapacz",
+    stats: { wealth: 60, tech: 50, mobility: 90 },
+    fingerprint: {
+      gpu: "Apple M1",
+      webglVendor: "Apple",
+      webglRenderer: "ANGLE (Apple, Apple M1, OpenGL 4.1)",
+      screen: { width: 2560, height: 1600 },
+      platform: "MacIntel",
+      cores: 8,
+      deviceMemory: 8
+    },
+    config: {
+      gender: "male",
+      ageBand: "young-adult",
+      hardware: "office",
+      origin: "pt",
+      interests: ["sport", "travel", "luxury"]
+    }
+  },
+  {
+    id: "gamer",
+    name: "Gamer",
+    tagline: "Prawdziwy komputerowiec",
+    category: "default",
+    model3d: "gamer",
+    stats: { wealth: 35, tech: 75, mobility: 15 },
+    fingerprint: {
+      gpu: "NVIDIA GeForce RTX 3060",
+      webglVendor: "Google Inc. (NVIDIA)",
+      webglRenderer:
+        "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0)",
+      screen: { width: 2560, height: 1440 },
+      cores: 12,
+      deviceMemory: 8
+    },
+    config: {
+      gender: "male",
+      ageBand: "teen",
+      hardware: "powerhouse",
+      origin: "kr",
+      interests: ["gaming", "tech", "sport"]
     }
   }
 ] as const
@@ -401,8 +627,8 @@ const ARCHETYPE_BY_ID = new Map<ArchetypeId, Archetype>(
 // --- Wartości domyślne i lookupy -------------------------------------------
 
 export const DEFAULT_IDENTITY: VirtualIdentityConfig = {
-  archetypeId: "everyman",
-  ...ARCHETYPES.find((a) => a.id === "everyman")!.config
+  archetypeId: "granny",
+  ...ARCHETYPES.find((a) => a.id === "granny")!.config
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -487,17 +713,24 @@ export function deriveStats(config: VirtualIdentityConfig): IdentityStats {
 export function identityToProfileBucket(config: VirtualIdentityConfig): ProfileBucket {
   const hw = getHardwareSpec(config.hardware)
   const origin = getOriginSpec(config.origin)
+  // Jawny odcisk z archetypu (jeśli aktywny) nadpisuje wartości pochodne z tieru,
+  // dzięki czemu profil wstrzykiwany do sieci odpowiada specyfikacji 1:1.
+  const fp =
+    config.archetypeId !== "custom"
+      ? getArchetype(config.archetypeId)?.fingerprint
+      : undefined
+  const screen = fp?.screen ?? hw.screen
   return {
     locale: origin.locale,
     timezone: origin.timezone,
     timezoneOffsetMinutes: origin.timezoneOffsetMinutes,
-    platform: "Win32",
-    screen: { ...hw.screen },
-    hardwareConcurrency: hw.cores,
-    deviceMemory: hw.deviceMemory,
-    maxTouchPoints: 0,
-    webglVendor: hw.webglVendor,
-    webglRenderer: hw.webglRenderer
+    platform: fp?.platform ?? "Win32",
+    screen: { width: screen.width, height: screen.height, colorDepth: 24 },
+    hardwareConcurrency: fp?.cores ?? hw.cores,
+    deviceMemory: fp?.deviceMemory ?? hw.deviceMemory,
+    maxTouchPoints: fp?.maxTouchPoints ?? 0,
+    webglVendor: fp?.webglVendor ?? hw.webglVendor,
+    webglRenderer: fp?.webglRenderer ?? hw.webglRenderer
   }
 }
 
