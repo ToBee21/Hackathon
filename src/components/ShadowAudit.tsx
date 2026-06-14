@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 
-import { Fingerprint } from "./icons"
+import { ChevronDown, Fingerprint } from "./icons"
 import { getProfilePreset } from "../shared/bionicBlurCore"
 import {
   collectShadowProfile,
@@ -183,6 +183,7 @@ export default function ShadowAudit({
 }: ShadowAuditProps) {
   const [profile, setProfile] = useState<ShadowProfile | null>(null)
   const [inferred, setInferred] = useState<InferredProfile | null>(null)
+  const [open, setOpen] = useState(false)
 
   const scan = useCallback(() => {
     try {
@@ -221,19 +222,30 @@ export default function ShadowAudit({
   return (
     <div className="overflow-hidden rounded-xl bg-surface-1 shadow-card">
       <div className="flex items-center justify-between border-b border-line px-3 py-2">
-        <div className="flex items-center gap-1.5">
-          <Fingerprint size={13} className="text-accent" />
-          <span className="text-micro uppercase text-fg-mid">Cień cyfrowy · audyt</span>
-        </div>
         <button
           type="button"
-          onClick={scan}
-          className="font-mono text-[10px] uppercase tracking-wide text-fg-low transition-colors hover:text-fg-mid">
-          skanuj
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex items-center gap-1.5 text-fg-mid transition-colors hover:text-fg-hi">
+          <ChevronDown
+            size={13}
+            className="text-fg-low transition-transform duration-base"
+            style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
+          />
+          <Fingerprint size={13} className="text-accent" />
+          <span className="text-micro uppercase">Cień cyfrowy · audyt</span>
         </button>
+        {open && (
+          <button
+            type="button"
+            onClick={scan}
+            className="font-mono text-[10px] uppercase tracking-wide text-fg-low transition-colors hover:text-fg-mid">
+            skanuj
+          </button>
+        )}
       </div>
 
-      {profile && rarity ? (
+      {open && (profile && rarity ? (
         <div className="p-3">
           <div className="mb-2.5 flex items-center justify-between">
             <p className="text-micro uppercase text-fg-low">Rozpoznawalność</p>
@@ -310,7 +322,7 @@ export default function ShadowAudit({
           <Fingerprint size={22} className="text-fg-low opacity-40" />
           <p className="text-[11px] text-fg-low">Audyt niedostępny w tym kontekście</p>
         </div>
-      )}
+      ))}
     </div>
   )
 }

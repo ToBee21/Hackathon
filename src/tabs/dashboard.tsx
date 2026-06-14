@@ -12,7 +12,7 @@ import {
 
 import AiDeepDiveCard from "../components/AiDeepDiveCard"
 import CyberRadar, { type HoneypotEvent } from "../components/CyberRadar"
-import { Crosshair, Filter, Lock, Logo, Mail, ShieldCheck, ShieldOff } from "../components/icons"
+import { ChevronDown, Lock, Logo, Mail, ShieldCheck, ShieldOff } from "../components/icons"
 import LoggerView from "../components/LoggerView"
 import ModuleToggles from "../components/ModuleToggles"
 import PanicButton from "../components/PanicButton"
@@ -117,6 +117,7 @@ export default function Dashboard() {
   const [honeypotEvents, setHoneypotEvents] = useState<HoneypotEvent[]>([])
   const [identity, setIdentity] = useState<VirtualIdentityConfig>(DEFAULT_IDENTITY)
   const [activeIdentity, setActiveIdentity] = useState<VirtualIdentityConfig | null>(null)
+  const [identityOpen, setIdentityOpen] = useState(false)
 
   const addLog = useCallback((entry: Omit<LogEntry, "id">) => {
     setLogs((prev) => {
@@ -226,17 +227,6 @@ export default function Dashboard() {
     }
   }, [addLog])
 
-  const handleHoneypotTest = useCallback(() => {
-    ext?.runtime?.sendMessage({ type: "TRIGGER_HONEYPOT_TEST" } as RuntimeMessage)
-    addLog({ timestamp: Date.now(), source: "honeypot", message: "Wysłano wabik do Google Analytics — czekam na zatrucie…" })
-  }, [addLog])
-
-  // Test: wymusza blackout trackerów na aktywnej karcie (bez czekania na AI).
-  const handleTargetingTest = useCallback(() => {
-    ext?.runtime?.sendMessage({ type: "TRIGGER_TARGETING_TEST" } as unknown as RuntimeMessage)
-    addLog({ timestamp: Date.now(), source: "system", message: "Targeting Shield: wymuszono blackout trackerów na aktywnej karcie" })
-  }, [addLog])
-
   const handleIdentityChange = useCallback((next: VirtualIdentityConfig) => {
     setIdentity(next)
     ext?.storage?.local?.set({ [STORAGE_KEY_VIRTUAL_IDENTITY]: next })
@@ -292,7 +282,8 @@ export default function Dashboard() {
     >
       <div className="console-grid" />
 
-      <div className="relative z-[1] flex flex-col gap-0">
+      {/* pr-10 rezerwuje miejsce na stały uchwyt panelu Wirtualnej Tożsamości */}
+      <div className="relative z-[1] flex flex-col gap-0 pr-10">
         {/* Top bar */}
         <header className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
           <div className="flex items-center gap-3">
@@ -340,7 +331,7 @@ export default function Dashboard() {
         </header>
 
         {/* Main content — 3-column grid */}
-        <div className="grid gap-6 p-6" style={{ gridTemplateColumns: "300px 1fr 300px" }}>
+        <div className="grid gap-6 p-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-[300px_1fr_300px]">
 
           {/* Left column — controls */}
           <div className="flex flex-col gap-4">
@@ -353,28 +344,6 @@ export default function Dashboard() {
               onToggleAiMode={handleToggleAiDeepDiveMode}
             />
             <ModuleToggles toggles={toggles} onToggle={handleToggle} />
-            {toggles.honeypot && (
-              <button
-                type="button"
-                onClick={handleHoneypotTest}
-                className="flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-[11px] font-medium transition-colors hover:bg-white/[0.03]"
-                style={{ borderColor: "#FF5C7A55", color: "#FF5C7A" }}
-              >
-                <Crosshair size={13} />
-                Testuj Honeypot · wyślij wabik do trackera
-              </button>
-            )}
-            {toggles.targetingShield && (
-              <button
-                type="button"
-                onClick={handleTargetingTest}
-                className="flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-[11px] font-medium transition-colors hover:bg-white/[0.03]"
-                style={{ borderColor: "#3DD4A055", color: "#3DD4A0" }}
-              >
-                <Filter size={13} />
-                Testuj Targeting Shield · blackout tej strony
-              </button>
-            )}
           </div>
 
           {/* Center — Radar */}
@@ -445,15 +414,47 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Pełnoszerokościowy kreator wirtualnej tożsamości */}
-        <div className="px-6 pb-8">
-          <VirtualIdentityStudio
-            value={identity}
-            activeConfig={activeIdentity}
-            onChange={handleIdentityChange}
-            onApply={handleIdentityApply}
-          />
+      </div>
+
+      {/* Wysuwany panel: Wirtualna Tożsamość — prawa krawędź, rozwija się w lewo */}
+      {identityOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={() => setIdentityOpen(false)}
+        />
+      )}
+      <div className="fixed inset-y-0 right-0 z-50 flex">
+        <div
+          className="h-full overflow-hidden transition-[width] duration-300 ease-standard"
+          style={{ width: identityOpen ? "min(900px, 92vw)" : "0px" }}>
+          <div className="h-full w-[min(900px,92vw)] overflow-y-auto border-l border-line bg-[#0A0B0E] p-4 shadow-raised">
+            <VirtualIdentityStudio
+              value={identity}
+              activeConfig={activeIdentity}
+              onChange={handleIdentityChange}
+              onApply={handleIdentityApply}
+            />
+          </div>
         </div>
+
+        {/* Uchwyt na prawej krawędzi */}
+        <button
+          type="button"
+          onClick={() => setIdentityOpen((o) => !o)}
+          aria-expanded={identityOpen}
+          title="Wirtualna Tożsamość"
+          className="flex h-full w-10 flex-col items-center justify-center gap-3 border-l border-line bg-surface-2 text-fg-mid transition-colors hover:text-fg-hi">
+          <ChevronDown
+            size={16}
+            className="transition-transform"
+            style={{ transform: identityOpen ? "rotate(-90deg)" : "rotate(90deg)" }}
+          />
+          <span
+            className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+            style={{ writingMode: "vertical-rl" }}>
+            Wirtualna Tożsamość
+          </span>
+        </button>
       </div>
 
       <div className="grain-layer" />
