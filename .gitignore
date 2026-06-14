@@ -41,3 +41,23 @@ test-results/
 # Package manager locks (keep only one)
 # yarn.lock
 # pnpm-lock.yaml
+
+# --- Secrets — NEVER commit (signing keys, env, certs) ---
+*.pem
+*.key
+*.p12
+*.pfx
+.secrets/
+**/.secrets/
+*.signed.json
+.env
+.env.*
+
+# --- Large local model weights (placed/downloaded at build time, not in git) ---
+# Keep small tracked assets (e.g. grandma.stl) but ignore multi-GB weight dirs.
+/assets/models/*/
+
+# --- Local backups / scratch ---
+*.bak.js
+*.OLD.*
+*.bak

@@ -6,9 +6,9 @@
 // cache; any future first-download flow must be explicit user consent.
 
 import {
-  AI_DEEP_DIVE_GEMMA_MODEL_ID,
-  AI_DEEP_DIVE_LLM_JSON_MODEL_ID,
-  AI_DEEP_DIVE_NLI_MODEL_ID
+  AI_DEEP_DIVE_GEMMA3_1B_MODEL_ID,
+  AI_DEEP_DIVE_NLI_MODEL_ID,
+  AI_DEEP_DIVE_QWEN35_08B_MODEL_ID
 } from "./nliLabels"
 
 export type AiDeepDiveModelTask =
@@ -44,34 +44,38 @@ export const AI_DEEP_DIVE_MODELS: readonly AiDeepDiveModelOption[] = [
     label: "NLI DeBERTa-small (najlżejszy)",
     task: "zero-shot-classification",
     modelId: AI_DEEP_DIVE_NLI_MODEL_ID,
+    localModelId: "nli-deberta-v3-small",
     dtypeWebgpu: "fp16",
-    dtypeWasm: "q4",
-    approxDownloadMb: 180,
+    dtypeWasm: "q8",
+    approxDownloadMb: 165,
     license: "MIT",
-    note: "Zero-shot. Najszybszy start, zero pobierania LLM."
+    note: "Zero-shot na CPU/WASM. W pakiecie offline (~165 MB), bez WebGPU. Domyślny."
   },
   {
-    id: "granite-350m",
-    label: "Granite 4.0 350M (LLM-JSON, lekki)",
+    id: "gemma-3-1b",
+    label: "Gemma 3 1B (LLM-JSON, pewny)",
     task: "text-generation",
-    modelId: AI_DEEP_DIVE_LLM_JSON_MODEL_ID,
-    dtypeWebgpu: "q4",
-    dtypeWasm: "q4",
-    approxDownloadMb: 250,
-    license: "Apache-2.0",
-    note: "Generatywny JSON. Dobry kompromis jakość/rozmiar."
-  },
-  {
-    id: "gemma-4-e2b",
-    label: "Gemma 4 E2B (LLM-JSON, mocny)",
-    task: "text-generation",
-    modelId: AI_DEEP_DIVE_GEMMA_MODEL_ID,
-    localModelId: "gemma-4-e2b",
+    modelId: AI_DEEP_DIVE_GEMMA3_1B_MODEL_ID,
+    localModelId: "gemma-3-1b",
     dtypeWebgpu: "q4f16",
-    dtypeWasm: "q4",
-    approxDownloadMb: 3460,
-    license: "Apache-2.0 (Gemma 4)",
-    note: "Najlepsze rozumowanie. Wagi są w pakiecie extension; wymaga WebGPU."
+    dtypeWasm: "q4f16",
+    approxDownloadMb: 763,
+    license: "Gemma Terms of Use",
+    note:
+      "Text-only, ~0.76 GB w pakiecie. Jedna sesja ONNX, ładuje się czysto na WebGPU — rekomendowany LLM-JSON."
+  },
+  {
+    id: "qwen3-5-08b",
+    label: "Qwen3.5 0.8B (LLM-JSON, najnowszy)",
+    task: "text-generation",
+    modelId: AI_DEEP_DIVE_QWEN35_08B_MODEL_ID,
+    localModelId: "qwen3-5-08b-text",
+    dtypeWebgpu: "q4f16",
+    dtypeWasm: "q4f16",
+    approxDownloadMb: 470,
+    license: "Apache-2.0",
+    note:
+      "Text-only, ~0.47 GB. Najnowszy (mar 2026), Apache-2.0, lżejszy od Gemmy. Wymaga WebGPU."
   }
 ] as const
 

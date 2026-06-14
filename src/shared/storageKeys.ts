@@ -12,6 +12,8 @@ export const STORAGE_KEYS = {
   aiDeepDiveConfig: "cnd:ai-deep-dive:config",
   /** Per-origin floating-window UI state (collapsed, position, disabled). */
   floating: "cnd:floating",
+  /** Global on/off for the on-page floating panel (advanced settings). */
+  floatingEnabled: "cnd:floating:enabled",
   /** Last computed page analysis per tab, for the side panel to read. */
   lastAnalysis: "cnd:last-analysis"
 } as const

@@ -1,0 +1,37 @@
+# ════════════════════════════════════════════════════════════════════════
+# Cloak & Dagger blocklist update channel — snippet for the PORTFOLIO Caddy.
+#
+# Paste this INSIDE the (portfolio_app) snippet in the portfolio Caddyfile,
+# ABOVE the default `handle { reverse_proxy app:3000 }` catch-all. Caddy handle
+# blocks are first-match, so /blocklist/* must be declared before the catch-all
+# (the source-artifact sinkhole does NOT match /blocklist/*, so order vs it is
+# irrelevant). Then mount the artifact dir into the caddy container:
+#
+#   # docker-compose.yml, caddy.volumes:
+#   - /srv/blocklist:/srv/blocklist:ro
+#
+# This box holds NO signing key. Releases are signed OFF-BOX and the two files
+# (bundle.signed.json, manifest.json) are published into /srv/blocklist.
+# ════════════════════════════════════════════════════════════════════════
+
+handle /blocklist/* {
+	root * /srv
+	header {
+		# Public, signed, credential-free data — wildcard CORS is safe and lets
+		# the extension service-worker read the body.
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+		Access-Control-Allow-Headers "If-None-Match, If-Modified-Since"
+		# Short edge TTL; clients also send conditional GETs (ETag/If-None-Match).
+		Cache-Control "public, max-age=300"
+		X-Content-Type-Options "nosniff"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	@bl_options method OPTIONS
+	respond @bl_options 204
+
+	# file_server emits ETag + Last-Modified -> 304 on conditional GET.
+	file_server
+}

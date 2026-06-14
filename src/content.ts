@@ -4,6 +4,8 @@ import mainWorldScriptUrl from "url:./contents/bionic-blur-main"
 
 import { initializeAiDeepDiveContent } from "./content/aiDeepDive/contentEntry"
 import { initFloatingWindow } from "./content/floatingWindow"
+import { initLinkGuard } from "./content/linkGuard"
+import { initMailGuard } from "./content/mailGuard"
 import {
   DEFAULT_BIONIC_BLUR_CONFIG,
   buildPrivacyProfile
@@ -108,6 +110,8 @@ async function initializeBridge(): Promise<void> {
 
   initializeAiDeepDiveContent(sendRuntimeMessage)
   void initFloatingWindow()
+  initLinkGuard()
+  initMailGuard()
 }
 
 async function refreshConfig(): Promise<void> {

@@ -20,15 +20,13 @@ const input = {
   path: "/demo"
 }
 
-const granite = getModelOption("granite-350m")
-const gemma = getModelOption("gemma-4-e2b")
+const gemma3 = getModelOption("gemma-3-1b")
 
 describe("AI Deep-Dive local LLM-JSON adapter", () => {
-  it("keeps Granite and Gemma selectable as WebGPU LLM models", () => {
-    expect(granite.task).toBe("text-generation")
-    expect(granite.dtypeWebgpu).toBe("q4")
-    expect(gemma.task).toBe("text-generation")
-    expect(gemma.dtypeWebgpu).toBe("q4f16")
+  it("keeps Gemma 3 1B selectable as the bundled WebGPU LLM model", () => {
+    expect(gemma3.task).toBe("text-generation")
+    expect(gemma3.dtypeWebgpu).toBe("q4f16")
+    expect(gemma3.localModelId).toBe("gemma-3-1b")
   })
 
   it("tries fp16 immediately after q4 for WebGPU kernel fallback", () => {
@@ -118,12 +116,12 @@ describe("AI Deep-Dive local LLM-JSON adapter", () => {
           { category: "religion", score: 10 }
         ]
       },
-      gemma
+      gemma3
     )
 
     expect(fused.model).toEqual({
       mode: "heuristic+llm-json",
-      id: gemma.modelId,
+      id: gemma3.modelId,
       localOnly: true
     })
     expect(fused.rawTextRetained).toBe(false)

@@ -10,6 +10,7 @@
 import { initHoneypotTrap } from "./shared/honeypot"
 import { initCookieShredder } from "./shared/cookieShredder"
 import { initTargetingShield } from "./shared/targetingShield"
+import { initBlocklist, initBlocklistUpdates } from "./shared/blocklist"
 import { buildKeywordBatchCore, sanitizeTopics } from "./shared/dataGhost/keywordBatch"
 import { generateAlias } from "./shared/emailAlias"
 import type {
@@ -36,6 +37,13 @@ void initCookieShredder()
 // Moduł: "Targeting Shield"  -  strip atrybucji (gclid/fbclid/utm) + per-origin
 // blackout trackerów na wrażliwych stronach (eskalacja z AI Deep-Dive).
 void initTargetingShield()
+
+// Moduł: "Blocklist DB"  -  baseline blokowanie z feedów (license-clean) +
+// risk-adaptive scorched-earth na wrażliwych stronach + provenance.
+void initBlocklist()
+// Okresowy, podpisany update bundla z command-centre (signature + anti-rollback
+// + last-known-good). No-op bez chrome.alarms / klucza publicznego.
+initBlocklistUpdates()
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -610,8 +618,8 @@ let offscreenSetup: Promise<boolean> | null = null
 const OFFSCREEN_DOCUMENT_PATH = "assets/offscreen/offscreen.html"
 const OFFSCREEN_INFERENCE_TIMEOUTS_MS: Record<string, number> = {
   "nli-deberta-small": 4 * MINUTE_MS,
-  "granite-350m": 15 * MINUTE_MS,
-  "gemma-4-e2b": 45 * MINUTE_MS
+  "gemma-3-1b": 10 * MINUTE_MS,
+  "qwen3-5-08b": 10 * MINUTE_MS
 }
 
 async function ensureOffscreen(): Promise<boolean> {

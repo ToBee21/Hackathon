@@ -129,8 +129,6 @@ export function inferContextModelSet(
   model: AiDeepDiveModelOption
 ): AiDeepDiveContextModelSet {
   if (model.task === "zero-shot-classification") return "tiny_nli"
-  if (model.id === "granite-350m") return "small_json_llm"
-  if (model.id === "gemma-4-e2b") return "large_json_llm"
   return "small_json_llm"
 }
 

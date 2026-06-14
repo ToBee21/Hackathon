@@ -1,9 +1,17 @@
 import * as transformers from "../vendor/transformers.web.js"
 
 const AI_DEEP_DIVE_NLI_MODEL_ID = "Xenova/nli-deberta-v3-small"
+// Bundled flat folder under assets/models/ (no "Xenova/" sub-path, so it matches
+// the web_accessible_resources assets/models/*/onnx/* glob and gets copied).
+const AI_DEEP_DIVE_NLI_LOCAL_ID = "nli-deberta-v3-small"
 const AI_DEEP_DIVE_LLM_JSON_MODEL_ID =
   "onnx-community/granite-4.0-350m-ONNX-web"
 const AI_DEEP_DIVE_GEMMA_MODEL_ID = "onnx-community/gemma-4-E2B-it-ONNX"
+const AI_DEEP_DIVE_GEMMA_QAT_MOBILE_MODEL_ID =
+  "onnx-community/gemma-4-E2B-it-qat-mobile-ONNX"
+const AI_DEEP_DIVE_GEMMA3_1B_MODEL_ID = "onnx-community/gemma-3-1b-it-ONNX"
+const AI_DEEP_DIVE_QWEN35_08B_MODEL_ID =
+  "onnx-community/Qwen3.5-0.8B-Text-ONNX"
 const DEFAULT_MODEL_ID = "nli-deberta-small"
 
 const DEFAULT_CONFIG = {
@@ -92,19 +100,20 @@ const MODEL_OPTIONS = [
     dtypeWasm: "q4"
   },
   {
-    id: "granite-350m",
+    id: "gemma-3-1b",
     task: "text-generation",
-    modelId: AI_DEEP_DIVE_LLM_JSON_MODEL_ID,
-    dtypeWebgpu: "q4",
-    dtypeWasm: "q4"
+    modelId: AI_DEEP_DIVE_GEMMA3_1B_MODEL_ID,
+    localModelId: "gemma-3-1b",
+    dtypeWebgpu: "q4f16",
+    dtypeWasm: "q4f16"
   },
   {
-    id: "gemma-4-e2b",
+    id: "qwen3-5-08b",
     task: "text-generation",
-    modelId: AI_DEEP_DIVE_GEMMA_MODEL_ID,
-    localModelId: "gemma-4-e2b",
+    modelId: AI_DEEP_DIVE_QWEN35_08B_MODEL_ID,
+    localModelId: "qwen3-5-08b-text",
     dtypeWebgpu: "q4f16",
-    dtypeWasm: "q4"
+    dtypeWasm: "q4f16"
   }
 ]
 
@@ -617,10 +626,10 @@ async function getLocalNliClassifier() {
       configureTransformersRuntime()
       return transformers.pipeline(
         "zero-shot-classification",
-        AI_DEEP_DIVE_NLI_MODEL_ID,
+        AI_DEEP_DIVE_NLI_LOCAL_ID,
         {
           device: "wasm",
-          dtype: "q4"
+          dtype: "q8"
         }
       )
     })()
@@ -750,8 +759,7 @@ function loadGeneratorForDtype(model, dtype, requestId) {
   return transformers
     .pipeline("text-generation", runtimeModelId, {
       device: "webgpu",
-      dtype: pipelineDtypeForModel(model, dtype),
-      ...(model.id === "gemma-4-e2b" ? { textOnly: true } : {}),
+      dtype,
       progress_callback: createModelProgressLogger(model, requestId, dtype)
     })
     .then((generator) => ({
@@ -766,18 +774,6 @@ function loadGeneratorForDtype(model, dtype, requestId) {
 
 function getRuntimeModelId(model) {
   return model.localModelId ?? model.modelId
-}
-
-function pipelineDtypeForModel(model, dtype) {
-  if (model.id === "gemma-4-e2b" && dtype === "q4f16") {
-    return {
-      embed_tokens: "q4f16",
-      decoder_model_merged: "q4f16",
-      audio_encoder: "q4f16",
-      vision_encoder: "q4f16"
-    }
-  }
-  return dtype
 }
 
 function setBundledModelRuntime() {
@@ -844,7 +840,10 @@ function orderWebGpuDtypes(preferredDtype) {
 }
 
 function orderWebGpuDtypesForModel(model) {
-  if (model.id === "gemma-4-e2b") return [model.dtypeWebgpu]
+  // Bundled local models ship exactly one dtype on disk. Never fall back to a
+  // dtype whose ONNX files are not in the package (that just 404s and confuses
+  // the failure trace). Remote models keep the broader fp16/q4 fallback chain.
+  if (model.localModelId) return [model.dtypeWebgpu]
   return orderWebGpuDtypes(model.dtypeWebgpu)
 }
 
@@ -924,6 +923,15 @@ function configureTransformersRuntime() {
     wasm.wasmPaths = runtimeUrl("assets/onnxruntime/")
     wasm.numThreads = 1
     wasm.proxy = false
+  }
+
+  const webgpu = env?.backends?.onnx?.webgpu
+  if (webgpu) {
+    // Hybrid laptops expose several adapters (virtual display, integrated iGPU,
+    // discrete dGPU). Default WebGPU adapter selection can land on the integrated
+    // or virtual adapter and hard-crash the GPU process while building the ONNX
+    // session for a 1B model. Force the discrete high-performance GPU.
+    webgpu.powerPreference = "high-performance"
   }
 
   if (env) {

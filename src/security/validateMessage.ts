@@ -14,7 +14,11 @@ export const CND_MESSAGE_TYPES = [
 
 const CND_MESSAGE_TYPE_SET = new Set<string>(CND_MESSAGE_TYPES)
 const PAGE_ANALYSIS_SOURCES = new Set(["heuristic", "nli", "llm-json", "fused"])
-const MODEL_IDS = new Set(["nli-deberta-small", "granite-350m", "gemma-4-e2b"])
+const MODEL_IDS = new Set([
+  "nli-deberta-small",
+  "gemma-3-1b",
+  "qwen3-5-08b"
+])
 
 export function isKnownCndMessage(value: unknown): boolean {
   if (!isRecord(value) || !isCndMessageType(value.type)) return false

@@ -1,0 +1,46 @@
+# server/compose.local.yml — LOCAL DOCKER PRESMOKE for the blocklist command-centre.
+#
+#   1) node server/keygen.mjs            # one-time: keypair + paste pub into secureUpdater.ts
+#   2) BUNDLE_VERSION=2 node server/build-bundle.mjs   # sign seed -> server/out/
+#   3) docker compose -f server/compose.local.yml up -d
+#   4) curl http://127.0.0.1:8899/manifest.json
+#   5) npx vitest run tests/blocklistServer.presmoke.test.ts   # client vets it
+#
+# Serves the SAME signed artifact the Hetzner edge will serve, on loopback only.
+# Hardened to match the portfolio stack idiom (cap_drop ALL, read_only, no-new-privileges).
+
+services:
+  blocklist-cdn:
+    image: caddy:2-alpine@sha256:834468128c7696cec0ceea6172f7d692daf645ae51983ca76e39da54a97c570d
+    container_name: cnd-blocklist-cdn
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8899:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./out:/srv/blocklist:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,noexec,nosuid,nodev
+      - /data:size=8m
+      - /config:size=8m
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 64m
+    cpus: 0.25
+    logging:
+      driver: json-file
+      options:
+        max-size: "2m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

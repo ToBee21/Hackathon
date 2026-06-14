@@ -1,6 +1,7 @@
 import { shouldLogAiDeepDiveReport } from "../../shared/aiDeepDive/reportPolicy"
 import type { AiDeepDiveRiskResult } from "../../shared/aiDeepDive/types"
 import { escalateTargetingForOrigin } from "../../shared/targetingShield"
+import { escalateBlocklistForOrigin } from "../../shared/blocklist"
 import { deriveMaxCamoPatch } from "./maxCamoPolicy"
 import { createRateLimiter } from "./rateLimit"
 
@@ -74,6 +75,9 @@ export async function handleAiDeepDiveRiskResult(
   // odetnij wszystkie hosty targetujące dla tego originu. Self-gating + bezpieczne
   // w testach (no-op bez chrome/DNR).
   void escalateTargetingForOrigin(compact.origin, compact.level)
+  // Risk-adaptive blocklist: na wrażliwym originie włącz "escalated" tier feedów
+  // (scorched earth), scoped do tego originu. Self-gating + no-op bez DNR.
+  void escalateBlocklistForOrigin(compact.origin, compact.level)
 
   if (maxCamo && compact.level === "critical") {
     deps.injectNoise(maxCamo.dataGhostBatchSize).catch(() => undefined)

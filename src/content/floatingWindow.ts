@@ -38,6 +38,8 @@ import {
 } from "../shared/featureRegistry"
 import { aiProfilingDetector } from "../shared/features/aiProfilingDetector"
 import { pageExplainer } from "../shared/features/pageExplainer"
+import { linkGuardFeature } from "../shared/features/linkGuardFeature"
+import { mailGuardFeature } from "../shared/features/mailGuardFeature"
 import { registerFeature } from "../shared/featureRegistry"
 import type { DeepScanRuntimeStatus, PageAnalysis } from "../shared/messages"
 import { describePage, type PageContext } from "../shared/pageContextSchema"
@@ -46,6 +48,8 @@ import { buildPageContext } from "./pageContext"
 
 const HOST_ID = "cloak-dagger-floating-root"
 const STORAGE_KEY_FLOATING = "cnd:floating"
+// Global advanced-settings switch for the on-page panel (dashboard toggle).
+const STORAGE_KEY_FLOATING_ENABLED = "cnd:floating:enabled"
 const ext = globalThis.chrome
 
 interface FloatingState {
@@ -88,6 +92,8 @@ const LEVEL_COLOR: Record<CardLevel, string> = {
 // Register the built-in features once per content-script load.
 registerFeature(aiProfilingDetector)
 registerFeature(pageExplainer)
+registerFeature(linkGuardFeature)
+registerFeature(mailGuardFeature)
 
 let hostEl: HTMLElement | null = null
 let shadow: ShadowRoot | null = null
@@ -100,6 +106,7 @@ let llmCollapsed = false
 let activeDeepScanRequestId: string | null = null
 let rerenderQueued = false
 let deepScanStatusListenerInstalled = false
+let floatingEnabledListenerInstalled = false
 
 export async function initFloatingWindow(): Promise<void> {
   if (window.top !== window) return
@@ -110,6 +117,11 @@ export async function initFloatingWindow(): Promise<void> {
     return
   }
 
+  // Honor the global advanced-settings switch, and re-mount/unmount live when it
+  // flips, so toggling the panel never requires a reload.
+  installFloatingEnabledListener()
+  if (!(await isFloatingEnabled())) return
+
   state = await loadState()
   if (state.disabled) return
 
@@ -118,6 +130,57 @@ export async function initFloatingWindow(): Promise<void> {
   scheduleAnalyze()
   installSpaSurvival()
   installSelectionWatcher()
+  installLinkGuardWatcher()
+}
+
+function isFloatingEnabled(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!ext?.storage?.local) return resolve(true)
+    try {
+      ext.storage.local.get({ [STORAGE_KEY_FLOATING_ENABLED]: true }, (res) =>
+        resolve(Boolean(res?.[STORAGE_KEY_FLOATING_ENABLED]))
+      )
+    } catch {
+      resolve(true)
+    }
+  })
+}
+
+function installFloatingEnabledListener(): void {
+  if (floatingEnabledListenerInstalled) return
+  floatingEnabledListenerInstalled = true
+  try {
+    ext?.storage?.onChanged?.addListener((changes, area) => {
+      if (area !== "local" || !changes[STORAGE_KEY_FLOATING_ENABLED]) return
+      const enabled = Boolean(changes[STORAGE_KEY_FLOATING_ENABLED].newValue ?? true)
+      if (enabled) {
+        if (!document.getElementById(HOST_ID) && !state.disabled) {
+          mountHost()
+          scheduleAnalyze()
+        }
+      } else {
+        hostEl?.remove()
+        hostEl = null
+        shadow = null
+      }
+    })
+  } catch {
+    /* storage telemetry unavailable; panel still respects the init-time flag */
+  }
+}
+
+// Link Guard aktualizuje swoje liczniki w pamięci; tu tylko odświeżamy kartę,
+// gdy panel jest otwarty (bez ponownego skanu treści strony).
+function installLinkGuardWatcher(): void {
+  const refresh = () => {
+    if (state.collapsed || !lastPage || lastPage.excluded) return
+    lastCards = sortCards(
+      runActiveFeatures({ page: lastPage, risk: lastRisk ?? classifyHeuristic(extractVisibleTextFromPage()) })
+    )
+    render()
+  }
+  window.addEventListener("cnd:linkguard:update", refresh)
+  window.addEventListener("cnd:mailguard:update", refresh)
 }
 
 // ---------------------------------------------------------------------------

@@ -12,6 +12,7 @@ import {
 
 import AiDeepDiveCard from "../components/AiDeepDiveCard"
 import CyberRadar, { type HoneypotEvent } from "../components/CyberRadar"
+import { FloatingPanelToggle } from "../components/FloatingPanelToggle"
 import { Crosshair, Filter, Lock, Logo, Mail, ShieldCheck, ShieldOff } from "../components/icons"
 import LoggerView from "../components/LoggerView"
 import ModuleToggles from "../components/ModuleToggles"
@@ -351,6 +352,7 @@ export default function Dashboard() {
               onToggleAiMode={handleToggleAiDeepDiveMode}
             />
             <ModuleToggles toggles={toggles} onToggle={handleToggle} />
+            <FloatingPanelToggle />
             {toggles.honeypot && (
               <button
                 type="button"

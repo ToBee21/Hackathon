@@ -1,0 +1,40 @@
+# server/Caddyfile — standalone static server for the blocklist artifact.
+# Used by the LOCAL DOCKER PRESMOKE (compose.local.yml -> 127.0.0.1:8899).
+# Production on Hetzner does NOT use this file; there the existing portfolio
+# Caddy serves /blocklist/* via the snippet in Caddyfile.portfolio-snippet.
+{
+	admin off
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
+	# Edge healthcheck, independent of the artifact.
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	handle {
+		root * /srv/blocklist
+
+		# The bundle is public, signed, read-only, credential-free data, so a
+		# wildcard CORS origin is safe and lets the extension SW read the body.
+		header {
+			Access-Control-Allow-Origin "*"
+			Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+			Access-Control-Allow-Headers "If-None-Match, If-Modified-Since"
+			# Short TTL: clients also send conditional GETs (ETag) on top.
+			Cache-Control "public, max-age=300"
+			X-Content-Type-Options "nosniff"
+			-Server
+		}
+
+		@options method OPTIONS
+		respond @options 204
+
+		# file_server emits ETag + Last-Modified automatically -> conditional GET.
+		file_server
+	}
+}

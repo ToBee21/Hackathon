@@ -300,8 +300,7 @@ async function loadGenerator(
   try {
     generator = await pipeline("text-generation", runtimeModelId, {
       device: requireWebGpu(model),
-      dtype: pipelineDtypeForModel(model, dtype),
-      ...(model.id === "gemma-4-e2b" ? { textOnly: true } : {}),
+      dtype,
       progress_callback: createModelProgressLogger(model)
     })
   } finally {
@@ -313,21 +312,6 @@ async function loadGenerator(
 
 function getRuntimeModelId(model: AiDeepDiveModelOption): string {
   return model.localModelId ?? model.modelId
-}
-
-function pipelineDtypeForModel(
-  model: AiDeepDiveModelOption,
-  dtype: string
-): string | Record<string, string> {
-  if (model.id === "gemma-4-e2b" && dtype === "q4f16") {
-    return {
-      embed_tokens: "q4f16",
-      decoder_model_merged: "q4f16",
-      audio_encoder: "q4f16",
-      vision_encoder: "q4f16"
-    }
-  }
-  return dtype
 }
 
 function configureBundledModelRuntime(transformers: TransformersModule): void {
@@ -433,7 +417,7 @@ export function orderWebGpuDtypeCandidates(
 function orderWebGpuDtypeCandidatesForModel(
   model: AiDeepDiveModelOption
 ): string[] {
-  if (model.id === "gemma-4-e2b") return [model.dtypeWebgpu]
+  if (model.id.startsWith("gemma-4-e2b")) return [model.dtypeWebgpu]
   return orderWebGpuDtypeCandidates(model.dtypeWebgpu)
 }
 

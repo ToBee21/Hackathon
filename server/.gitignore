@@ -1,0 +1,4 @@
+# Never commit signing keys or generated artifacts.
+.secrets/
+out/
+*.signed.json
