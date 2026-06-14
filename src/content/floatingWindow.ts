@@ -40,6 +40,7 @@ import { aiProfilingDetector } from "../shared/features/aiProfilingDetector"
 import { pageExplainer } from "../shared/features/pageExplainer"
 import { linkGuardFeature } from "../shared/features/linkGuardFeature"
 import { mailGuardFeature } from "../shared/features/mailGuardFeature"
+import { dataFootprintFeature } from "../shared/features/dataFootprintFeature"
 import { registerFeature } from "../shared/featureRegistry"
 import type { DeepScanRuntimeStatus, PageAnalysis } from "../shared/messages"
 import { describePage, type PageContext } from "../shared/pageContextSchema"
@@ -94,6 +95,7 @@ registerFeature(aiProfilingDetector)
 registerFeature(pageExplainer)
 registerFeature(linkGuardFeature)
 registerFeature(mailGuardFeature)
+registerFeature(dataFootprintFeature)
 
 let hostEl: HTMLElement | null = null
 let shadow: ShadowRoot | null = null
@@ -498,6 +500,21 @@ function buildFooter(page: PageContext | null): HTMLElement {
     scheduleAnalyze()
   })
   ftr.appendChild(rescanBtn)
+
+  const visionBtn = document.createElement("button")
+  visionBtn.className = "btn ghost"
+  visionBtn.textContent = "Skanuj reklamy (AI vision)"
+  visionBtn.title =
+    "Wykryj i rozmyj obrazki-reklamy lokalnym modelem wizyjnym (skrót: Alt+Shift+V)"
+  visionBtn.setAttribute("data-cloak-dagger", "vision-scan")
+  visionBtn.addEventListener("click", () => {
+    try {
+      ext?.runtime?.sendMessage({ type: "CND_VISION_TRIGGER" })
+    } catch {
+      /* SW may be asleep; best-effort */
+    }
+  })
+  ftr.appendChild(visionBtn)
 
   return ftr
 }

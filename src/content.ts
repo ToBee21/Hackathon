@@ -6,6 +6,7 @@ import { initializeAiDeepDiveContent } from "./content/aiDeepDive/contentEntry"
 import { initFloatingWindow } from "./content/floatingWindow"
 import { initLinkGuard } from "./content/linkGuard"
 import { initMailGuard } from "./content/mailGuard"
+import { initDataFootprint } from "./content/dataFootprintScan"
 import {
   DEFAULT_BIONIC_BLUR_CONFIG,
   buildPrivacyProfile
@@ -112,6 +113,7 @@ async function initializeBridge(): Promise<void> {
   void initFloatingWindow()
   initLinkGuard()
   initMailGuard()
+  initDataFootprint()
 }
 
 async function refreshConfig(): Promise<void> {
