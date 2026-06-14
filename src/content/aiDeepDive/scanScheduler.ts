@@ -3,7 +3,7 @@ export function startAiDeepDiveScanScheduler(runScan: () => void): void {
   let scans = 0
   const maxScansPerPage = 24
 
-  const schedule = (delay = 600) => {
+  const schedule = (delay = 400) => {
     if (scans >= maxScansPerPage) return
     window.clearTimeout(timer)
     timer = window.setTimeout(() => {
@@ -13,14 +13,14 @@ export function startAiDeepDiveScanScheduler(runScan: () => void): void {
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => schedule(250), { once: true })
+    document.addEventListener("DOMContentLoaded", () => schedule(120), { once: true })
   } else {
-    schedule(250)
+    schedule(120)
   }
 
-  window.addEventListener("load", () => schedule(900), { once: true })
+  window.addEventListener("load", () => schedule(450), { once: true })
 
-  const observer = new MutationObserver(() => schedule(1800))
+  const observer = new MutationObserver(() => schedule(1200))
   const startObserver = () => {
     if (!document.body) return
     observer.observe(document.body, {
@@ -42,7 +42,7 @@ function runWhenIdle(callback: () => void): void {
   ).requestIdleCallback
 
   if (idle) {
-    idle(callback, { timeout: 1200 })
+    idle(callback, { timeout: 500 })
     return
   }
 

@@ -8,10 +8,14 @@ import type {
   AiDeepDiveRiskResult
 } from "./types"
 
+// Progi poziomów (score → level). Obniżone względem 25/55/80, by system nieco
+// ostrzej traktował strony wrażliwe i częściej pokazywał powiadomienie — ale
+// wciąż wyważone: neutralne strony zostają „low", a próg „high" (= powiadomienie)
+// pozostaje powyżej typowych, ogólnych treści (newsy/polityka bez sygnałów osobistych).
 const LEVELS = {
-  low: 25,
-  medium: 55,
-  high: 80
+  low: 22,
+  medium: 50,
+  high: 74
 } as const
 
 const CATEGORY_SCORE_FLOOR = 15
@@ -29,9 +33,13 @@ export function classifyHeuristic(input: AiDeepDiveInput): AiDeepDiveRiskResult 
   const meta = normalizeForRisk(input.meta)
   const headings = normalizeForRisk(input.headings)
   const body = normalizeForRisk(input.body)
-  const text = [title, meta, headings, body].filter(Boolean).join(" ").slice(0, 12_000)
+  // Adres strony (host + sekcja ścieżki) bywa najczystszym sygnałem tematu —
+  // np. /zdrowie/depresja. Analizujemy go LOKALNIE; surowy URL nie jest
+  // przechowywany (do raportu trafia tylko jego hash), więc prywatność bez zmian.
+  const locator = buildLocator(input.origin, input.path)
+  const text = [title, meta, headings, body, locator].filter(Boolean).join(" ").slice(0, 12_000)
 
-  const clusterScores = scoreClusters(text, title, headings)
+  const clusterScores = scoreClusters(text, title, headings, locator)
   const categoryScores = scoreCategories(clusterScores)
   const maxCategory = Math.max(0, ...categoryScores.map((entry) => entry.score))
   const emotionalIntentBoost = scoreEmotionalIntent(text)
@@ -54,7 +62,12 @@ export function classifyHeuristic(input: AiDeepDiveInput): AiDeepDiveRiskResult 
   }
 }
 
-function scoreClusters(text: string, title: string, headings: string): ClusterScore[] {
+function scoreClusters(
+  text: string,
+  title: string,
+  headings: string,
+  locator: string
+): ClusterScore[] {
   return RISK_CLUSTERS.map((cluster) => {
     const matches = cluster.terms.filter((term) => hasTerm(text, normalizeForRisk(term))).length
     if (matches === 0) {
@@ -63,7 +76,10 @@ function scoreClusters(text: string, title: string, headings: string): ClusterSc
 
     const titleHit = cluster.terms.some((term) => hasTerm(title, normalizeForRisk(term)))
     const headingHit = cluster.terms.some((term) => hasTerm(headings, normalizeForRisk(term)))
-    const multiplier = titleHit ? 1.35 : headingHit ? 1.2 : 1
+    // Trafienie w adresie strony traktujemy jak nagłówek — mocny, ale nie tak
+    // dominujący jak tytuł. To głównie poprawia trafność wyboru kategorii.
+    const locatorHit = cluster.terms.some((term) => hasTerm(locator, normalizeForRisk(term)))
+    const multiplier = titleHit ? 1.35 : headingHit || locatorHit ? 1.2 : 1
     const diversityBonus = Math.min(12, Math.max(0, matches - 1) * 3)
     const score = clamp(Math.round((cluster.weight + diversityBonus) * multiplier), 0, 70)
 
@@ -99,6 +115,19 @@ function scoreCategories(clusterScores: ClusterScore[]): AiDeepDiveCategoryScore
       }
     })
     .sort((a, b) => b.score - a.score)
+}
+
+/**
+ * Buduje znormalizowany „lokalizator" tematu z hosta i ścieżki (bez schematu i
+ * bez query). Slashe/myślniki stają się spacjami, więc np. host
+ * „zwierciadlo.pl" + ścieżka „/psychologia/depresja-objawy" → tokeny
+ * „zwierciadlo pl psychologia depresja objawy". Surowy URL nie jest zwracany ani
+ * przechowywany — to tylko materiał do dopasowania słów kluczowych.
+ */
+function buildLocator(origin: string, path: string | undefined): string {
+  const host = origin.replace(/^https?:\/\//, "").split(/[/?#]/, 1)[0] ?? ""
+  const pathPart = (path ?? "").split(/[?#]/, 1)[0] ?? ""
+  return normalizeForRisk(`${host} ${pathPart}`)
 }
 
 function hasTerm(text: string, term: string): boolean {

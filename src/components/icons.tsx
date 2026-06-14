@@ -189,6 +189,15 @@ export function Filter(props: IconProps) {
   )
 }
 
+/** Chevron — collapse/expand indicator (rotate for open state). */
+export function ChevronDown(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 9l6 6 6-6" />
+    </Svg>
+  )
+}
+
 /** Fullscreen — expand to four corners. */
 export function Maximize(props: IconProps) {
   return (

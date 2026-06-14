@@ -1,4 +1,5 @@
 import { classifyHeuristic } from "../src/shared/aiDeepDive/score"
+import { shouldShowAiDeepDiveNotification } from "../src/shared/aiDeepDive/reportPolicy"
 
 const baseInput = {
   title: "",
@@ -92,6 +93,48 @@ describe("AI Deep-Dive heuristic scoring", () => {
 
     expect(["medium", "high", "critical"]).toContain(result.level)
     expect(result.categories.map((entry) => entry.category)).toContain("religion")
+  })
+
+  it("URL/host topic signal sharpens the detected category", () => {
+    const result = classifyHeuristic({
+      ...baseInput,
+      origin: "https://zwierciadlo.pl",
+      path: "/psychologia/depresja-objawy",
+      title: "Nieoczywiste objawy, które warto znać",
+      body: "Krótki wstęp redakcyjny do tematu."
+    })
+
+    // Sama sekcja adresu (psychologia/depresja) wystarcza, by trafnie wskazać
+    // zdrowie psychiczne jako temat strony.
+    expect(result.categories[0]?.category).toBe("mental_health")
+  })
+
+  it("nieco ostrzej: wyraźnie wrażliwy temat przekracza próg powiadomienia", () => {
+    const result = classifyHeuristic({
+      ...baseInput,
+      origin: "https://portal.example",
+      path: "/zdrowie/depresja",
+      title: "Jak rozpoznać depresję u bliskiej osoby",
+      headings: "Objawy depresji na co dzień",
+      body: "Artykuł opisuje depresję i jej wpływ na codzienne życie."
+    })
+
+    expect(["high", "critical"]).toContain(result.level)
+    expect(shouldShowAiDeepDiveNotification(result)).toBe(true)
+    expect(result.categories[0]?.category).toBe("mental_health")
+  })
+
+  it("wyważenie: pojedyncza, poboczna wzmianka nie wywołuje powiadomienia", () => {
+    const result = classifyHeuristic({
+      ...baseInput,
+      origin: "https://blog.example",
+      path: "/kuchnia/zupa-pomidorowa",
+      title: "Przepis na zupę pomidorową",
+      body: "Lekki artykuł kulinarny; pada słowo szpital tylko raz, mimochodem."
+    })
+
+    expect(["low", "medium"]).toContain(result.level)
+    expect(shouldShowAiDeepDiveNotification(result)).toBe(false)
   })
 
   it("does not trigger max-camo levels for generic mixed policy news", () => {
