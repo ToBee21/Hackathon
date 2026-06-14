@@ -36,19 +36,33 @@ async function runAiDeepDiveScan(
   try {
     const input = extractVisibleTextFromPage()
     const heuristic = classifyHeuristic(input)
-    const config = await loadAiDeepDiveConfig()
-    let result = heuristic
-    if (shouldRunModel(heuristic, config)) {
-      const deep = await requestDeepScan(input, config, crypto.randomUUID())
-      if (deep.result) result = deep.result
+
+    if (!shouldEmit(heuristic)) return
+
+    // Szybka ścieżka: raport i powiadomienie idą OD RAZU z heurystyki — toast nie
+    // czeka na (opcjonalny) ciężki model, więc pojawia się niemal natychmiast.
+    if (shouldSendAiDeepDiveReport(heuristic)) {
+      sendRuntimeMessage(heuristic)
+    }
+    if (shouldShowAiDeepDiveNotification(heuristic)) {
+      showAiDeepDiveToast(heuristic)
     }
 
-    if (!shouldSendAiDeepDiveReport(result)) return
-    if (!shouldEmit(result)) return
-
-    sendRuntimeMessage(result)
-    if (shouldShowAiDeepDiveNotification(result)) {
-      showAiDeepDiveToast(result)
+    // Doprecyzowanie: gdy tryb AI jest włączony, dolicz model i odśwież raport
+    // (dashboard). Toast pokazujemy ponownie tylko, jeśli model PODNIÓSŁ ryzyko
+    // z poziomu „cichego" do progu powiadomienia — bez dublowania alertu.
+    const config = await loadAiDeepDiveConfig()
+    if (shouldRunModel(heuristic, config)) {
+      const deep = await requestDeepScan(input, config, crypto.randomUUID())
+      if (deep.result && shouldSendAiDeepDiveReport(deep.result)) {
+        sendRuntimeMessage(deep.result)
+        if (
+          !shouldShowAiDeepDiveNotification(heuristic) &&
+          shouldShowAiDeepDiveNotification(deep.result)
+        ) {
+          showAiDeepDiveToast(deep.result)
+        }
+      }
     }
   } catch {
     // The scanner must never break the page or the Bionic bridge.

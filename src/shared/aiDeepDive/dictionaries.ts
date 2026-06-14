@@ -29,7 +29,28 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "stany depresyjne",
       "zaburzenia depresyjne",
       "mysli samobojcze",
-      "samookaleczenie"
+      "samookaleczenie",
+      "zdrowie psychiczne",
+      "mental health",
+      "kryzys emocjonalny"
+    ]
+  },
+  {
+    category: "mental_health",
+    clusterId: "anxiety_burnout",
+    weight: 18,
+    terms: [
+      "anxiety",
+      "anxious",
+      "panic attack",
+      "atak paniki",
+      "nerwica",
+      "wypalenie zawodowe",
+      "burnout",
+      "zaburzenia lekowe",
+      "zaburzenia odzywiania",
+      "bulimia",
+      "anoreksja"
     ]
   },
   {
@@ -157,7 +178,14 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "choroba",
       "objawy",
       "recepta",
-      "terapia"
+      "terapia",
+      "nowotwor",
+      "cukrzyca",
+      "choroba przewlekla",
+      "badania krwi",
+      "szpital",
+      "ciaza",
+      "ciazy"
     ]
   },
   {
@@ -213,7 +241,10 @@ export const RISK_CLUSTERS: RiskCluster[] = [
       "uzaleznienie od alkoholu",
       "narkotyki",
       "hazard",
-      "odwyk"
+      "odwyk",
+      "alkoholizm",
+      "narkomania",
+      "uzaleznienia"
     ]
   },
   {
