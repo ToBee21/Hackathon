@@ -1,57 +1,102 @@
-cloak-and-dagger/
-├── .gitignore                  <-- [Osoba D] Konfiguracja gita (ignorowanie node_modules itp.)
-├── package.json                <-- [Osoba D] Zależności (Plasmo, React, Tailwind)
-├── tsconfig.json               <-- [Osoba D] Konfiguracja kompilatora TypeScript
-├── tailwind.config.js          <-- [Osoba C] Konfiguracja stylów i motywu graficznego UI
-├── SPECS.md                    <-- [CAŁY ZESPÓŁ] Pełna specyfikacja techniczna projektu
-└── src/
-    ├── types.ts                <-- [CAŁY ZESPÓŁ] Interfejsy i typy danych (Wspólny kontrakt)
-    ├── background.ts           <-- [Osoba A] Główny proces w tle (Silnik szumu DataGhost)
-    ├── content.ts              <-- [Osoba B] Skrypt wstrzykiwany na strony WWW (Bionic Blur)
-    ├── popup.tsx               <-- [Osoba C] Punkt wejścia dla interfejsu (React Popup)
-    ├── components/             <-- [Osoba C] Komponenty wizualne interfejsu
-    │   ├── ScoreChart.tsx      <-- [Osoba C] Animowany wykres Privacy Score
-    │   ├── ModuleToggles.tsx   <-- [Osoba C] Przełączniki funkcji ON/OFF
-    │   └── LoggerView.tsx      <-- [Osoba C] Konsola pokazująca akcje w czasie rzeczywistym
-    └── shared/                 <-- [Osoba D] Wspólna logika backendowa i bezpieczeństwo
-        ├── crypto.ts           <-- [Osoba D] Szyfrowanie lokalne (Web Crypto API)
-        ├── emailAlias.ts       <-- [Osoba D] Integracja z API generatora maili (np. Relay/SimpleLogin)
-        └── storage.ts          <-- [Osoba D] Zarządzanie pamięcią i funkcja Panic Button
+# Privacy Protection Browser Extension
 
+🏆 **1st Place – SIGNAL Hackathon**
 
+A browser extension developed during the SIGNAL Hackathon to help protect users against online tracking, behavioral profiling, and digital fingerprinting.
 
+## Overview
 
+Modern websites collect large amounts of information about users in order to build behavioral profiles and track their activity across the web.
 
+Our project explores a different approach to privacy protection: instead of only blocking tracking mechanisms, the extension actively makes collected data less reliable and harder to use for profiling.
 
+The solution combines browser-level privacy mechanisms with a locally running AI model that analyzes potential profiling risks.
 
+## Key Features
 
-        🗡️ Cloak & Dagger
-Aktywny system ochrony prywatności i suwerenności danych użytkownika w sieci.
-Projekt stworzony w ramach hackathonu Signal:Noise dla Kategorii 3: Prywatność i Suwerenność Danych (na podstawie wytycznych z pliku image.png).
-📌 O Projekcie
-Współczesny internet opiera się na agresywnym targetowaniu i masowej inwigilacji. Zwykłe wtyczki blokujące reklamy (adblockery) to za mało – skrypty śledzące potrafią identyfikować użytkowników na podstawie ich sprzętu oraz biometrii behawioralnej (sposobu poruszania myszką, tempa pisania), tworząc tzw. Shadow Profiles (cienie cyfrowe).
-Cloak & Dagger wywraca ten paradygmat. Zamiast pasywnej obrony, rozszerzenie stosuje aktywny kontratak techniczny:
-Zatruwa algorytmy reklamowe generując w tle fałszywy szum informacyjny o zainteresowaniach użytkownika.
-Maskuje unikalną tożsamość behawioralną, modyfikując w czasie rzeczywistym interakcję człowieka z przeglądarką.
-Daje pełną kontrolę i suwerenność nad danymi dzięki lokalnemu szyfrowaniu i natychmiastowemu usuwaniu śladów.
-🚀 Główne Funkcje (Moduły)
-Projekt został zaprojektowany w architekturze modułowej, gwarantując pełną izolację kodu i niezależną pracę zespołu:
-👻 1. DataGhost (Silnik Szumu)
-Status: Aktywny proces w tle (background.ts)
-Działanie: Automatycznie i w niewidoczny dla użytkownika sposób generuje ruch sieciowy. Odpytuje losowe strony z neutralnych i zróżnicowanych kategorii (np. Google Trends, bazy RSS), wstrzykując "szum" do ciasteczek marketingowych. Profil budowany przez korporacje staje się bezużyteczny.
-🌀 2. Bionic Blur (Zniekształcanie Biometrii)
-Status: Skrypt wstrzykiwany do stron WWW (content.ts)
-Działanie: Neutralizuje systemy analizujące unikalny styl korzystania z komputera. Do ruchu myszy (mousemove) dodaje matematyczny szum (Perlin Noise), niszcząc powtarzalność ścieżki kursora. W pola tekstowe (keydown/keyup) wstrzykuje mikro-opóźnienia (10-40ms), całkowicie fałszując rytm pisania na klawiaturze.
-📊 3. Privacy Dashboard (Centrum Dowodzenia)
-Status: Interfejs użytkownika (popup.tsx + React)
-Działanie: Nowoczesny, responsywny panel dający wgląd w działanie systemu. Wyświetla dynamiczny wskaźnik Privacy Score, pokazuje strumień zdarzeń w czasie rzeczywistym (co system aktualnie maskuje) oraz zawiera Panic Button – natychmiastowe czyszczenie pamięci podręcznej i ciasteczek jednym kliknięciem.
-🔒 4. Identity Masking & Core (Bezpieczeństwo)
-Status: Wspólna logika i narzędzia (src/shared/*)
-Działanie: Obsługa lokalnego szyfrowania za pomocą wbudowanego Web Crypto API (architektura Privacy-by-Design – brak zewnętrznych serwerów bazy danych). Ponadto moduł integruje się z otwartymi API e-mailowych aliasów, umożliwiając generowanie bezpiecznych, tymczasowych adresów e-mail w locie.
-🛠️ Stack Technologiczny
-Technologia	Rola w projekcie
-Plasmo Framework	Architektura Manifest V3, automatyzacja budowania rozszerzenia
-TypeScript	Ścisłe typowanie, eliminacja błędów w czasie rzeczywistym
-React 18	Reaktywny i dynamiczny interfejs Dashboardu
-Tailwind CSS	Błyskawiczne i nowoczesne stylowanie UI
-Web Crypto API	Bezpieczne, lokalne szyfrowanie danych po stronie klienta
+* **Tracking Noise Generation**
+  Generates additional informational noise designed to make behavioral profiling less accurate.
+
+* **Cookie Modification**
+  Modifies selected cookies and tracking-related data to reduce the reliability of collected information.
+
+* **Data Obfuscation**
+  Alters selected data transmitted by the browser to make user behavior more difficult to analyze.
+
+* **Local AI Risk Analysis**
+  Uses a locally running AI model to evaluate the potential risk of creating a user profile based on the currently visited website.
+
+* **Virtual Identity Selection**
+  Based on the AI analysis, the system can select a virtual identity intended to reduce the accuracy of profiling systems.
+
+* **Privacy-First Architecture**
+  AI analysis is performed locally, reducing the need to send sensitive browsing information to external AI services.
+
+## How It Works
+
+The extension analyzes the browsing environment and identifies information that could potentially be used for tracking or profiling.
+
+It then applies several privacy mechanisms:
+
+1. Detects potential profiling risks.
+2. Analyzes the website using a local AI model.
+3. Generates misleading or additional behavioral signals.
+4. Modifies selected tracking-related information.
+5. Selects a virtual identity appropriate for the current browsing context.
+
+The objective is to make the user's digital profile less consistent and therefore less valuable for tracking systems.
+
+## Hackathon
+
+The project was created as part of the **SIGNAL Hackathon**.
+
+Our team developed the solution from the initial concept through architecture design and implementation during the hackathon.
+
+🏆 **Result: 1st Place**
+
+The project demonstrated how AI and browser technologies can be combined to explore new approaches to online privacy protection.
+
+## Project Goals
+
+The project focused on several key ideas:
+
+* reducing the effectiveness of behavioral profiling,
+* protecting user privacy without relying only on traditional tracker blocking,
+* exploring the use of local AI for privacy-related decision making,
+* experimenting with virtual identities and data obfuscation,
+* keeping sensitive analysis on the user's device.
+
+## Architecture
+
+```text
+Visited Website
+      │
+      ▼
+Browser Extension
+      │
+      ├── Tracking / Profiling Analysis
+      │
+      ▼
+Local AI Model
+      │
+      ▼
+Risk Assessment
+      │
+      ▼
+Privacy Strategy
+      │
+      ├── Noise Generation
+      ├── Cookie Modification
+      ├── Data Obfuscation
+      └── Virtual Identity Selection
+```
+
+## Disclaimer
+
+This project was developed as a hackathon prototype and research concept.
+
+It is intended to demonstrate possible approaches to privacy protection and behavioral profiling resistance rather than serve as a production-ready security solution.
+
+## Authors
+
+Developed as a KRIN team project during the **SIGNAL Hackathon**.
